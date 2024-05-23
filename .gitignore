@@ -133,3 +133,6 @@ dist
 .firebaserc
 ui-debug.log
 firestore-debug.log
+
+# Test
+functions/test/bindings/m4b/

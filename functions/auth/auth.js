@@ -1,12 +1,13 @@
 /* eslint-disable max-len */
 import logger from "firebase-functions/logger";
-import {saveUser} from "../db/firestore.js";
+import {saveUser} from "../storage/firestore.js";
+import {createUserFolder} from "../storage/storage.js";
 /**
  * This function is triggered when a new user is created.
  * It handles the creation of a new user
  * in the Firestore database and sets up a personal
  * storage bucket for the user's files.
- *
+ * @param {Object} app - The application instance
  * @param {Object} event - The event object from firebase
  *
  * Event looks like:
@@ -54,13 +55,15 @@ import {saveUser} from "../db/firestore.js";
   }
 }
  */
-async function newUser(event) {
+async function newUser(app, event) {
   logger.debug(`FUNCTION: new user creation.`);
   const user = {
     uid: event.data.uid,
-    email: event.data.email,
   };
-  return await saveUser(user);
+  const bucketPath = await createUserFolder(app, user.uid);
+  user.bucketPath = bucketPath;
+  await saveUser(user);
+  return;
 }
 
 export {newUser};
