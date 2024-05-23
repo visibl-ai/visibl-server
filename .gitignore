@@ -131,3 +131,5 @@ dist
 
 # Firebase
 .firebaserc
+ui-debug.log
+firestore-debug.log
