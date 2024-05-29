@@ -58,6 +58,11 @@ Right now DALL-E 3 seems to be the best model at generating complex scenes with 
 
 Where is SORA?
 
+## project setup
+
+These are very rough notes are the moment:
+- For firebase, be sure that you enable google identity platform for your project to enable blocking functions. You do this in cloud console (not firebase console) here: https://console.cloud.google.com/customer-identity/providers?project=YOUR_PROJECT
+
 # Contributing
 
 Really need help with:

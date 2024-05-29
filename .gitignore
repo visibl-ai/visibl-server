@@ -128,3 +128,11 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Firebase
+.firebaserc
+ui-debug.log
+firestore-debug.log
+
+# Test
+functions/test/bindings/m4b/
