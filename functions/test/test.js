@@ -19,7 +19,10 @@ const firebaseTest = test({
   storageBucket: "visibl-dev-ali.appspot.com",
   projectId: "visibl-dev-ali",
 });
-import {helloWorld} from "../index.js";
+import {
+  helloWorld,
+  createBook,
+} from "../index.js";
 
 
 // Initialize Firebase Admin with local emulator settings
@@ -74,6 +77,20 @@ describe("Customer creation via Firebase Auth", () => {
   it(`test an authenticated function`, async () => {
     const wrapped = firebaseTest.wrap(helloWorld);
     const data = {};
+    wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    }).then((result) => {
+      console.log(result);
+      expect(result.uid).to.equal(userData.uid);
+    });
+  });
+
+  it(`test createBook`, async () => {
+    const wrapped = firebaseTest.wrap(createBook);
+    const data = {filename: "test.m4a"};
     wrapped({
       auth: {
         uid: userData.uid,

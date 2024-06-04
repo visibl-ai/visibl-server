@@ -10,7 +10,7 @@ import {logger} from "firebase-functions";
  */
 async function createUserFolder(app, uid) {
   const bucket = getStorage(app).bucket();
-  const folderPath = `${uid}/rawUploads`; // Folder path in the bucket
+  const folderPath = `${uid}/rawUploads/`; // Folder path in the bucket
   const file = bucket.file(folderPath + ".placeholder"); // Create a placeholder file to establish the folder
 
   try {
