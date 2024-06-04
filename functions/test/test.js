@@ -22,6 +22,7 @@ const firebaseTest = test({
 import {
   helloWorld,
   createBook,
+  getBook,
 } from "../index.js";
 
 
@@ -69,37 +70,48 @@ describe("Customer creation via Firebase Auth", () => {
   it(`test an unauthenticated function`, async () => {
     const wrapped = firebaseTest.wrap(helloWorld);
     const data = {};
-    wrapped(data).then((result) => {
-      console.log(result);
-      expect(result.error).to.exist();
-    });
+    const result = await wrapped(data);
+    console.log(result);
+    expect(result.error).to.exist;
   });
   it(`test an authenticated function`, async () => {
     const wrapped = firebaseTest.wrap(helloWorld);
     const data = {};
-    wrapped({
+    const result = await wrapped({
       auth: {
         uid: userData.uid,
       },
       data,
-    }).then((result) => {
-      console.log(result);
-      expect(result.uid).to.equal(userData.uid);
     });
+    expect(result.uid).to.equal(userData.uid);
   });
-
+  let bookData;
   it(`test createBook`, async () => {
     const wrapped = firebaseTest.wrap(createBook);
     const data = {filename: "test.m4a"};
-    wrapped({
+    const result = await wrapped({
       auth: {
         uid: userData.uid,
       },
       data,
-    }).then((result) => {
-      console.log(result);
-      expect(result.uid).to.equal(userData.uid);
     });
+    console.log(result);
+    expect(result.uid).to.equal(userData.uid);
+    expect(result.id).to.not.be.null;
+    bookData = result;
+  });
+  it(`test getBook`, async () => {
+    const wrapped = firebaseTest.wrap(getBook);
+    const data = {id: bookData.id};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.deep.equal(bookData);
+    bookData = result;
   });
   // it(`uploads a m4a file to the user's storage bucket`, async () => {
   //   const bucket = getStorage(app).bucket();

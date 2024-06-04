@@ -7,7 +7,10 @@ import {onCall} from "firebase-functions/v2/https";
 import {getAuth} from "firebase-admin/auth";
 import logger from "firebase-functions/logger";
 import {newUser, validateOnCallAuth} from "./auth/auth.js";
-import {createBookFirestore} from "./storage/firestore.js";
+import {
+  createBookFirestore,
+  getBookFirestore,
+} from "./storage/firestore.js";
 
 import {
   beforeUserCreated,
@@ -68,4 +71,16 @@ export const helloWorld = onCall({region: "europe-west1"}, async (context) => {
 export const createBook = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return createBookFirestore(uid, data);
+});
+
+/**
+ * Retrieves a book from the Firestore database based on the user's UID and the book ID provided in the data.
+ * This function is triggered by an on-call request and requires the user to be authenticated.
+ *
+ * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
+ * @returns {Promise<object>} A promise that resolves to the book data if found and the user is authenticated, otherwise null.
+ */
+export const getBook = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return getBookFirestore(uid, data);
 });

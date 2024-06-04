@@ -1,4 +1,6 @@
 import {getFirestore} from "firebase-admin/firestore";
+import logger from "firebase-functions/logger";
+
 /**
  * Adds a new user to the Firestore database.
  *
@@ -31,7 +33,35 @@ async function createBookFirestore(uid, data) {
   const docRef = getFirestore().collection("Books").doc(); // Create a document reference
   await docRef.set({uid: uid, ...data}); // Set the data
   const snapshot = await docRef.get(); // Get the document snapshot
-  return snapshot.data(); // Return the full document data
+  const r = snapshot.data();
+  r.id = snapshot.id; // Add the document ID to the data
+  return r; // Return the full document data with ID
 }
 
-export {saveUser, getUser, createBookFirestore};
+
+/**
+ * Retrieves a book from the Firestore database by its unique identifier.
+ * @param {string} uid - The unique identifier of the user to retrieve the book for.
+ * @param {string} data - must contain .id
+ * @return {Promise<FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>>} A promise that resolves to the document snapshot of the book.
+ */
+async function getBookFirestore(uid, data) {
+  const id = data.id;
+  logger.debug(data, uid);
+  const snapshot = await getFirestore().collection("Books").doc(id).get();
+  const bookData = snapshot.data();
+  bookData.id = snapshot.id; // Add the document ID to the data
+  // Check if the book's uid matches the provided uid
+  if (bookData && bookData.uid === uid) {
+    return bookData;
+  } else {
+    return null; // Return null if there is no match
+  }
+}
+
+export {
+  saveUser,
+  getUser,
+  createBookFirestore,
+  getBookFirestore,
+};
