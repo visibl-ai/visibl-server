@@ -74,10 +74,11 @@ describe("Customer creation via Firebase Auth", () => {
   it(`test an authenticated function`, async () => {
     const wrapped = firebaseTest.wrap(helloWorld);
     const data = {};
-    wrapped(data, {
+    wrapped({
       auth: {
         uid: userData.uid,
       },
+      data,
     }).then((result) => {
       console.log(result);
       expect(result.uid).to.equal(userData.uid);

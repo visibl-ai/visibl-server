@@ -43,7 +43,7 @@ export const newUserTriggers =
  * @param {Request} req - The HTTP request object.
  * @param {Response} res - The HTTP response object.
  */
-export const helloWorld = onCall({region: "europe-west1"}, async (data, context) => {
+export const helloWorld = onCall({region: "europe-west1"}, async (context) => {
   // Check if the request is made by an authenticated user
   if (!context.auth) {
     // Respond with an error if the user is not authenticated
@@ -58,4 +58,3 @@ export const helloWorld = onCall({region: "europe-west1"}, async (data, context)
   logger.debug(`Authenticated request made by UID: ${uid}`);
   return {uid: uid, message: `Success! You made an authenticated request.`};
 });
-
