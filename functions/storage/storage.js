@@ -20,7 +20,7 @@ async function createUserFolder(app, uid) {
       },
     });
     logger.debug(`Folder created with path: ${folderPath}`);
-    return `${bucket.name}/${folderPath}`;
+    return `${folderPath}`;
   } catch (error) {
     logger.error(`Error creating folder for user ${uid}:`, error);
     return null;

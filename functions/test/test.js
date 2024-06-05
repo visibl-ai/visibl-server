@@ -10,6 +10,7 @@ import {getFirestore} from "firebase-admin/firestore";
 import {newUser} from "../auth/auth.js";
 import {getUser} from "../storage/firestore.js";
 import {getStorage} from "firebase-admin/storage";
+import fs from "fs";
 
 import test from "firebase-functions-test";
 
@@ -86,9 +87,10 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result.uid).to.equal(userData.uid);
   });
   let bookData;
+  const filename = `Neuromancer: Sprawl Trilogy, Book 1.m4b`;
   it(`test createBook`, async () => {
     const wrapped = firebaseTest.wrap(createBook);
-    const data = {filename: "test.m4a"};
+    const data = {filename: filename};
     const result = await wrapped({
       auth: {
         uid: userData.uid,
@@ -113,16 +115,34 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result).to.deep.equal(bookData);
     bookData = result;
   });
-  // it(`uploads a m4a file to the user's storage bucket`, async () => {
-  //   const bucket = getStorage(app).bucket();
-  //   const bucketPath = userData.bucketPath;
-  //   console.log(bucketPath);
-  //   const filePath = `${bucketPath}/rawUploads/test.m4a`;
-  //   const file = bucket.file(filePath);
-  //   // await file.save(`./test/bindings/m4b/Neuromancer: Sprawl Trilogy, Book 1.m4b`, {
-  //   const result = await file.save(`fdsafsa.m4b`, {
-  //     contentType: "audio/x-m4b",
-  //   });
-  //   console.log(result);
-  // });
+  it(`uploads a m4a file to the user's storage bucket`, async () => {
+    const bucket = getStorage(app).bucket();
+    const bucketPath = userData.bucketPath;
+    console.log(bucketPath);
+    const filePath = `${bucketPath}${filename}`;
+    const file = bucket.file(filePath);
+
+    try {
+      const stream = fs.createReadStream(`./test/bindings/m4b/${filename}`);
+      const contentType = "audio/x-m4b";
+
+      await new Promise((resolve, reject) => {
+        stream.pipe(file.createWriteStream({
+          metadata: {
+            contentType: contentType,
+          },
+        }))
+            .on("error", (error) => {
+              console.error("Upload failed:", error);
+              reject(error);
+            })
+            .on("finish", () => {
+              console.log("File uploaded successfully");
+              resolve();
+            });
+      });
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+    }
+  });
 });

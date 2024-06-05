@@ -59,9 +59,31 @@ async function getBookFirestore(uid, data) {
   }
 }
 
+/**
+ * Updates a book in firestore, checking if the book is available
+ * in the cloud bucket as expected.
+ * @param {string} uid - The unique identifier of the user to retrieve the book for.
+ * @param {object} data - The data of the book to be stored.
+ * @return {Promise<object>} A promise that resolves to the full document data of the newly created book.
+ */
+async function updateBookFirestore(uid, data) {
+  const id = data.id;
+  logger.debug(data, uid);
+  const snapshot = await getFirestore().collection("Books").doc(id).get();
+  const bookData = snapshot.data();
+  bookData.id = snapshot.id; // Add the document ID to the data
+  // Check if the book's uid matches the provided uid
+  if (bookData && bookData.uid === uid) {
+    return bookData;
+  } else {
+    return null; // Return null if there is no match
+  }
+}
+
 export {
   saveUser,
   getUser,
   createBookFirestore,
   getBookFirestore,
+  updateBookFirestore,
 };
