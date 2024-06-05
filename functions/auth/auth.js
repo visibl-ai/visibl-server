@@ -66,5 +66,26 @@ async function newUser(app, event) {
   return;
 }
 
-export {newUser};
+/**
+ * Validates the authentication context for an on-call function.
+ * Ensures that the user making the request is authenticated.
+ *
+ * @param {object} context - The context object provided by Firebase Functions.
+ * @return {Promise<object>} A promise that resolves with the user's UID and data if authenticated.
+ * @throws {Error} If the user is not authenticated.
+ */
+async function validateOnCallAuth(context) {
+  if (!context.auth || !context.auth.uid) {
+    logger.error("User not authenticated");
+    logger.error(context);
+    throw new Error("User not authenticated");
+  } else {
+    return {uid: context.auth.uid, data: context.data};
+  }
+}
+
+export {
+  newUser,
+  validateOnCallAuth,
+};
 

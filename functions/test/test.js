@@ -8,8 +8,12 @@ import {initializeApp} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
 import {newUser} from "../auth/auth.js";
-import {getUser} from "../storage/firestore.js";
+import {getUser,
+  updateBookFirestore,
+  deleteBookFirestore,
+} from "../storage/firestore.js";
 import {getStorage} from "firebase-admin/storage";
+import fs from "fs";
 
 import test from "firebase-functions-test";
 
@@ -19,7 +23,12 @@ const firebaseTest = test({
   storageBucket: "visibl-dev-ali.appspot.com",
   projectId: "visibl-dev-ali",
 });
-import {helloWorld} from "../index.js";
+import {
+  helloWorld,
+  getCurrentUser,
+  createBook,
+  getBook,
+} from "../index.js";
 
 
 // Initialize Firebase Admin with local emulator settings
@@ -66,33 +75,147 @@ describe("Customer creation via Firebase Auth", () => {
   it(`test an unauthenticated function`, async () => {
     const wrapped = firebaseTest.wrap(helloWorld);
     const data = {};
-    wrapped(data).then((result) => {
-      console.log(result);
-      expect(result.error).to.exist();
-    });
+    const result = await wrapped(data);
+    console.log(result);
+    expect(result.error).to.exist;
   });
   it(`test an authenticated function`, async () => {
     const wrapped = firebaseTest.wrap(helloWorld);
     const data = {};
-    wrapped(data, {
+    const result = await wrapped({
       auth: {
         uid: userData.uid,
       },
-    }).then((result) => {
-      console.log(result);
-      expect(result.uid).to.equal(userData.uid);
+      data,
     });
+    expect(result.uid).to.equal(userData.uid);
   });
-  // it(`uploads a m4a file to the user's storage bucket`, async () => {
-  //   const bucket = getStorage(app).bucket();
-  //   const bucketPath = userData.bucketPath;
-  //   console.log(bucketPath);
-  //   const filePath = `${bucketPath}/rawUploads/test.m4a`;
-  //   const file = bucket.file(filePath);
-  //   // await file.save(`./test/bindings/m4b/Neuromancer: Sprawl Trilogy, Book 1.m4b`, {
-  //   const result = await file.save(`fdsafsa.m4b`, {
-  //     contentType: "audio/x-m4b",
-  //   });
-  //   console.log(result);
-  // });
+  it(`test getting current user`, async () => {
+    const wrapped = firebaseTest.wrap(getCurrentUser);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result.uid).to.equal(userData.uid);
+  });
+  let bookData;
+  const filename = `Neuromancer: Sprawl Trilogy, Book 1.m4b`;
+  it(`test createBook`, async () => {
+    const wrapped = firebaseTest.wrap(createBook);
+    const data = {filename: filename};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result.uid).to.equal(userData.uid);
+    expect(result.id).to.not.be.null;
+    bookData = result;
+  });
+  it(`test getBook`, async () => {
+    const wrapped = firebaseTest.wrap(getBook);
+    const data = {id: bookData.id};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.deep.equal(bookData);
+    bookData = result;
+  });
+  it(`test updateBook before upload`, async () => {
+    const data = {id: bookData.id};
+    const result = await updateBookFirestore(userData.uid, bookData, app);
+    console.log(result);
+    expect(result.rawBookInStorage).to.equal(false);
+    bookData = result;
+  });
+  it(`test getBook after update`, async () => {
+    const wrapped = firebaseTest.wrap(getBook);
+    const data = {id: bookData.id};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.deep.equal(bookData);
+    bookData = result;
+  });
+  it(`uploads a m4a file to the user's storage bucket`, async () => {
+    const bucket = getStorage(app).bucket();
+    const bucketPath = userData.bucketPath;
+    console.log(bucketPath);
+    const filePath = `${bucketPath}${filename}`;
+    const file = bucket.file(filePath);
+
+    try {
+      const stream = fs.createReadStream(`./test/bindings/m4b/${filename}`);
+      const contentType = "audio/x-m4b";
+
+      await new Promise((resolve, reject) => {
+        stream.pipe(file.createWriteStream({
+          metadata: {
+            contentType: contentType,
+          },
+        }))
+            .on("error", (error) => {
+              console.error("Upload failed:", error);
+              reject(error);
+            })
+            .on("finish", () => {
+              console.log("File uploaded successfully");
+              resolve();
+            });
+      });
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+    }
+  });
+  it(`test updateBook after upload`, async () => {
+    const data = {id: bookData.id};
+    const result = await updateBookFirestore(userData.uid, bookData, app);
+    console.log(result);
+    expect(result.rawBookInStorage).to.equal(true);
+    bookData = result;
+  });
+  it(`test getBook after update and upload`, async () => {
+    const wrapped = firebaseTest.wrap(getBook);
+    const data = {id: bookData.id};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.deep.equal(bookData);
+    bookData = result;
+  });
+  it(`test deleteBook after upload`, async () => {
+    const data = {id: bookData.id};
+    const result = await deleteBookFirestore(userData.uid, bookData, app);
+    expect(result.success).to.equal(true);
+    console.log(result);
+  });
+  it(`test getBook after delete`, async () => {
+    const wrapped = firebaseTest.wrap(getBook);
+    const data = {id: bookData.id};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    expect(result.error).to.equal("Book not found");
+  });
 });

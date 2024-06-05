@@ -6,7 +6,14 @@ const app = initializeApp();
 import {onCall} from "firebase-functions/v2/https";
 import {getAuth} from "firebase-admin/auth";
 import logger from "firebase-functions/logger";
-import {newUser} from "./auth/auth.js";
+import {newUser, validateOnCallAuth} from "./auth/auth.js";
+import {
+  createBookFirestore,
+  getBookFirestore,
+  updateBookFirestore,
+  deleteBookFirestore,
+  getUser,
+} from "./storage/firestore.js";
 
 import {
   beforeUserCreated,
@@ -43,19 +50,75 @@ export const newUserTriggers =
  * @param {Request} req - The HTTP request object.
  * @param {Response} res - The HTTP response object.
  */
-export const helloWorld = onCall({region: "europe-west1"}, async (data, context) => {
+export const helloWorld = onCall({region: "europe-west1"}, async (context) => {
   // Check if the request is made by an authenticated user
-  if (!context.auth) {
-    // Respond with an error if the user is not authenticated
-    logger.error("The function must be called while authenticated.");
-    return {error: "Not authenticated."};
+  let uid;
+  let data;
+  try {
+    const req = await validateOnCallAuth(context);
+    uid = req.uid;
+    data = req.data;
+  } catch (error) {
+    return {error: "User not authenticated"};
   }
-
-  // Retrieve the UID of the authenticated user
-  const uid = context.auth.uid;
-
-  // Respond with the UID of the user
-  logger.debug(`Authenticated request made by UID: ${uid}`);
   return {uid: uid, message: `Success! You made an authenticated request.`};
+});
+
+/**
+ * Cloud function to get the current auth'd user
+ * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
+ * @returns {Promise<object>} A promise that resolves to an object containing the user's UID and the data provided.
+ */
+export const getCurrentUser = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return getUser(uid);
+});
+
+/**
+ * Cloud Function to create a new book entry.
+ * This function is triggered by an on-call request and requires the user to be authenticated.
+ *
+ * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
+ * @returns {Promise<object>} A promise that resolves to an object containing the user's UID and the data provided.
+ */
+export const createBook = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return createBookFirestore(uid, data, app);
+});
+
+/**
+ * Retrieves a book from the Firestore database based on the user's UID and the book ID provided in the data.
+ * This function is triggered by an on-call request and requires the user to be authenticated.
+ *
+ * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
+ * @returns {Promise<object>} A promise that resolves to the book data if found and the user is authenticated, otherwise null.
+ */
+export const getBook = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return getBookFirestore(uid, data, app);
+});
+
+/**
+ * Requests the server to update a book object, and return
+ * the updated book.
+ *
+ * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
+ * @returns {Promise<object>} A promise that resolves to the book data if found and the user is authenticated, otherwise null.
+ */
+export const updateBook = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return updateBookFirestore(uid, data, app);
+});
+
+/**
+ * Requests the server delete a book, including any items in storage
+ * This function is triggered by an on-call request and requires the user to be authenticated.
+ *
+ * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
+ * @returns {Promise<object>} A promise that resolves to the book data if found and the user is authenticated, otherwise null.
+ */
+export const deleteBook = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return deleteBookFirestore(uid, data, app);
 });
 
