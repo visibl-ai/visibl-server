@@ -1,4 +1,8 @@
 import {getFirestore} from "firebase-admin/firestore";
+import {
+  fileExists,
+  deleteFile,
+} from "./storage.js";
 import logger from "firebase-functions/logger";
 
 /**
@@ -50,12 +54,12 @@ async function getBookFirestore(uid, data) {
   logger.debug(data, uid);
   const snapshot = await getFirestore().collection("Books").doc(id).get();
   const bookData = snapshot.data();
-  bookData.id = snapshot.id; // Add the document ID to the data
   // Check if the book's uid matches the provided uid
   if (bookData && bookData.uid === uid) {
+    bookData.id = snapshot.id; // Add the document ID to the data
     return bookData;
   } else {
-    return null; // Return null if there is no match
+    return {error: "Book not found"}; // Return null if there is no match
   }
 }
 
@@ -65,18 +69,50 @@ async function getBookFirestore(uid, data) {
  * @param {string} uid - The unique identifier of the user to retrieve the book for.
  * @param {object} data - The data of the book to be stored.
  * @return {Promise<object>} A promise that resolves to the full document data of the newly created book.
+ * @param {Object} app - The Firebase app instance
  */
-async function updateBookFirestore(uid, data) {
+async function updateBookFirestore(uid, data, app) {
   const id = data.id;
   logger.debug(data, uid);
   const snapshot = await getFirestore().collection("Books").doc(id).get();
   const bookData = snapshot.data();
-  bookData.id = snapshot.id; // Add the document ID to the data
   // Check if the book's uid matches the provided uid
   if (bookData && bookData.uid === uid) {
+    let rawBookInStorage = await fileExists(app, uid, `rawUploads/`, bookData.filename);
+    if (rawBookInStorage && rawBookInStorage.length) {
+      rawBookInStorage = rawBookInStorage[0];
+    }
+    logger.debug(`UID: ${uid}, book: ${snapshot.id} rawBookInStorage: ${rawBookInStorage}`);
+    bookData.rawBookInStorage = rawBookInStorage;
+    await snapshot.ref.update(bookData); // Update the book data
+    bookData.id = snapshot.id; // Add the document ID to the data
     return bookData;
   } else {
     return null; // Return null if there is no match
+  }
+}
+
+/**
+ * Deletes a book from the Firestore database and the cloud storage bucket.
+ * @param {string} uid - The unique identifier of the user to delete the book for.
+ * @param {object} data - The data of the book to be deleted.
+ * @param {Object} app - The Firebase app instance
+ * @return {Promise<object>} A promise that resolves to the full document data of the deleted book.
+ */
+async function deleteBookFirestore(uid, data, app) {
+  const id = data.id;
+  logger.debug(data, uid);
+  const snapshot = await getFirestore().collection("Books").doc(id).get();
+  const bookData = snapshot.data();
+  // Check if the book's uid matches the provided uid
+  if (bookData && bookData.uid === uid) {
+    if (bookData.rawBookInStorage) {
+      await deleteFile(app, uid, `rawUploads/`, bookData.filename);
+    }
+    await snapshot.ref.delete(); // Delete the book from the database
+    return {success: true};
+  } else {
+    return {error: "Book not found"}; // Return null if there is no match
   }
 }
 
@@ -86,4 +122,5 @@ export {
   createBookFirestore,
   getBookFirestore,
   updateBookFirestore,
+  deleteBookFirestore,
 };

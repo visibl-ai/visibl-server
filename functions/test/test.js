@@ -8,7 +8,10 @@ import {initializeApp} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
 import {newUser} from "../auth/auth.js";
-import {getUser} from "../storage/firestore.js";
+import {getUser,
+  updateBookFirestore,
+  deleteBookFirestore,
+} from "../storage/firestore.js";
 import {getStorage} from "firebase-admin/storage";
 import fs from "fs";
 
@@ -22,6 +25,7 @@ const firebaseTest = test({
 });
 import {
   helloWorld,
+  getCurrentUser,
   createBook,
   getBook,
 } from "../index.js";
@@ -86,6 +90,18 @@ describe("Customer creation via Firebase Auth", () => {
     });
     expect(result.uid).to.equal(userData.uid);
   });
+  it(`test getting current user`, async () => {
+    const wrapped = firebaseTest.wrap(getCurrentUser);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result.uid).to.equal(userData.uid);
+  });
   let bookData;
   const filename = `Neuromancer: Sprawl Trilogy, Book 1.m4b`;
   it(`test createBook`, async () => {
@@ -103,6 +119,26 @@ describe("Customer creation via Firebase Auth", () => {
     bookData = result;
   });
   it(`test getBook`, async () => {
+    const wrapped = firebaseTest.wrap(getBook);
+    const data = {id: bookData.id};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.deep.equal(bookData);
+    bookData = result;
+  });
+  it(`test updateBook before upload`, async () => {
+    const data = {id: bookData.id};
+    const result = await updateBookFirestore(userData.uid, bookData, app);
+    console.log(result);
+    expect(result.rawBookInStorage).to.equal(false);
+    bookData = result;
+  });
+  it(`test getBook after update`, async () => {
     const wrapped = firebaseTest.wrap(getBook);
     const data = {id: bookData.id};
     const result = await wrapped({
@@ -144,5 +180,42 @@ describe("Customer creation via Firebase Auth", () => {
     } catch (error) {
       console.error("Failed to upload file:", error);
     }
+  });
+  it(`test updateBook after upload`, async () => {
+    const data = {id: bookData.id};
+    const result = await updateBookFirestore(userData.uid, bookData, app);
+    console.log(result);
+    expect(result.rawBookInStorage).to.equal(true);
+    bookData = result;
+  });
+  it(`test getBook after update and upload`, async () => {
+    const wrapped = firebaseTest.wrap(getBook);
+    const data = {id: bookData.id};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.deep.equal(bookData);
+    bookData = result;
+  });
+  it(`test deleteBook after upload`, async () => {
+    const data = {id: bookData.id};
+    const result = await deleteBookFirestore(userData.uid, bookData, app);
+    expect(result.success).to.equal(true);
+    console.log(result);
+  });
+  it(`test getBook after delete`, async () => {
+    const wrapped = firebaseTest.wrap(getBook);
+    const data = {id: bookData.id};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    expect(result.error).to.equal("Book not found");
   });
 });
