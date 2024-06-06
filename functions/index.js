@@ -3,10 +3,11 @@
 // import {onRequest} from "firebase-functions/v2/https";
 import {initializeApp} from "firebase-admin/app";
 const app = initializeApp();
-import {onCall} from "firebase-functions/v2/https";
+import {onRequest, onCall} from "firebase-functions/v2/https";
 import {getAuth} from "firebase-admin/auth";
 import logger from "firebase-functions/logger";
 import {newUser, validateOnCallAuth} from "./auth/auth.js";
+import {preProcess} from "./util/pipeline.js";
 import {
   createBookFirestore,
   getBookFirestore,
@@ -20,6 +21,17 @@ import {
   // beforeUserSignedIn,
 } from "firebase-functions/v2/identity";
 
+import {
+  ENVIRONMENT,
+  OPENAI_API_KEY,
+} from "./config/config.js";
+
+// import {onInit} from "firebase-functions/v2/core";
+// let openaiKey;
+// onInit(() => {
+//   openaiKey = OPENAI_API_KEY.value();
+//   console.log(openaiKey);
+// });
 
 /**
  * Cloud Function triggered before a new user is created.
@@ -52,6 +64,7 @@ export const newUserTriggers =
  */
 export const helloWorld = onCall({region: "europe-west1"}, async (context) => {
   // Check if the request is made by an authenticated user
+  logger.debug(`ENVIRONMENT: ${ENVIRONMENT.value()}`);
   let uid;
   let data;
   try {
@@ -122,3 +135,8 @@ export const deleteBook = onCall({region: "europe-west1"}, async (context) => {
   return deleteBookFirestore(uid, data, app);
 });
 
+export const preProcessBook = onRequest(
+    // {cors: [/firebase\.com$/, "flutter.com"]},
+    async (req, res) => {
+      return preProcess(req, res);
+    });

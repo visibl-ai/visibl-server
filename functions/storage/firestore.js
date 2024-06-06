@@ -3,7 +3,7 @@ import {
   fileExists,
   deleteFile,
 } from "./storage.js";
-import logger from "firebase-functions/logger";
+import {logger} from "firebase-functions/v2";
 
 /**
  * Adds a new user to the Firestore database.
@@ -59,7 +59,7 @@ async function getBookFirestore(uid, data) {
     bookData.id = snapshot.id; // Add the document ID to the data
     return bookData;
   } else {
-    return {error: "Book not found"}; // Return null if there is no match
+    return {error: "Book not found"}; // Return error if there is no match
   }
 }
 
@@ -88,7 +88,7 @@ async function updateBookFirestore(uid, data, app) {
     bookData.id = snapshot.id; // Add the document ID to the data
     return bookData;
   } else {
-    return null; // Return null if there is no match
+    return {error: "Book not found"};
   }
 }
 
@@ -112,7 +112,7 @@ async function deleteBookFirestore(uid, data, app) {
     await snapshot.ref.delete(); // Delete the book from the database
     return {success: true};
   } else {
-    return {error: "Book not found"}; // Return null if there is no match
+    return {error: "Book not found"}; // Return error if there is no match
   }
 }
 

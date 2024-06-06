@@ -3,7 +3,21 @@
 /* eslint-disable max-len */
 import admin from "firebase-admin";
 import logger from "firebase-functions/logger";
-import {expect} from "chai";
+import dotenv from "dotenv";
+// import * as chai from "chai";
+// // import {expect} from "chai";
+// import chaiHttp from "chai-http";
+// import {request} from "chai-http";
+// chai.use(chaiHttp);
+// const expect = chai.expect;
+
+import chai from "chai";
+import chaiHttp from "chai-http";
+
+chai.use(chaiHttp);
+const expect = chai.expect;
+
+
 import {initializeApp} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
@@ -16,7 +30,7 @@ import {getStorage} from "firebase-admin/storage";
 import fs from "fs";
 
 import test from "firebase-functions-test";
-
+dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't work with conf.
 // Start the Firebase Functions test environment
 const firebaseTest = test({
   databaseURL: "http://localhost:8080",
@@ -201,6 +215,21 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result).to.deep.equal(bookData);
     bookData = result;
   });
+
+
+  it(`test transcription`, (done) => {
+    const BOOK = "Neuromancer: Sprawl Trilogy, Book 1";
+    chai.request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1/preProcessBook`)
+        .post("")
+        .send({run: true, fileName: `${BOOK}.m4b`, bookName: BOOK, type: "m4b"})
+        .end((err, res) => {
+          console.log("res.body = " + JSON.stringify(res.body));
+          expect(err).to.be.null;
+          expect(res).to.have.status(200);
+          done();
+        });
+  });
+
   it(`test deleteBook after upload`, async () => {
     const data = {id: bookData.id};
     const result = await deleteBookFirestore(userData.uid, bookData, app);

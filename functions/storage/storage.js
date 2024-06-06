@@ -1,5 +1,5 @@
 import {getStorage} from "firebase-admin/storage";
-import {logger} from "firebase-functions";
+import {logger} from "firebase-functions/v2";
 
 // Get a reference to the default storage bucket
 
