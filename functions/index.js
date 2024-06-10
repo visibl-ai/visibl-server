@@ -4,10 +4,15 @@
 import {initializeApp} from "firebase-admin/app";
 const app = initializeApp();
 import {onRequest, onCall} from "firebase-functions/v2/https";
+// import {onObjectFinalized} from "firebase-functions/v2/storage";
 import {getAuth} from "firebase-admin/auth";
 import logger from "firebase-functions/logger";
 import {newUser, validateOnCallAuth} from "./auth/auth.js";
-import {preProcess} from "./util/pipeline.js";
+import {
+  preProcess,
+  hookFromBucket,
+} from "./util/pipeline.js";
+
 import {
   createBookFirestore,
   getBookFirestore,
@@ -140,3 +145,7 @@ export const preProcessBook = onRequest(
     async (req, res) => {
       return preProcess(req, res);
     });
+
+// export const storageHook = onObjectFinalized(async (event) => {
+
+// });

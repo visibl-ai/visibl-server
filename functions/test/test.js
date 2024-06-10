@@ -169,7 +169,10 @@ describe("Customer creation via Firebase Auth", () => {
     const bucket = getStorage(app).bucket();
     const bucketPath = userData.bucketPath;
     console.log(bucketPath);
-    const filePath = `${bucketPath}${filename}`;
+    const extension = filename.split(".").pop();
+    const bucketFilename = `${bookData.id}.${extension}`;
+    console.log(`Bucket filename: ${bucketFilename}`);
+    const filePath = `${bucketPath}${bucketFilename}`;
     const file = bucket.file(filePath);
 
     try {
