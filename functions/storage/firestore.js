@@ -81,7 +81,7 @@ async function updateBookFirestore(uid, data, app) {
   const bookData = snapshot.data();
   // Check if the book's uid matches the provided uid
   if (bookData && bookData.uid === uid) {
-    const extension = bookData.filename.split(".").pop();
+    const extension = bookData.type;
     let rawBookInStorage = await fileExists(app, uid, `rawUploads/`, `${snapshot.id}.${extension}`);
     if (rawBookInStorage && rawBookInStorage.length) {
       rawBookInStorage = rawBookInStorage[0];
@@ -111,7 +111,7 @@ async function deleteBookFirestore(uid, data, app) {
   // Check if the book's uid matches the provided uid
   if (bookData && bookData.uid === uid) {
     if (bookData.rawBookInStorage) {
-      const extension = bookData.filename.split(".").pop();
+      const extension = bookData.type;
       await deleteFile(app, uid, `rawUploads/`, `${snapshot.id}.${extension}`);
     }
     await snapshot.ref.delete(); // Delete the book from the database

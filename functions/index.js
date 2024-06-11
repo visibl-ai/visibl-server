@@ -146,7 +146,14 @@ export const deleteBook = onCall({region: "europe-west1"}, async (context) => {
   return deleteBookFirestore(uid, data, app);
 });
 
-export const preProcessBook = onRequest(
+/**
+ * Retrieves a pipeline from the Firestore database based on the user's UID and the pipeline ID provided in the data.
+ * This function is triggered by an on-call request and requires the user to be authenticated.
+ *
+ * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
+ * @returns {Promise<object>} A promise that resolves to the pipeline data if found and the user is authenticated, otherwise null.
+ */
+export const preProcessBook = onRequest({region: "europe-west1"},
     // {cors: [/firebase\.com$/, "flutter.com"]},
     async (req, res) => {
       return preProcess(req, res);

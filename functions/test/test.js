@@ -121,7 +121,7 @@ describe("Customer creation via Firebase Auth", () => {
   const filename = `Neuromancer: Sprawl Trilogy, Book 1.m4b`;
   it(`test createBook`, async () => {
     const wrapped = firebaseTest.wrap(createBook);
-    const data = {filename: filename};
+    const data = {filename: filename, type: "m4b"};
     const result = await wrapped({
       auth: {
         uid: userData.uid,
@@ -237,7 +237,7 @@ describe("Customer creation via Firebase Auth", () => {
 
   it(`test transcription`, (done) => {
     const BOOK = "Neuromancer: Sprawl Trilogy, Book 1";
-    chai.request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1/preProcessBook`)
+    chai.request(`http://127.0.0.1:5001/visibl-dev-ali/europe-west1/preProcessBook`)
         .post("")
         .send({run: true, fileName: `${BOOK}.m4b`, bookName: BOOK, type: "m4b"})
         .end((err, res) => {

@@ -15,7 +15,7 @@ import {
  *  When a bucket upload is complete, kick off this pipeline.
  *
  * For book, the pipline is:
- * - 0. Upload to bucket from client
+ * - 0. Upload to bucket
  * - 1. transcribe (use cloud function)
  * - 2. NER
  * - 3. properties
@@ -46,6 +46,61 @@ class Pipeline {
       currentStageName: this.currentStageName,
       updatedAt: this.updatedAt,
     };
+  }
+
+  async proceedToNextStage(expectedCurrentStage) {
+    if (this.currentStageNumber !== expectedCurrentStage) {
+      throw new Error(`Expected to be at stage ${expectedCurrentStage}, but currently at stage ${this.currentStageNumber}`);
+    }
+    this.currentStageNumber++;
+    this.currentStageName = this.getStageName(this.currentStageNumber);
+    await this.executeStageAction(this.currentStageNumber);
+    this.updatedAt = new Date();
+    await updatePipelineFirestore(this.toJSON());
+  }
+
+  async executeStageAction(stageNumber) {
+    switch (stageNumber) {
+      case 1:
+        // await transcribeBook(this.refId);
+        break;
+      case 2:
+        // await recognizeEntities(this.refId);
+        break;
+      case 3:
+        // await analyzeEntityProperties(this.refId);
+        break;
+      case 4:
+        // await generateScenes(this.refId);
+        break;
+      case 5:
+        // await generateImages(this.refId);
+        break;
+      default:
+        throw new Error("Invalid stage number");
+    }
+  }
+
+  async restartStage(stageNumber) {
+    if (stageNumber < 0 || stageNumber > 5) {
+      throw new Error("Invalid stage number");
+    }
+    this.currentStageNumber = stageNumber;
+    this.currentStageName = this.getStageName(stageNumber);
+    this.updatedAt = new Date();
+    await updatePipelineFirestore(this.toJSON());
+  }
+
+  getStageName(stageNumber) {
+    const stageNames = [
+      "Upload to Bucket",
+      "Transcribe",
+      "Entity Recognition",
+      "Entity Properties",
+      "Scene Generation",
+      "Image Generation",
+    ];
+    return stageNames[stageNumber];
   }
 }
 
