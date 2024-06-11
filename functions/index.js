@@ -19,6 +19,7 @@ import {
   updateBookFirestore,
   deleteBookFirestore,
   getUser,
+  getPipelineFirestore,
 } from "./storage/firestore.js";
 
 import {
@@ -126,6 +127,11 @@ export const getBook = onCall({region: "europe-west1"}, async (context) => {
 export const updateBook = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return updateBookFirestore(uid, data, app);
+});
+
+export const getPipeline = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return getPipelineFirestore(uid, data, app);
 });
 
 /**

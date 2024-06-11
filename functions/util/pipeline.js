@@ -2,6 +2,10 @@
 /* eslint-disable require-jsdoc */
 
 import {logger} from "firebase-functions/v2";
+import {
+  createPipelineFirestore,
+  updatePipelineFirestore,
+} from "../storage/firestore.js";
 
 /** PIPELINE
  * Lets have a db collection for the pipeline to keep things coherent.
@@ -19,49 +23,36 @@ import {logger} from "firebase-functions/v2";
  * - 5. images
  */
 
-class PipelineStage {
-  constructor(number, name, estimatedDuration, status = "pending", data = {}) {
-    this.number = number; // Stage number
-    this.name = name; // Name of the stage
-    this.estimatedDuration = estimatedDuration; // Estimated time to complete this stage in minutes
-    this.status = status; // Status: pending, in_progress, completed, error
-    this.data = data; // Any relevant data for the stage
-    this.completionPercentage = 0; // Completion percentage of this stage
+class Pipeline {
+  constructor(json) {
+    this.id = json.id;
+    this.uid = json.uid; // User ID
+    this.refId = json.refId; // Reference ID, e.g., bookId
+    this.type = json.Datetype; // Type of the pipeline, e.g., 'book'
+    this.stages = json.stages; // Number of stages
+    this.currentStageNumber = json.currentStageNumber; // Current active stage
+    this.currentStageName = json.currentStageName; // Current active stage
+    this.updatedAt = json.updatedAt;
   }
 
-  updateCompletion(percentage) {
-    this.completionPercentage = percentage;
-    if (percentage === 100) {
-      this.status = "completed";
-    }
+  toJSON() {
+    return {
+      id: this.id,
+      uid: this.uid,
+      refId: this.refId,
+      type: this.type,
+      stages: this.stages,
+      currentStageNumber: this.currentStageNumber,
+      currentStageName: this.currentStageName,
+      updatedAt: this.updatedAt,
+    };
   }
 }
 
-class Pipeline {
-  constructor(uid, refId, type, stages = []) {
-    this.uid = uid; // User ID
-    this.refId = refId; // Reference ID, e.g., bookId
-    this.type = type; // Type of the pipeline, e.g., 'book'
-    this.stages = stages; // Array of PipelineStage
-    this.currentStage = null; // Current active stage
-    this.updatedAt = new Date(); // Last update timestamp
-    this.totalEstimatedDuration = this.calculateTotalDuration();
-  }
-
-  addStage(stage) {
-    this.stages.push(stage);
-    this.updateCurrentStage();
-    this.totalEstimatedDuration = this.calculateTotalDuration();
-  }
-
-  calculateTotalDuration() {
-    return this.stages.reduce((total, stage) => total + stage.estimatedDuration, 0);
-  }
-
-  updateCurrentStage() {
-    this.currentStage = this.stages.find((s) => s.status === "in_progress" || s.status === "pending");
-    this.updatedAt = new Date();
-  }
+async function createBookPipeline(uid, refId, type) {
+  let pipeline = new Pipeline({uid, refId, type, stages: 5, currentStageNumber: 0, currentStageName: "Upload", updatedAt: new Date()});
+  pipeline = await createPipelineFirestore(pipeline.toJSON());
+  return pipeline;
 }
 
 
@@ -85,5 +76,9 @@ async function preProcess(req, res) {
   res.send({pong: true});
 }
 
-export {preProcess, hookFromBucket};
+export {
+  preProcess,
+  hookFromBucket,
+  createBookPipeline,
+};
 

@@ -4,7 +4,7 @@ import {
   deleteFile,
 } from "./storage.js";
 import {logger} from "firebase-functions/v2";
-
+import {createBookPipeline} from "../util/pipeline.js";
 /**
  * Adds a new user to the Firestore database.
  *
@@ -36,7 +36,10 @@ async function getUser(uid) {
 async function createBookFirestore(uid, data) {
   const docRef = getFirestore().collection("Books").doc(); // Create a document reference
   await docRef.set({uid: uid, ...data}); // Set the data
-  const snapshot = await docRef.get(); // Get the document snapshot
+  let snapshot = await docRef.get(); // Get the document snapshot
+  const pipeline = await createBookPipeline(uid, snapshot.id, "rawBook");
+  await docRef.update({pipelineId: pipeline.id}); // Save the book again with the pipeline ID
+  snapshot = await docRef.get(); // Get the updated document snapshot after pipeline ID update
   const r = snapshot.data();
   r.id = snapshot.id; // Add the document ID to the data
   return r; // Return the full document data with ID
@@ -118,6 +121,78 @@ async function deleteBookFirestore(uid, data, app) {
   }
 }
 
+/**
+ * Creates a new pipeline in the Firestore database.
+ *
+ * @param {object} data - The data of the pipeline to be stored.
+ * @return {Promise<object>} A promise that resolves to the full document data of the newly created pipeline.
+ */
+async function createPipelineFirestore(data) {
+  // Remove any undefined properties from data
+  data = removeUndefinedProperties(data);
+  const docRef = getFirestore().collection("Pipelines").doc(); // Create a document reference
+  await docRef.set({...data}); // Set the data
+  const snapshot = await docRef.get(); // Get the document snapshot
+  const r = snapshot.data();
+  r.id = snapshot.id; // Add the document ID to the data
+  return r; // Return the full document data with ID
+}
+
+/**
+ * Retrieves a pipeline from the Firestore database based on the provided UID and pipeline data.
+ *
+ * @param {string} uid - The unique identifier of the user.
+ * @param {object} data - The data containing the pipeline ID to be retrieved.
+ * @return {Promise<object>} A promise that resolves to the pipeline data if found, otherwise null.
+ */
+async function getPipelineFirestore(uid, data) {
+  const id = data.id;
+  const snapshot = await getFirestore().collection("Pipelines").doc(id).get();
+  const pipelineData = snapshot.data();
+  if (pipelineData && pipelineData.uid === uid) {
+    pipelineData.id = snapshot.id; // Add the document ID to the data
+    return pipelineData; // Return the full document data with ID
+  } else {
+    return {error: "Pipeline not found"}; // Return error if there is no match
+  }
+}
+
+/**
+ * Creates a new pipeline in the Firestore database.
+ *
+ * @param {string} id - The unique identifier of the pipeline to be updated.
+ * @param {object} data - The data of the pipeline to be stored.
+ * @return {Promise<object>} A promise that resolves to the full document data of the newly created pipeline.
+ */
+async function updatePipelineFirestore(id, data) {
+  const docRef = getFirestore().collection("Pipelines").doc(id); // Create a document reference
+  await docRef.update(data); // Update the data
+  const snapshot = await docRef.get(); // Get the document snapshot
+  const r = snapshot.data();
+  r.id = snapshot.id; // Add the document ID to the data
+  return r; // Return the full document data with ID
+}
+
+/**
+ * Removes undefined properties from an object.
+ *
+ * This function iterates over all properties of the given object and deletes any property
+ * that has a value of undefined. This is useful for cleaning up objects before saving them
+ * to a database where undefined values may not be allowed.
+ *
+ * @param {object} data - The object from which to remove undefined properties.
+ * @return {object} The cleaned object with all undefined properties removed.
+ */
+function removeUndefinedProperties(data) {
+  // Remove any undefined properties from data
+  Object.keys(data).forEach((key) => {
+    if (data[key] === undefined) {
+      delete data[key];
+    }
+  });
+  return data;
+}
+
 export {
   saveUser,
   getUser,
@@ -125,4 +200,7 @@ export {
   getBookFirestore,
   updateBookFirestore,
   deleteBookFirestore,
+  createPipelineFirestore,
+  updatePipelineFirestore,
+  getPipelineFirestore,
 };

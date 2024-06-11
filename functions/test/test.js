@@ -42,6 +42,7 @@ import {
   getCurrentUser,
   createBook,
   getBook,
+  getPipeline,
 } from "../index.js";
 
 
@@ -58,7 +59,7 @@ process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 
 const auth = getAuth();
-const db = getFirestore();
+// const db = getFirestore();
 
 const TEST_USER_EMAIL = `john.doe@example.com`;
 describe("Customer creation via Firebase Auth", () => {
@@ -132,6 +133,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result.id).to.not.be.null;
     bookData = result;
   });
+  let pipelineId;
   it(`test getBook`, async () => {
     const wrapped = firebaseTest.wrap(getBook);
     const data = {id: bookData.id};
@@ -144,6 +146,19 @@ describe("Customer creation via Firebase Auth", () => {
     console.log(result);
     expect(result).to.deep.equal(bookData);
     bookData = result;
+    pipelineId = result.pipelineId;
+  });
+  it(`test getPipeline`, async () => {
+    const wrapped = firebaseTest.wrap(getPipeline);
+    const data = {id: pipelineId};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result.id).to.equal(pipelineId);
   });
   it(`test updateBook before upload`, async () => {
     const data = {id: bookData.id};
