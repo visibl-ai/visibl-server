@@ -137,3 +137,7 @@ firestore-debug.log
 # Test
 functions/test/bindings/
 functions/.env.*
+
+# Mac OS
+.DS_Store
+

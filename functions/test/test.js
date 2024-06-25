@@ -28,6 +28,7 @@ import {getUser,
 } from "../storage/firestore.js";
 import {getStorage} from "firebase-admin/storage";
 import fs from "fs";
+import path from "path";
 
 import test from "firebase-functions-test";
 dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't work with conf.
@@ -43,6 +44,10 @@ import {
   createBook,
   getBook,
   getPipeline,
+  v1catalogueAdd,
+  v1catalogueGet,
+  v1catalogueDelete,
+  v1catalogueUpdate,
 } from "../index.js";
 
 
@@ -117,6 +122,135 @@ describe("Customer creation via Firebase Auth", () => {
     console.log(result);
     expect(result.uid).to.equal(userData.uid);
   });
+  let catalogueBook;
+  it(`test v1catalogueAdd`, async () => {
+    const wrapped = firebaseTest.wrap(v1catalogueAdd);
+    const metadataPath = "./test/bindings/metadata/Neuromancer_ Sprawl Trilogy, Book 1.json";
+    const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+
+    // Prepare the data for the catalogue item
+    const data = {
+      type: "audiobook",
+      title: metadata.title,
+      author: [metadata.author],
+      duration: metadata.length,
+      metadata: metadata,
+      language: "en", // Assuming English, adjust if needed
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+
+    console.log(result);
+    expect(result).to.have.property("id");
+    expect(result.title).to.equal(metadata.title);
+    expect(result.author).to.deep.equal([metadata.author]);
+    expect(result.duration).to.equal(metadata.length);
+    expect(result.createdAt).to.exist;
+    expect(result.updatedAt).to.exist;
+    catalogueBook = result;
+  });
+
+  it(`test v1catalogueGet`, async () => {
+    const wrapped = firebaseTest.wrap(v1catalogueGet);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+
+    console.log(result);
+    expect(result).to.be.an("array");
+    expect(result.length).to.be.at.least(1);
+    const foundBook = result.find((book) => book.id === catalogueBook.id);
+    expect(foundBook).to.exist;
+    expect(foundBook).to.deep.equal(catalogueBook);
+  });
+
+  it(`test v1catalogueUpdate`, async () => {
+    const wrapped = firebaseTest.wrap(v1catalogueUpdate);
+
+    // Prepare the update data
+    const updateData = {
+      id: catalogueBook.id,
+      genres: ["Science Fiction"],
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: updateData,
+    });
+
+    console.log(result);
+    expect(result).to.have.property("id");
+    expect(result.id).to.equal(catalogueBook.id);
+    expect(result.genres).to.deep.equal(["Science Fiction"]);
+    expect(result.title).to.equal(catalogueBook.title);
+    expect(result.author).to.deep.equal(catalogueBook.author);
+    expect(result.duration).to.equal(catalogueBook.duration);
+    expect(result.updatedAt).to.exist;
+    expect(result.updatedAt).to.not.equal(catalogueBook.updatedAt);
+
+    // Update the catalogueBook reference for future tests
+    catalogueBook = result;
+
+    // Verify the update with v1catalogueGet
+    const getWrapped = firebaseTest.wrap(v1catalogueGet);
+    const getResult = await getWrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {},
+    });
+
+    const updatedBook = getResult.find((book) => book.id === catalogueBook.id);
+    expect(updatedBook).to.exist;
+    expect(updatedBook).to.deep.equal(catalogueBook);
+  });
+
+  it(`test v1catalogueDelete`, async () => {
+    const deleteWrapped = firebaseTest.wrap(v1catalogueDelete);
+    const getWrapped = firebaseTest.wrap(v1catalogueGet);
+
+    // First, delete the catalogue item
+    const deleteResult = await deleteWrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        id: catalogueBook.id,
+      },
+    });
+
+    console.log(deleteResult);
+    expect(deleteResult.success).to.be.true;
+    expect(deleteResult.message).to.equal("Item deleted successfully");
+
+    // Then, try to get all catalogue items
+    const getResult = await getWrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {},
+    });
+
+    console.log(getResult);
+    expect(getResult).to.be.an("array");
+
+    // Check that the deleted item is no longer in the catalogue
+    const deletedBook = getResult.find((book) => book.id === catalogueBook.id);
+    expect(deletedBook).to.be.undefined;
+  });
+
+
   let bookData;
   const filename = `Neuromancer: Sprawl Trilogy, Book 1.m4b`;
   it(`test createBook`, async () => {

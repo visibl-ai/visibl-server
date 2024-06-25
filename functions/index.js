@@ -20,6 +20,10 @@ import {
   deleteBookFirestore,
   getUser,
   getPipelineFirestore,
+  catalogueAddFirestore,
+  catalogueGetFirestore,
+  catalogueDeleteFirestore,
+  catalogueUpdateFirestore,
 } from "./storage/firestore.js";
 
 import {
@@ -159,6 +163,23 @@ export const preProcessBook = onRequest({region: "europe-west1"},
       return preProcess(req, res);
     });
 
-// export const storageHook = onObjectFinalized(async (event) => {
+export const v1catalogueAdd = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return catalogueAddFirestore(uid, data, app);
+});
 
-// });
+export const v1catalogueGet = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return catalogueGetFirestore(uid, data, app);
+});
+
+
+export const v1catalogueDelete = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return catalogueDeleteFirestore(uid, data, app);
+});
+
+export const v1catalogueUpdate = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return catalogueUpdateFirestore(uid, data, app);
+});
