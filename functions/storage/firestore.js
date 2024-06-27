@@ -156,13 +156,13 @@ function validateAudiobookData(data) {
 /**
  * Adds a new item to the Catalogue collection in Firestore.
  *
- * @param {string} uid - The user ID of the authenticated user.
- * @param {object} data - The data of the catalogue item to be stored.
+ * @param {object} req - The request object from Express.
  * @param {object} app - The Firebase app instance.
  * @return {Promise<object>} A promise that resolves to the full document data of the newly created catalogue item.
  */
-async function catalogueAddFirestore(uid, data, app) {
+async function catalogueAddFirestore(req, app) {
   // Remove any undefined properties from data
+  let data = req.body;
   data = removeUndefinedProperties(data);
   // Validate the audiobook data
   validateAudiobookData(data);
@@ -206,12 +206,12 @@ async function catalogueGetFirestore(uid, data, app) {
 /**
  * Deletes an item from the Catalogue collection in Firestore.
  *
- * @param {string} uid - The user ID of the authenticated user.
- * @param {object} data - The data object containing the ID of the catalogue item to be deleted.
+ * @param {object} req - The request object from Express.
  * @param {object} app - The Firebase app instance.
  * @return {Promise<object>} A promise that resolves to an object indicating the success of the deletion.
  */
-async function catalogueDeleteFirestore(uid, data, app) {
+async function catalogueDeleteFirestore(req, app) {
+  const data = req.body;
   if (!data.id) {
     throw new Error("Item ID is required for deletion");
   }
@@ -231,12 +231,12 @@ async function catalogueDeleteFirestore(uid, data, app) {
 /**
  * Updates an item in the Catalogue collection in Firestore.
  *
- * @param {string} uid - The user ID of the authenticated user.
- * @param {object} data - The data object containing the ID of the catalogue item to be updated and the new data.
+ * @param {object} req - The request object from Express.
  * @param {object} app - The Firebase app instance.
  * @return {Promise<object>} A promise that resolves to the updated catalogue item.
  */
-async function catalogueUpdateFirestore(uid, data, app) {
+async function catalogueUpdateFirestore(req, app) {
+  const data = req.body;
   if (!data.id) {
     throw new Error("Item ID is required for update");
   }

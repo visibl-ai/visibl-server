@@ -7,7 +7,7 @@ import {onRequest, onCall} from "firebase-functions/v2/https";
 // import {onObjectFinalized} from "firebase-functions/v2/storage";
 import {getAuth} from "firebase-admin/auth";
 import logger from "firebase-functions/logger";
-import {newUser, validateOnCallAuth} from "./auth/auth.js";
+import {newUser, validateOnCallAuth, validateOnRequestAdmin} from "./auth/auth.js";
 import {
   preProcess,
   hookFromBucket,
@@ -146,18 +146,6 @@ export const v1deleteItemsFromLibrary = onCall({region: "europe-west1"}, async (
   return deleteItemFromLibraryFirestore(uid, data, app);
 });
 
-/**
- * Requests the server to update a book object, and return
- * the updated book.
- *
- * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
- * @returns {Promise<object>} A promise that resolves to the book data if found and the user is authenticated, otherwise null.
- */
-export const updateBook = onCall({region: "europe-west1"}, async (context) => {
-  const {uid, data} = await validateOnCallAuth(context);
-  return;
-});
-
 export const getPipeline = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return getPipelineFirestore(uid, data, app);
@@ -176,9 +164,9 @@ export const preProcessBook = onRequest({region: "europe-west1"},
       return preProcess(req, res);
     });
 
-export const v1catalogueAdd = onCall({region: "europe-west1"}, async (context) => {
-  const {uid, data} = await validateOnCallAuth(context);
-  return catalogueAddFirestore(uid, data, app);
+export const v1catalogueAdd = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await catalogueAddFirestore(req, app));
 });
 
 export const v1catalogueGet = onCall({region: "europe-west1"}, async (context) => {
@@ -187,12 +175,12 @@ export const v1catalogueGet = onCall({region: "europe-west1"}, async (context) =
 });
 
 
-export const v1catalogueDelete = onCall({region: "europe-west1"}, async (context) => {
-  const {uid, data} = await validateOnCallAuth(context);
-  return catalogueDeleteFirestore(uid, data, app);
+export const v1catalogueDelete = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await catalogueDeleteFirestore(req, app));
 });
 
-export const v1catalogueUpdate = onCall({region: "europe-west1"}, async (context) => {
-  const {uid, data} = await validateOnCallAuth(context);
-  return catalogueUpdateFirestore(uid, data, app);
+export const v1catalogueUpdate = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await catalogueUpdateFirestore(req, app));
 });

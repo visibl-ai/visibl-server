@@ -3,6 +3,7 @@ import {defineSecret, defineString} from "firebase-functions/params";
 
 const ENVIRONMENT = defineString("ENVIRONMENT");
 const OPENAI_API_KEY = defineString("OPENAI_API_KEY");
+const ADMIN_API_KEY = defineString("ADMIN_API_KEY");
 
 
 // SECRETS - warning: https://firebase.google.com/docs/functions/config-env?gen=2nd#node.js_6
@@ -13,5 +14,6 @@ const OPENAI_API_KEY = defineString("OPENAI_API_KEY");
 export {
   OPENAI_API_KEY,
   ENVIRONMENT,
+  ADMIN_API_KEY,
 };
 

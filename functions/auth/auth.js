@@ -2,6 +2,7 @@
 import logger from "firebase-functions/logger";
 import {saveUser} from "../storage/firestore.js";
 import {createUserFolder} from "../storage/storage.js";
+import {ADMIN_API_KEY} from "../config/config.js";
 /**
  * This function is triggered when a new user is created.
  * It handles the creation of a new user
@@ -83,9 +84,31 @@ async function validateOnCallAuth(context) {
     return {uid: context.auth.uid, data: context.data};
   }
 }
+/**
+ * Validates the authentication for an admin request using an API key.
+ * Ensures that the request header contains a valid API key matching ADMIN_API_KEY.
+ *
+ * @param {object} req - The request object from Express.
+ * @throws {Error} If the API key is missing or invalid.
+ */
+async function validateOnRequestAdmin(req) {
+  const apiKey = req.get("API-KEY");
+  if (!apiKey) {
+    logger.error("API key is missing");
+    throw new Error("API key is required");
+  }
+
+  if (apiKey !== ADMIN_API_KEY.value()) {
+    logger.error("Invalid API key");
+    throw new Error("Invalid API key");
+  }
+  return true;
+}
+
 
 export {
   newUser,
   validateOnCallAuth,
+  validateOnRequestAdmin,
 };
 

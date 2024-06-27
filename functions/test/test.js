@@ -43,15 +43,13 @@ import {
   v1getLibrary,
   v1deleteItemsFromLibrary,
   v1getItemManifest,
-  v1catalogueAdd,
   v1catalogueGet,
-  v1catalogueDelete,
-  v1catalogueUpdate,
 } from "../index.js";
 
 
 // Initialize Firebase Admin with local emulator settings
 const APP_ID = process.env.APP_ID || "visibl-dev-ali";
+const APP_REGION = process.env.APP_REGION || "europe-west1";
 const app = initializeApp({
   projectId: APP_ID,
   storageBucket: `${APP_ID}.appspot.com`,
@@ -61,7 +59,7 @@ const app = initializeApp({
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
-
+const APP_URL = `http://127.0.0.1:5001/${APP_ID}/${APP_REGION}`;
 const auth = getAuth();
 // const db = getFirestore();
 
@@ -123,7 +121,6 @@ describe("Customer creation via Firebase Auth", () => {
   });
   let catalogueBook;
   it(`test v1catalogueAdd`, async () => {
-    const wrapped = firebaseTest.wrap(v1catalogueAdd);
     const metadataPath = "./test/bindings/metadata/Neuromancer_ Sprawl Trilogy, Book 1.json";
     const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
 
@@ -137,12 +134,16 @@ describe("Customer creation via Firebase Auth", () => {
       language: "en", // Assuming English, adjust if needed
     };
 
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
+    // Make a POST request to the v1catalogueAdd endpoint
+
+    const response = await chai
+        .request(APP_URL)
+        .post("/v1catalogueAdd")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send(data);
+
+    expect(response).to.have.status(200);
+    const result = response.body;
 
     console.log(result);
     expect(result).to.have.property("id");
@@ -173,20 +174,20 @@ describe("Customer creation via Firebase Auth", () => {
   });
 
   it(`test v1catalogueUpdate`, async () => {
-    const wrapped = firebaseTest.wrap(v1catalogueUpdate);
-
     // Prepare the update data
     const updateData = {
       id: catalogueBook.id,
       genres: ["Science Fiction"],
     };
 
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data: updateData,
-    });
+    const response = await chai
+        .request(APP_URL)
+        .post("/v1catalogueUpdate")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send(updateData);
+
+    expect(response).to.have.status(200);
+    const result = response.body;
 
     console.log(result);
     expect(result).to.have.property("id");
@@ -458,18 +459,17 @@ describe("Customer creation via Firebase Auth", () => {
 
 
   it(`test v1catalogueDelete`, async () => {
-    const deleteWrapped = firebaseTest.wrap(v1catalogueDelete);
     const getWrapped = firebaseTest.wrap(v1catalogueGet);
 
     // First, delete the catalogue item
-    const deleteResult = await deleteWrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data: {
-        id: catalogueBook.id,
-      },
-    });
+    const deleteResponse = await chai
+        .request(APP_URL)
+        .post("/v1catalogueDelete")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({id: catalogueBook.id});
+
+    expect(deleteResponse).to.have.status(200);
+    const deleteResult = deleteResponse.body;
 
     console.log(deleteResult);
     expect(deleteResult.success).to.be.true;
