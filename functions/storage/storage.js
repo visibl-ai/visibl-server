@@ -1,6 +1,6 @@
 import {getStorage} from "firebase-admin/storage";
 import {logger} from "firebase-functions/v2";
-
+import {STORAGE_BUCKET_ID} from "../config/config.js";
 // Get a reference to the default storage bucket
 
 /**
@@ -51,6 +51,32 @@ async function createCatalogueFolder(app, catalogueId) {
   }
 }
 
+/**
+ * Retrieves the manifest file for a catalogue item
+ * @param {Object} app - The Firebase app instance
+ * @param {string} catalogueId - The unique identifier for the catalogue item
+ * @return {Promise<Object|null>} The manifest JSON object or null if not found
+ */
+async function getCatalogueManifest(app, catalogueId) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+  const filePath = `Catalogue/${catalogueId}/manifest.json`;
+  const file = bucket.file(filePath);
+
+  try {
+    const [exists] = await file.exists();
+    if (!exists) {
+      logger.warn(`Manifest file not found for catalogue ${catalogueId}`);
+      return null;
+    }
+
+    const [content] = await file.download();
+    return JSON.parse(content.toString());
+  } catch (error) {
+    logger.error(`Error retrieving manifest for catalogue ${catalogueId}:`, error);
+    return null;
+  }
+}
+
 
 /**
  * Checks if a file exists in storage given the UID, path an filename
@@ -83,6 +109,7 @@ async function deleteFile(app, uid, path, filename) {
 export {
   createUserFolder,
   createCatalogueFolder,
+  getCatalogueManifest,
   fileExists,
   deleteFile,
 };

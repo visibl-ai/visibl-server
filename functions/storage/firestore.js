@@ -3,8 +3,7 @@ import {
   getFirestore,
   Timestamp} from "firebase-admin/firestore";
 import {
-  fileExists,
-  deleteFile,
+  getCatalogueManifest,
 } from "./storage.js";
 import {logger} from "firebase-functions/v2";
 import {createBookPipeline} from "../util/pipeline.js";
@@ -328,13 +327,15 @@ async function getItemManifestFirestore(uid, data, app) {
     throw new Error("Item not found in the user's library");
   }
 
-  // For now, we'll just return the JSON stored in test/bindings/manifest/Neuromancer.json
   try {
-    const manifestPath = path.join(process.cwd(), "test", "bindings", "manifest", "Neuromancer.json");
-    const manifestContent = await fs.readFile(manifestPath, "utf8");
-    return JSON.parse(manifestContent);
+    const catalogueId = doc.data().catalogueId;
+    const manifest = await getCatalogueManifest(app, catalogueId);
+    if (!manifest) {
+      throw new Error("Manifest not found");
+    }
+    return manifest;
   } catch (error) {
-    console.error("Error reading manifest file:", error);
+    console.error("Error retrieving manifest:", error);
     throw new Error("Failed to retrieve item manifest");
   }
 }

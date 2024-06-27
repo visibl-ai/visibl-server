@@ -59,7 +59,7 @@ const app = initializeApp({
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
-const APP_URL = `http://127.0.0.1:5001/${APP_ID}/${APP_REGION}`;
+const APP_URL = `http://127.0.0.1:5002`;
 const auth = getAuth();
 // const db = getFirestore();
 
@@ -138,7 +138,7 @@ describe("Customer creation via Firebase Auth", () => {
 
     const response = await chai
         .request(APP_URL)
-        .post("/v1catalogueAdd")
+        .post("/v1/admin/catalogue/add")
         .set("API-KEY", process.env.ADMIN_API_KEY)
         .send(data);
 
@@ -182,7 +182,7 @@ describe("Customer creation via Firebase Auth", () => {
 
     const response = await chai
         .request(APP_URL)
-        .post("/v1catalogueUpdate")
+        .post("/v1/admin/catalogue/update")
         .set("API-KEY", process.env.ADMIN_API_KEY)
         .send(updateData);
 
@@ -214,6 +214,33 @@ describe("Customer creation via Firebase Auth", () => {
     const updatedBook = getResult.find((book) => book.id === catalogueBook.id);
     expect(updatedBook).to.exist;
     expect(updatedBook).to.deep.equal(catalogueBook);
+  });
+
+  it(`uploads a manifest file to catalogue item`, async () => {
+    const bucket = getStorage(app).bucket();
+    const bucketPath = `Catalogue/${catalogueBook.id}/`;
+    console.log(bucketPath);
+    const bucketFilename = `manifest.json`;
+    console.log(`Bucket filename: ${bucketFilename}`);
+    const filePath = `${bucketPath}${bucketFilename}`;
+    const file = bucket.file(filePath);
+    try {
+      const stream = fs.createReadStream(`./test/bindings/manifest/Neuromancer.json`);
+
+      await new Promise((resolve, reject) => {
+        stream.pipe(file.createWriteStream({}))
+            .on("error", (error) => {
+              console.error("Upload failed:", error);
+              reject(error);
+            })
+            .on("finish", () => {
+              console.log("File uploaded successfully");
+              resolve();
+            });
+      });
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+    }
   });
 
 
@@ -409,40 +436,6 @@ describe("Customer creation via Firebase Auth", () => {
   //   expect(result.id).to.equal(pipelineId);
   // });
 
-  // it(`uploads a m4a file to the user's storage bucket`, async () => {
-  //   const bucket = getStorage(app).bucket();
-  //   const bucketPath = userData.bucketPath;
-  //   console.log(bucketPath);
-  //   const extension = filename.split(".").pop();
-  //   const bucketFilename = `${bookData.id}.${extension}`;
-  //   console.log(`Bucket filename: ${bucketFilename}`);
-  //   const filePath = `${bucketPath}${bucketFilename}`;
-  //   const file = bucket.file(filePath);
-
-  //   try {
-  //     const stream = fs.createReadStream(`./test/bindings/m4b/${filename}`);
-  //     const contentType = "audio/x-m4b";
-
-  //     await new Promise((resolve, reject) => {
-  //       stream.pipe(file.createWriteStream({
-  //         metadata: {
-  //           contentType: contentType,
-  //         },
-  //       }))
-  //           .on("error", (error) => {
-  //             console.error("Upload failed:", error);
-  //             reject(error);
-  //           })
-  //           .on("finish", () => {
-  //             console.log("File uploaded successfully");
-  //             resolve();
-  //           });
-  //     });
-  //   } catch (error) {
-  //     console.error("Failed to upload file:", error);
-  //   }
-  // });
-
 
   it(`test transcription`, (done) => {
     const BOOK = "Neuromancer: Sprawl Trilogy, Book 1";
@@ -464,7 +457,7 @@ describe("Customer creation via Firebase Auth", () => {
     // First, delete the catalogue item
     const deleteResponse = await chai
         .request(APP_URL)
-        .post("/v1catalogueDelete")
+        .post("/v1/admin/catalogue/delete")
         .set("API-KEY", process.env.ADMIN_API_KEY)
         .send({id: catalogueBook.id});
 
