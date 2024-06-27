@@ -23,8 +23,6 @@ import {getAuth} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
 import {newUser} from "../auth/auth.js";
 import {getUser,
-  updateBookFirestore,
-  deleteBookFirestore,
 } from "../storage/firestore.js";
 import {getStorage} from "firebase-admin/storage";
 import fs from "fs";
@@ -41,9 +39,10 @@ const firebaseTest = test({
 import {
   helloWorld,
   getCurrentUser,
-  createBook,
-  getBook,
-  getPipeline,
+  v1addItemToLibrary,
+  v1getLibrary,
+  v1deleteItemsFromLibrary,
+  v1getItemManifest,
   v1catalogueAdd,
   v1catalogueGet,
   v1catalogueDelete,
@@ -216,6 +215,248 @@ describe("Customer creation via Firebase Auth", () => {
     expect(updatedBook).to.deep.equal(catalogueBook);
   });
 
+
+  let libraryItem;
+  it(`test v1addItemToLibrary`, async () => {
+    const wrapped = firebaseTest.wrap(v1addItemToLibrary);
+
+    // Prepare the data for adding an item to the library
+    const addData = {
+      catalogueId: catalogueBook.id,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: addData,
+    });
+
+    console.log(result);
+    expect(result).to.have.property("id");
+    expect(result).to.have.property("uid");
+    expect(result).to.have.property("catalogueId");
+    expect(result).to.have.property("addedAt");
+
+    expect(result.uid).to.equal(userData.uid);
+    expect(result.catalogueId).to.equal(catalogueBook.id);
+    expect(result.addedAt).to.exist;
+
+    libraryItem = result;
+
+    // Try to add the same item again, it should throw an error
+    try {
+      await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data: addData,
+      });
+      // If we reach here, the test should fail
+      expect.fail("Should have thrown an error for duplicate item");
+    } catch (error) {
+      expect(error.message).to.include("Item already exists in the user's library");
+    }
+  });
+
+  it(`test v1getItemManifest`, async () => {
+    const wrapped = firebaseTest.wrap(v1getItemManifest);
+
+    // Prepare the data for getting the item manifest
+    const getManifestData = {
+      libraryId: libraryItem.id,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getManifestData,
+    });
+
+    console.log(result);
+    expect(result).to.exist;
+
+    // Try to get manifest for a non-existent item, it should throw an error
+    try {
+      await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data: {libraryId: "non-existent-id"},
+      });
+      // If we reach here, the test should fail
+      expect.fail("Should have thrown an error for non-existent item");
+    } catch (error) {
+      expect(error.message).to.include("Item not found in the user's library");
+    }
+  });
+
+  it(`test v1getLibrary with includeManifest=false`, async () => {
+    const wrapped = firebaseTest.wrap(v1getLibrary);
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        includeManifest: false,
+      },
+    });
+
+    expect(result).to.be.an("array");
+    expect(result).to.have.lengthOf(1);
+    expect(result[0]).to.have.property("id");
+    expect(result[0]).to.have.property("catalogueId");
+    expect(result[0]).to.not.have.property("manifest");
+    console.log(result);
+  });
+
+  it(`test v1getLibrary with includeManifest=true`, async () => {
+    const wrapped = firebaseTest.wrap(v1getLibrary);
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        includeManifest: true,
+      },
+    });
+
+    expect(result).to.be.an("array");
+    expect(result).to.have.lengthOf(1);
+    expect(result[0]).to.have.property("id");
+    expect(result[0]).to.have.property("catalogueId");
+    expect(result[0]).to.have.property("manifest");
+    expect(result[0].manifest).to.be.an("object");
+    console.log(result);
+  });
+
+  it(`test v1getLibrary with non-existent user`, async () => {
+    const wrapped = firebaseTest.wrap(v1getLibrary);
+
+    const result = await wrapped({
+      auth: {
+        uid: "non-existent-uid",
+      },
+      data: {},
+    });
+
+    expect(result).to.be.an("array");
+    expect(result).to.have.lengthOf(0);
+    console.log(result);
+  });
+
+  it(`test v1deleteItemsFromLibrary`, async () => {
+    const wrapped = firebaseTest.wrap(v1deleteItemsFromLibrary);
+
+    // First, add an item to the library
+    const addItemResult = await firebaseTest.wrap(v1addItemToLibrary)({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        catalogueId: "test-catalogue-id",
+      },
+    });
+
+    expect(addItemResult).to.have.property("id");
+    const itemId = addItemResult.id;
+
+    // Now, delete the item
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryIds: [itemId],
+      },
+    });
+
+    expect(result).to.be.an("object");
+    expect(result).to.have.property("message", "Deletion process completed");
+    expect(result).to.have.property("results");
+    expect(result.results).to.have.property("success");
+    expect(result.results).to.have.property("failed");
+    expect(result.results.success).to.be.an("array").that.includes(itemId);
+    expect(result.results.failed).to.be.an("array").that.is.empty;
+    console.log(result);
+    // Verify the item is no longer in the library using v1getLibrary
+    const libraryAfterDeletion = await firebaseTest.wrap(v1getLibrary)({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {},
+    });
+
+    expect(libraryAfterDeletion).to.be.an("array");
+    expect(libraryAfterDeletion.find((item) => item.id === itemId)).to.be.undefined;
+  });
+
+
+  // it(`test getPipeline`, async () => {
+  //   const wrapped = firebaseTest.wrap(getPipeline);
+  //   const data = {id: pipelineId};
+  //   const result = await wrapped({
+  //     auth: {
+  //       uid: userData.uid,
+  //     },
+  //     data,
+  //   });
+  //   console.log(result);
+  //   expect(result.id).to.equal(pipelineId);
+  // });
+
+  // it(`uploads a m4a file to the user's storage bucket`, async () => {
+  //   const bucket = getStorage(app).bucket();
+  //   const bucketPath = userData.bucketPath;
+  //   console.log(bucketPath);
+  //   const extension = filename.split(".").pop();
+  //   const bucketFilename = `${bookData.id}.${extension}`;
+  //   console.log(`Bucket filename: ${bucketFilename}`);
+  //   const filePath = `${bucketPath}${bucketFilename}`;
+  //   const file = bucket.file(filePath);
+
+  //   try {
+  //     const stream = fs.createReadStream(`./test/bindings/m4b/${filename}`);
+  //     const contentType = "audio/x-m4b";
+
+  //     await new Promise((resolve, reject) => {
+  //       stream.pipe(file.createWriteStream({
+  //         metadata: {
+  //           contentType: contentType,
+  //         },
+  //       }))
+  //           .on("error", (error) => {
+  //             console.error("Upload failed:", error);
+  //             reject(error);
+  //           })
+  //           .on("finish", () => {
+  //             console.log("File uploaded successfully");
+  //             resolve();
+  //           });
+  //     });
+  //   } catch (error) {
+  //     console.error("Failed to upload file:", error);
+  //   }
+  // });
+
+
+  it(`test transcription`, (done) => {
+    const BOOK = "Neuromancer: Sprawl Trilogy, Book 1";
+    chai.request(`http://127.0.0.1:5001/visibl-dev-ali/europe-west1/preProcessBook`)
+        .post("")
+        .send({run: true, fileName: `${BOOK}.m4b`, bookName: BOOK, type: "m4b"})
+        .end((err, res) => {
+          console.log("res.body = " + JSON.stringify(res.body));
+          expect(err).to.be.null;
+          expect(res).to.have.status(200);
+          done();
+        });
+  });
+
+
   it(`test v1catalogueDelete`, async () => {
     const deleteWrapped = firebaseTest.wrap(v1catalogueDelete);
     const getWrapped = firebaseTest.wrap(v1catalogueGet);
@@ -248,155 +489,5 @@ describe("Customer creation via Firebase Auth", () => {
     // Check that the deleted item is no longer in the catalogue
     const deletedBook = getResult.find((book) => book.id === catalogueBook.id);
     expect(deletedBook).to.be.undefined;
-  });
-
-
-  let bookData;
-  const filename = `Neuromancer: Sprawl Trilogy, Book 1.m4b`;
-  it(`test createBook`, async () => {
-    const wrapped = firebaseTest.wrap(createBook);
-    const data = {filename: filename, type: "m4b"};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    console.log(result);
-    expect(result.uid).to.equal(userData.uid);
-    expect(result.id).to.not.be.null;
-    bookData = result;
-  });
-  let pipelineId;
-  it(`test getBook`, async () => {
-    const wrapped = firebaseTest.wrap(getBook);
-    const data = {id: bookData.id};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    console.log(result);
-    expect(result).to.deep.equal(bookData);
-    bookData = result;
-    pipelineId = result.pipelineId;
-  });
-  it(`test getPipeline`, async () => {
-    const wrapped = firebaseTest.wrap(getPipeline);
-    const data = {id: pipelineId};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    console.log(result);
-    expect(result.id).to.equal(pipelineId);
-  });
-  it(`test updateBook before upload`, async () => {
-    const data = {id: bookData.id};
-    const result = await updateBookFirestore(userData.uid, bookData, app);
-    console.log(result);
-    expect(result.rawBookInStorage).to.equal(false);
-    bookData = result;
-  });
-  it(`test getBook after update`, async () => {
-    const wrapped = firebaseTest.wrap(getBook);
-    const data = {id: bookData.id};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    console.log(result);
-    expect(result).to.deep.equal(bookData);
-    bookData = result;
-  });
-  it(`uploads a m4a file to the user's storage bucket`, async () => {
-    const bucket = getStorage(app).bucket();
-    const bucketPath = userData.bucketPath;
-    console.log(bucketPath);
-    const extension = filename.split(".").pop();
-    const bucketFilename = `${bookData.id}.${extension}`;
-    console.log(`Bucket filename: ${bucketFilename}`);
-    const filePath = `${bucketPath}${bucketFilename}`;
-    const file = bucket.file(filePath);
-
-    try {
-      const stream = fs.createReadStream(`./test/bindings/m4b/${filename}`);
-      const contentType = "audio/x-m4b";
-
-      await new Promise((resolve, reject) => {
-        stream.pipe(file.createWriteStream({
-          metadata: {
-            contentType: contentType,
-          },
-        }))
-            .on("error", (error) => {
-              console.error("Upload failed:", error);
-              reject(error);
-            })
-            .on("finish", () => {
-              console.log("File uploaded successfully");
-              resolve();
-            });
-      });
-    } catch (error) {
-      console.error("Failed to upload file:", error);
-    }
-  });
-  it(`test updateBook after upload`, async () => {
-    const data = {id: bookData.id};
-    const result = await updateBookFirestore(userData.uid, bookData, app);
-    console.log(result);
-    expect(result.rawBookInStorage).to.equal(true);
-    bookData = result;
-  });
-  it(`test getBook after update and upload`, async () => {
-    const wrapped = firebaseTest.wrap(getBook);
-    const data = {id: bookData.id};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    console.log(result);
-    expect(result).to.deep.equal(bookData);
-    bookData = result;
-  });
-
-
-  it(`test transcription`, (done) => {
-    const BOOK = "Neuromancer: Sprawl Trilogy, Book 1";
-    chai.request(`http://127.0.0.1:5001/visibl-dev-ali/europe-west1/preProcessBook`)
-        .post("")
-        .send({run: true, fileName: `${BOOK}.m4b`, bookName: BOOK, type: "m4b"})
-        .end((err, res) => {
-          console.log("res.body = " + JSON.stringify(res.body));
-          expect(err).to.be.null;
-          expect(res).to.have.status(200);
-          done();
-        });
-  });
-
-  it(`test deleteBook after upload`, async () => {
-    const data = {id: bookData.id};
-    const result = await deleteBookFirestore(userData.uid, bookData, app);
-    expect(result.success).to.equal(true);
-    console.log(result);
-  });
-  it(`test getBook after delete`, async () => {
-    const wrapped = firebaseTest.wrap(getBook);
-    const data = {id: bookData.id};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    expect(result.error).to.equal("Book not found");
   });
 });

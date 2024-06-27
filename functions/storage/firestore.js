@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import {
   getFirestore,
   Timestamp} from "firebase-admin/firestore";
@@ -15,6 +16,9 @@ import {createBookPipeline} from "../util/pipeline.js";
 async function saveUser(user) {
   await getFirestore().collection("Users").doc(user.uid).set(user);
 }
+import fs from "fs/promises";
+import path from "path";
+
 
 /**
  * Retrieves a user from the Firestore database by their unique identifier.
@@ -26,101 +30,6 @@ async function saveUser(user) {
 async function getUser(uid) {
   const snapshot = await getFirestore().collection("Users").doc(uid).get();
   return snapshot.exists ? snapshot.data() : null;
-}
-
-/**
- * Creates a new book in the Firestore database.
- *
- * @param {string} uid - The unique identifier of the user creating the book.
- * @param {object} data - The data of the book to be stored.
- * @return {Promise<object>} A promise that resolves to the full document data of the newly created book.
- */
-async function createBookFirestore(uid, data) {
-  const docRef = getFirestore().collection("Books").doc(); // Create a document reference
-  await docRef.set({uid: uid, ...data}); // Set the data
-  let snapshot = await docRef.get(); // Get the document snapshot
-  const pipeline = await createBookPipeline(uid, snapshot.id, "rawBook");
-  await docRef.update({pipelineId: pipeline.id}); // Save the book again with the pipeline ID
-  snapshot = await docRef.get(); // Get the updated document snapshot after pipeline ID update
-  const r = snapshot.data();
-  r.id = snapshot.id; // Add the document ID to the data
-  return r; // Return the full document data with ID
-}
-
-
-/**
- * Retrieves a book from the Firestore database by its unique identifier.
- * @param {string} uid - The unique identifier of the user to retrieve the book for.
- * @param {string} data - must contain .id
- * @return {Promise<FirebaseFirestore.DocumentSnapshot<FirebaseFirestore.DocumentData>>} A promise that resolves to the document snapshot of the book.
- */
-async function getBookFirestore(uid, data) {
-  const id = data.id;
-  logger.debug(data, uid);
-  const snapshot = await getFirestore().collection("Books").doc(id).get();
-  const bookData = snapshot.data();
-  // Check if the book's uid matches the provided uid
-  if (bookData && bookData.uid === uid) {
-    bookData.id = snapshot.id; // Add the document ID to the data
-    return bookData;
-  } else {
-    return {error: "Book not found"}; // Return error if there is no match
-  }
-}
-
-/**
- * Updates a book in firestore, checking if the book is available
- * in the cloud bucket as expected.
- * @param {string} uid - The unique identifier of the user to retrieve the book for.
- * @param {object} data - The data of the book to be stored.
- * @return {Promise<object>} A promise that resolves to the full document data of the newly created book.
- * @param {Object} app - The Firebase app instance
- */
-async function updateBookFirestore(uid, data, app) {
-  const id = data.id;
-  logger.debug(data, uid);
-  const snapshot = await getFirestore().collection("Books").doc(id).get();
-  const bookData = snapshot.data();
-  // Check if the book's uid matches the provided uid
-  if (bookData && bookData.uid === uid) {
-    const extension = bookData.type;
-    let rawBookInStorage = await fileExists(app, uid, `rawUploads/`, `${snapshot.id}.${extension}`);
-    if (rawBookInStorage && rawBookInStorage.length) {
-      rawBookInStorage = rawBookInStorage[0];
-    }
-    logger.debug(`UID: ${uid}, book: ${snapshot.id}.${extension} rawBookInStorage: ${rawBookInStorage}`);
-    bookData.rawBookInStorage = rawBookInStorage;
-    await snapshot.ref.update(bookData); // Update the book data
-    bookData.id = snapshot.id; // Add the document ID to the data
-    return bookData;
-  } else {
-    return {error: "Book not found"};
-  }
-}
-
-/**
- * Deletes a book from the Firestore database and the cloud storage bucket.
- * @param {string} uid - The unique identifier of the user to delete the book for.
- * @param {object} data - The data of the book to be deleted.
- * @param {Object} app - The Firebase app instance
- * @return {Promise<object>} A promise that resolves to the full document data of the deleted book.
- */
-async function deleteBookFirestore(uid, data, app) {
-  const id = data.id;
-  logger.debug(data, uid);
-  const snapshot = await getFirestore().collection("Books").doc(id).get();
-  const bookData = snapshot.data();
-  // Check if the book's uid matches the provided uid
-  if (bookData && bookData.uid === uid) {
-    if (bookData.rawBookInStorage) {
-      const extension = bookData.type;
-      await deleteFile(app, uid, `rawUploads/`, `${snapshot.id}.${extension}`);
-    }
-    await snapshot.ref.delete(); // Delete the book from the database
-    return {success: true};
-  } else {
-    return {error: "Book not found"}; // Return error if there is no match
-  }
 }
 
 /**
@@ -355,13 +264,163 @@ async function catalogueUpdateFirestore(uid, data, app) {
   return updatedItem;
 }
 
+/**
+ * Adds an item from the Catalogue to the user's Library in Firestore.
+ *
+ * @param {string} uid - The user ID of the authenticated user.
+ * @param {object} data - The data object containing the catalogueId of the item to be added.
+ * @param {object} app - The Firebase app instance.
+ * @return {Promise<object>} A promise that resolves to the added library item.
+ */
+async function addItemToLibraryFirestore(uid, data, app) {
+  if (!data.catalogueId) {
+    throw new Error("Catalogue ID is required");
+  }
+
+  const db = getFirestore();
+  const libraryRef = db.collection("Library");
+
+  // Check for duplicates
+  const existingItem = await libraryRef
+      .where("uid", "==", uid)
+      .where("catalogueId", "==", data.catalogueId)
+      .get();
+
+  if (!existingItem.empty) {
+    throw new Error("Item already exists in the user's library");
+  }
+
+  // Add the new item to the Library
+  const newItem = {
+    uid: uid,
+    catalogueId: data.catalogueId,
+    addedAt: new Date(),
+  };
+
+  const docRef = await libraryRef.add(newItem);
+  const addedDoc = await docRef.get();
+
+  return {
+    id: addedDoc.id,
+    ...addedDoc.data(),
+  };
+}
+
+/**
+ * Retrieves the manifest for a specific item in the user's library from Firestore.
+ *
+ * @param {string} uid - The user ID of the authenticated user.
+ * @param {object} data - The data object containing the item ID.
+ * @param {object} app - The Firebase app instance.
+ * @return {Promise<object>} A promise that resolves to the item manifest.
+ */
+async function getItemManifestFirestore(uid, data, app) {
+  if (!data.libraryId) {
+    throw new Error("Library ID is required");
+  }
+
+  const db = getFirestore();
+  const libraryRef = db.collection("Library").doc(data.libraryId);
+
+  const doc = await libraryRef.get();
+
+  if (!doc.exists || doc.data().uid !== uid) {
+    throw new Error("Item not found in the user's library");
+  }
+
+  // For now, we'll just return the JSON stored in test/bindings/manifest/Neuromancer.json
+  try {
+    const manifestPath = path.join(process.cwd(), "test", "bindings", "manifest", "Neuromancer.json");
+    const manifestContent = await fs.readFile(manifestPath, "utf8");
+    return JSON.parse(manifestContent);
+  } catch (error) {
+    console.error("Error reading manifest file:", error);
+    throw new Error("Failed to retrieve item manifest");
+  }
+}
+
+/**
+ * Retrieves the user's library items from Firestore.
+ *
+ * @param {string} uid - The user ID of the authenticated user.
+ * @param {object} data - The data object containing optional parameters.
+ * @param {object} app - The Firebase app instance.
+ * @return {Promise<Array>} A promise that resolves to an array of library items.
+ */
+async function getLibraryFirestore(uid, data, app) {
+  const db = getFirestore();
+  const libraryRef = db.collection("Library").where("uid", "==", uid);
+
+  const snapshot = await libraryRef.get();
+
+  if (snapshot.empty) {
+    return [];
+  }
+
+  let libraryItems = snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+
+  if (data.includeManifest) {
+    libraryItems = await Promise.all(libraryItems.map(async (item) => {
+      try {
+        const manifest = await getItemManifestFirestore(uid, {libraryId: item.id}, app);
+        return {...item, manifest};
+      } catch (error) {
+        console.error(`Error fetching manifest for item ${item.id}:`, error);
+        return item;
+      }
+    }));
+  }
+
+  return libraryItems;
+}
+
+/**
+ * Deletes multiple items from the user's library in Firestore.
+ *
+ * @param {string} uid - The user ID of the authenticated user.
+ * @param {object} data - The data object containing the libraryIds to delete.
+ * @param {object} app - The Firebase app instance.
+ * @return {Promise<object>} A promise that resolves to an object with the deletion results.
+ */
+async function deleteItemFromLibraryFirestore(uid, data, app) {
+  const db = getFirestore();
+  const libraryRef = db.collection("Library");
+  const {libraryIds} = data;
+
+  if (!Array.isArray(libraryIds) || libraryIds.length === 0) {
+    throw new Error("Invalid or empty libraryIds array provided");
+  }
+
+  const batch = db.batch();
+  const deletionResults = {success: [], failed: []};
+
+  for (const libraryId of libraryIds) {
+    const docRef = libraryRef.doc(libraryId);
+    const doc = await docRef.get();
+
+    if (doc.exists && doc.data().uid === uid) {
+      batch.delete(docRef);
+      deletionResults.success.push(libraryId);
+    } else {
+      deletionResults.failed.push(libraryId);
+    }
+  }
+
+  await batch.commit();
+
+  return {
+    message: "Deletion process completed",
+    results: deletionResults,
+  };
+}
+
+
 export {
   saveUser,
   getUser,
-  createBookFirestore,
-  getBookFirestore,
-  updateBookFirestore,
-  deleteBookFirestore,
   createPipelineFirestore,
   updatePipelineFirestore,
   getPipelineFirestore,
@@ -369,4 +428,8 @@ export {
   catalogueGetFirestore,
   catalogueDeleteFirestore,
   catalogueUpdateFirestore,
+  addItemToLibraryFirestore,
+  getItemManifestFirestore,
+  getLibraryFirestore,
+  deleteItemFromLibraryFirestore,
 };

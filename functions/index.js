@@ -14,16 +14,16 @@ import {
 } from "./util/pipeline.js";
 
 import {
-  createBookFirestore,
-  getBookFirestore,
-  updateBookFirestore,
-  deleteBookFirestore,
   getUser,
   getPipelineFirestore,
   catalogueAddFirestore,
   catalogueGetFirestore,
   catalogueDeleteFirestore,
   catalogueUpdateFirestore,
+  addItemToLibraryFirestore,
+  deleteItemFromLibraryFirestore,
+  getItemManifestFirestore,
+  getLibraryFirestore,
 } from "./storage/firestore.js";
 
 import {
@@ -104,10 +104,23 @@ export const getCurrentUser = onCall({region: "europe-west1"}, async (context) =
  * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
  * @returns {Promise<object>} A promise that resolves to an object containing the user's UID and the data provided.
  */
-export const createBook = onCall({region: "europe-west1"}, async (context) => {
+export const v1addItemToLibrary = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return createBookFirestore(uid, data, app);
+  return addItemToLibraryFirestore(uid, data, app);
 });
+
+/**
+ * Cloud Function to get the manifest for a specific item in the user's library.
+ * This function is triggered by an on-call request and requires the user to be authenticated.
+ *
+ * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
+ * @returns {Promise<object>} A promise that resolves to the item manifest if found and the user is authenticated.
+ */
+export const v1getItemManifest = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return getItemManifestFirestore(uid, data, app);
+});
+
 
 /**
  * Retrieves a book from the Firestore database based on the user's UID and the book ID provided in the data.
@@ -116,9 +129,21 @@ export const createBook = onCall({region: "europe-west1"}, async (context) => {
  * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
  * @returns {Promise<object>} A promise that resolves to the book data if found and the user is authenticated, otherwise null.
  */
-export const getBook = onCall({region: "europe-west1"}, async (context) => {
+export const v1getLibrary = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return getBookFirestore(uid, data, app);
+  return getLibraryFirestore(uid, data, app);
+});
+
+/**
+ * Requests the server delete a book, including any items in storage
+ * This function is triggered by an on-call request and requires the user to be authenticated.
+ *
+ * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
+ * @returns {Promise<object>} A promise that resolves to the book data if found and the user is authenticated, otherwise null.
+ */
+export const v1deleteItemsFromLibrary = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return deleteItemFromLibraryFirestore(uid, data, app);
 });
 
 /**
@@ -130,24 +155,12 @@ export const getBook = onCall({region: "europe-west1"}, async (context) => {
  */
 export const updateBook = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return updateBookFirestore(uid, data, app);
+  return;
 });
 
 export const getPipeline = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return getPipelineFirestore(uid, data, app);
-});
-
-/**
- * Requests the server delete a book, including any items in storage
- * This function is triggered by an on-call request and requires the user to be authenticated.
- *
- * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
- * @returns {Promise<object>} A promise that resolves to the book data if found and the user is authenticated, otherwise null.
- */
-export const deleteBook = onCall({region: "europe-west1"}, async (context) => {
-  const {uid, data} = await validateOnCallAuth(context);
-  return deleteBookFirestore(uid, data, app);
 });
 
 /**
