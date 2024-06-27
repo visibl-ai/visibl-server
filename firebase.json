@@ -31,5 +31,30 @@
   },
   "storage": {
     "rules": "storage.rules"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/v1/admin/catalogue/add",
+        "function": "v1catalogueAdd",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/catalogue/update",
+        "function": "v1catalogueUpdate",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/catalogue/delete",
+        "function": "v1catalogueDelete",
+        "region": "europe-west1"
+      }
+    ]
   }
 }
