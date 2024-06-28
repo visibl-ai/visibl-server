@@ -66,8 +66,8 @@
         "region": "europe-west1"
       },
       {
-        "source": "/v1/admin/ai/generateImages",
-        "function": "v1generateImages",
+        "source": "/v1/admin/ai/generateSceneImages",
+        "function": "v1generateSceneImages",
         "region": "europe-west1"
       }
     ]

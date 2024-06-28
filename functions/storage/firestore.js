@@ -4,6 +4,7 @@ import {
   Timestamp} from "firebase-admin/firestore";
 import {
   getCatalogueManifest,
+  getScenes,
 } from "./storage.js";
 import {logger} from "firebase-functions/v2";
 import {createBookPipeline} from "../util/pipeline.js";
@@ -449,13 +450,22 @@ async function getAiFirestore(uid, data, app) {
     throw new Error("CatalogueId not found in library item");
   }
 
+  // Retrieve the scenes data for the catalogueId
+  let scenes;
+  try {
+    scenes = await getScenes(app, catalogueId);
+  } catch (error) {
+    logger.error(`Error retrieving scenes for catalogueId ${catalogueId}:`, error);
+    throw new Error("Failed to retrieve scenes data");
+  }
+
+  if (!scenes) {
+    throw new Error("No scenes data found for the given catalogueId");
+  }
+
   // Here you would typically process the catalogueManifest and generate AI content
   // For now, we'll return a placeholder response
-  return {
-    message: "AI content generation placeholder",
-    catalogueId: catalogueId,
-    // Add more fields as needed for your AI content
-  };
+  return scenes;
 }
 
 

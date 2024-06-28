@@ -161,6 +161,35 @@ async function storeScenes(app, catalogueId, sceneData) {
   });
 }
 
+/**
+ * Retrieves scene data as a JSON file from the storage bucket
+ * @param {Object} app - The Firebase app instance
+ * @param {string} catalogueId - The catalogue's unique identifier
+ * @return {Promise<Object>} A promise that resolves to the parsed JSON data
+ */
+async function getScenes(app, catalogueId) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+  const filename = `Catalogue/${catalogueId}/scenes.json`;
+  const file = bucket.file(filename);
+
+  return new Promise((resolve, reject) => {
+    file.download((err, contents) => {
+      if (err) {
+        logger.error("Error downloading scenes JSON from GCP: " + err);
+        reject(err);
+      } else {
+        try {
+          const sceneData = JSON.parse(contents.toString());
+          resolve(sceneData);
+        } catch (parseError) {
+          logger.error("Error parsing scenes JSON: " + parseError);
+          reject(parseError);
+        }
+      }
+    });
+  });
+}
+
 
 export {
   createUserFolder,
@@ -170,5 +199,6 @@ export {
   deleteFile,
   uploadStreamAndGetPublicLink,
   storeScenes,
+  getScenes,
 };
 

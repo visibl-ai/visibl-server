@@ -44,6 +44,7 @@ import {
   v1deleteItemsFromLibrary,
   v1getItemManifest,
   v1catalogueGet,
+  v1getAi,
 } from "../index.js";
 
 
@@ -266,6 +267,33 @@ describe("Customer creation via Firebase Auth", () => {
     }
   });
 
+  it(`uploads a scenes file to catalogue item`, async () => {
+    const bucket = getStorage(app).bucket();
+    const bucketPath = `Catalogue/${catalogueBook.id}/`;
+    console.log(bucketPath);
+    const bucketFilename = `scenes.json`;
+    console.log(`Bucket filename: ${bucketFilename}`);
+    const filePath = `${bucketPath}${bucketFilename}`;
+    const file = bucket.file(filePath);
+    try {
+      const stream = fs.createReadStream(`./test/bindings/scenes/transcript_ch1_scenes_images.json`);
+
+      await new Promise((resolve, reject) => {
+        stream.pipe(file.createWriteStream({}))
+            .on("error", (error) => {
+              console.error("Upload failed:", error);
+              reject(error);
+            })
+            .on("finish", () => {
+              console.log("File uploaded successfully");
+              resolve();
+            });
+      });
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+    }
+  });
+
   it(`test v1catalogueGetManifest`, async () => {
     const visiblId = foundBook.metadata.visiblId;
     const response = await chai
@@ -284,7 +312,6 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result.metadata).to.have.property("title", catalogueBook.title);
     expect(result.metadata).to.have.property("visiblId", catalogueBook.id);
   });
-
 
   let libraryItem;
   it(`test v1addItemToLibrary`, async () => {
@@ -362,6 +389,45 @@ describe("Customer creation via Firebase Auth", () => {
     }
   });
 
+  it(`test v1getAi`, async () => {
+    const wrapped = firebaseTest.wrap(v1getAi);
+
+    // Prepare the data for getting AI content
+    const getAiData = {
+      libraryId: libraryItem.id,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getAiData,
+    });
+
+    console.log(result);
+    expect(result).to.exist;
+    expect(result).to.be.an("array");
+    expect(result[0]).to.have.property("scene_number");
+    expect(result[0]).to.have.property("description");
+    expect(result[0]).to.have.property("characters");
+    expect(result[0]).to.have.property("locations");
+    expect(result[0]).to.have.property("viewpoint");
+
+    // Try to get AI content for a non-existent item, it should throw an error
+    try {
+      await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data: {libraryId: "non-existent-id"},
+      });
+      // If we reach here, the test should fail
+      expect.fail("Should have thrown an error for non-existent item");
+    } catch (error) {
+      expect(error.message).to.include("Library item not found");
+    }
+  });
+
   it(`test v1getLibrary with includeManifest=false`, async () => {
     const wrapped = firebaseTest.wrap(v1getLibrary);
 
@@ -402,6 +468,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result[0].manifest).to.be.an("object");
     console.log(result);
   });
+
 
   it(`test v1getLibrary with non-existent user`, async () => {
     const wrapped = firebaseTest.wrap(v1getLibrary);

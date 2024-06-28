@@ -10,7 +10,7 @@ chai.use(chaiHttp);
 const expect = chai.expect;
 import fs from "fs";
 
-const TEST = true;
+const TEST = false;
 let APP_URL = `http://127.0.0.1:5002/v1/admin/ai/generateSceneImages`;
 if (TEST) {
   dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't work with conf.
@@ -30,10 +30,10 @@ describe("Image Gen", () => {
     const catalogueId = "riw7PiKBeKZF70WUMoSw";
     // Load scenes data (assuming it's available)
     // const scenes = []; // You might need to load this from somewhere
-    const totalScenes = 12;// scenes.length;
-    const scenesPerRequest = 3;
+    const totalScenes = scenes.length;
+    const scenesPerRequest = 15;
     const startingScene = 0;
-    const timeout = 5000;// 60000;
+    const timeout = 60000;
     for (let i = startingScene; i < totalScenes; i += scenesPerRequest) {
       const scenesToGenerate = [];
       for (let j = i; j < i + scenesPerRequest && j < totalScenes; j++) {
