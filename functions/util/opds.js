@@ -31,7 +31,7 @@ const generateOPDS = (catalogueItems, manifestUrl) => {
       links: [
         {
           href: `https://visibl-dev-ali.web.app/v1/tmp/catalogue/${item.id}`,
-          type: "application/json",
+          type: "application/audiobook+json",
           rel: "http://opds-spec.org/acquisition/buy",
         },
       ],
