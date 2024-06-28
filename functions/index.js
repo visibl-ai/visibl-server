@@ -27,6 +27,10 @@ import {
 } from "./storage/firestore.js";
 
 import {
+  getCatalogueManifest,
+} from "./storage/storage.js";
+
+import {
   beforeUserCreated,
   // beforeUserSignedIn,
 } from "firebase-functions/v2/identity";
@@ -182,6 +186,15 @@ export const v1catalogueGetOPDS = onRequest({region: "europe-west1"}, async (req
   res.status(200).send(generateOPDS(await catalogueGetFirestore(app)));
 });
 
+export const v1catalogueGetManifest = onRequest({region: "europe-west1"}, async (req, res) => {
+  const catalogueId = req.path.split("/").pop();
+  if (!catalogueId) {
+    res.status(400).send("Catalogue ID is required");
+    return;
+  }
+  console.log(`catalogueId: ${catalogueId}`);
+  res.status(200).send(await getCatalogueManifest(app, catalogueId));
+});
 
 export const v1catalogueDelete = onRequest({region: "europe-west1"}, async (req, res) => {
   await validateOnRequestAdmin(req);

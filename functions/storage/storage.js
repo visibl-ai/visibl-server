@@ -70,7 +70,9 @@ async function getCatalogueManifest(app, catalogueId) {
     }
 
     const [content] = await file.download();
-    return JSON.parse(content.toString());
+    const manifest = JSON.parse(content.toString());
+    manifest.metadata.visiblId = catalogueId;
+    return manifest;
   } catch (error) {
     logger.error(`Error retrieving manifest for catalogue ${catalogueId}:`, error);
     return null;

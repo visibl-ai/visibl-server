@@ -1,10 +1,11 @@
 
 
-const generateOPDS = (catalogueItems) => {
+const generateOPDS = (catalogueItems, manifestUrl) => {
   const opdsResponse = {
     metadata: {
       title: "Visibl Catalog",
     },
+
     publications: catalogueItems.map((item) => ({
       metadata: {
         "@type": "http://schema.org/Audiobook",
@@ -27,8 +28,16 @@ const generateOPDS = (catalogueItems) => {
           type: "image/jpeg",
         },
       ],
+      links: [
+        {
+          href: `https://visibl-dev-ali.web.app/v1/tmp/catalogue/${item.id}`,
+          type: "application/json",
+          rel: "http://opds-spec.org/acquisition/buy",
+        },
+      ],
     })),
   };
+
   return opdsResponse;
 };
 

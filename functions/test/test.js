@@ -215,7 +215,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(updatedBook).to.exist;
     expect(updatedBook).to.deep.equal(catalogueBook);
   });
-
+  let foundBook;
   it(`test v1catalogueGetOPDS`, async () => {
     const response = await chai
         .request(APP_URL)
@@ -234,7 +234,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result.publications).to.be.an("array").that.is.not.empty;
 
     // Check for specific book entry
-    const foundBook = result.publications.find((publication) => publication.metadata.title === catalogueBook.title);
+    foundBook = result.publications.find((publication) => publication.metadata.title === catalogueBook.title);
     expect(foundBook).to.exist;
     expect(foundBook.metadata.identifier).to.equal(catalogueBook.id);
   });
@@ -264,6 +264,25 @@ describe("Customer creation via Firebase Auth", () => {
     } catch (error) {
       console.error("Failed to upload file:", error);
     }
+  });
+
+  it(`test v1catalogueGetManifest`, async () => {
+    const visiblId = foundBook.metadata.visiblId;
+    const response = await chai
+        .request(APP_URL)
+        .get(`/v1/tmp/catalogue/${visiblId}`);
+
+    const result = response.body;
+    console.log(result);
+    expect(response).to.have.status(200);
+    expect(response).to.be.json;
+
+
+    // Check for basic manifest structure
+    expect(result).to.have.property("@context");
+    expect(result).to.have.property("metadata");
+    expect(result.metadata).to.have.property("title", catalogueBook.title);
+    expect(result.metadata).to.have.property("visiblId", catalogueBook.id);
   });
 
 

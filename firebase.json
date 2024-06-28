@@ -59,6 +59,11 @@
         "source": "/v1/public/catalogue/opds",
         "function": "v1catalogueGetOPDS",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/tmp/catalogue/**",
+        "function": "v1catalogueGetManifest",
+        "region": "europe-west1"
       }
     ]
   }
