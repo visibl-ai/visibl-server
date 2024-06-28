@@ -24,11 +24,11 @@ import {
   deleteItemFromLibraryFirestore,
   getItemManifestFirestore,
   getLibraryFirestore,
+  getAiFirestore,
 } from "./storage/firestore.js";
 
 import {
   getCatalogueManifest,
-  getAiStorage,
 } from "./storage/storage.js";
 
 import {generateImages} from "./util/ai.js";
@@ -133,19 +133,6 @@ export const v1getItemManifest = onCall({region: "europe-west1"}, async (context
 });
 
 /**
- * Cloud Function to get AI-generated content based on user input.
- * This function is triggered by an on-call request and requires the user to be authenticated.
- *
- * @param {object} context - The context object provided by Firebase Functions, containing authentication details and data.
- * @returns {Promise<object>} A promise that resolves to the AI-generated content.
- */
-export const v1getAi = onCall({region: "europe-west1"}, async (context) => {
-  const {uid, data} = await validateOnCallAuth(context);
-  return await getAiStorage(uid, data, app);
-});
-
-
-/**
  * Retrieves a book from the Firestore database based on the user's UID and the book ID provided in the data.
  * This function is triggered by an on-call request and requires the user to be authenticated.
  *
@@ -225,4 +212,9 @@ export const v1catalogueUpdate = onRequest({region: "europe-west1"}, async (req,
 export const v1generateImages = onRequest({region: "europe-west1"}, async (req, res) => {
   await validateOnRequestAdmin(req);
   res.status(200).send(await generateImages(req, app));
+});
+
+export const v1getAi = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await getAiFirestore(uid, data, app);
 });

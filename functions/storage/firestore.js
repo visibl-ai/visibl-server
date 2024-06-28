@@ -416,6 +416,48 @@ async function deleteItemFromLibraryFirestore(uid, data, app) {
   };
 }
 
+/**
+ * Retrieves AI-generated content based on a library item.
+ *
+ * @param {string} uid - The user ID of the authenticated user.
+ * @param {object} data - The data object containing the libraryId.
+ * @param {object} app - The Firebase app instance.
+ * @return {Promise<object>} A promise that resolves to the AI-generated content.
+ */
+async function getAiFirestore(uid, data, app) {
+  const db = getFirestore();
+  const {libraryId} = data;
+
+  if (!libraryId) {
+    throw new Error("Invalid or missing libraryId");
+  }
+
+  const libraryRef = db.collection("Library").doc(libraryId);
+  const libraryDoc = await libraryRef.get();
+
+  if (!libraryDoc.exists) {
+    throw new Error("Library item not found");
+  }
+
+  const libraryData = libraryDoc.data();
+  if (libraryData.uid !== uid) {
+    throw new Error("Unauthorized access to library item");
+  }
+
+  const {catalogueId} = libraryData;
+  if (!catalogueId) {
+    throw new Error("CatalogueId not found in library item");
+  }
+
+  // Here you would typically process the catalogueManifest and generate AI content
+  // For now, we'll return a placeholder response
+  return {
+    message: "AI content generation placeholder",
+    catalogueId: catalogueId,
+    // Add more fields as needed for your AI content
+  };
+}
+
 
 export {
   saveUser,
@@ -431,4 +473,5 @@ export {
   getItemManifestFirestore,
   getLibraryFirestore,
   deleteItemFromLibraryFirestore,
+  getAiFirestore,
 };

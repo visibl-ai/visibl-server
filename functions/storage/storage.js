@@ -80,34 +80,6 @@ async function getCatalogueManifest(app, catalogueId) {
 }
 
 /**
- * Retrieves AI-generated content (scenes.json) for a specific catalogue item
- * @param {Object} app - The Firebase app instance
- * @param {string} catalogueId - The unique identifier for the catalogue item
- * @return {Promise<Object|null>} The AI-generated content as a JSON object or null if not found
- */
-async function getAiStorage(app, catalogueId) {
-  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
-  const filePath = `Catalogue/${catalogueId}/scenes.json`;
-  const file = bucket.file(filePath);
-
-  try {
-    const [exists] = await file.exists();
-    if (!exists) {
-      logger.warn(`AI content (scenes.json) not found for catalogue ${catalogueId}`);
-      return null;
-    }
-
-    const [content] = await file.download();
-    const aiContent = JSON.parse(content.toString());
-    return aiContent;
-  } catch (error) {
-    logger.error(`Error retrieving AI content for catalogue ${catalogueId}:`, error);
-    return null;
-  }
-}
-
-
-/**
  * Checks if a file exists in storage given the UID, path an filename
  * @param {Object} app - The Firebase app instance
  * @param {string} uid - The user's unique identifier
@@ -165,7 +137,6 @@ export {
   getCatalogueManifest,
   fileExists,
   deleteFile,
-  getAiStorage,
   uploadStreamAndGetPublicLink,
 };
 

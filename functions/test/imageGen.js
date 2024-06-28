@@ -11,12 +11,12 @@ const expect = chai.expect;
 import fs from "fs";
 
 const TEST = false;
-if (test) {
+let APP_URL = `http://127.0.0.1:5002`;
+if (TEST) {
   dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't work with conf.
-  const APP_URL = `http://127.0.0.1:5002`;
 } else {
   dotenv.config({path: ".env.visibl-dev-ali"}); // because firebase-functions-test doesn't work with conf.
-  const APP_URL = `https://visibl-dev-ali.appspot.com`;
+  APP_URL = `https://visibl-dev-ali.firebaseapp.com`;
 }
 
 describe("Image Gen", () => {
@@ -29,8 +29,8 @@ describe("Image Gen", () => {
     const catalogueId = "riw7PiKBeKZF70WUMoSw";
     // Load scenes data (assuming it's available)
     // const scenes = []; // You might need to load this from somewhere
-    const totalScenes = 3;// scenes.length;
-    const scenesPerRequest = 2;
+    const totalScenes = 6;// scenes.length;
+    const scenesPerRequest = 3;
     const startingScene = 0;
     for (let i = startingScene; i < totalScenes; i += scenesPerRequest) {
       const scenesToGenerate = [];
@@ -41,7 +41,7 @@ describe("Image Gen", () => {
       await new Promise((resolve) => {
         chai
             .request(APP_URL)
-            .post("/v1/ai/generateImages")
+            .post("/v1/admin/ai/generateImages")
             .set("API-KEY", process.env.ADMIN_API_KEY)
             .send({
               bookTitle: bookData.title,
@@ -52,17 +52,17 @@ describe("Image Gen", () => {
               catalogueId: catalogueId,
             })
             .end((err, res) => {
+              expect(err).to.be.null;
+              expect(res).to.have.status(200);
+              expect(res.body).to.be.an("object");
+              expect(res.body.scenes).to.be.an("array");
+
               // Save res.body to a JSON file
-              const outputPath = "./test/bindings/scenes/transcript_ch1_scenes_images.json";
-              fs.writeFileSync(outputPath, JSON.stringify(res.body, null, 2));
-              console.log(`Saved response body to ${outputPath}`);
               console.log(
                   "res.body = " + JSON.stringify(res.body).substring(0, 200),
               );
-              // expect(err).to.be.null;
-              // expect(res).to.have.status(200);
-              // expect(res.body).to.be.an("object");
-              // expect(res.body.scenes).to.be.an("array");
+              const outputPath = "./test/bindings/scenes/transcript_ch1_scenes_images.json";
+              fs.writeFileSync(outputPath, JSON.stringify(res.body, null, 2));
               if (
                 res.body.scenes &&
               res.body.scenes[i] &&
