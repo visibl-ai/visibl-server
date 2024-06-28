@@ -79,6 +79,33 @@ async function getCatalogueManifest(app, catalogueId) {
   }
 }
 
+/**
+ * Retrieves AI-generated content (scenes.json) for a specific catalogue item
+ * @param {Object} app - The Firebase app instance
+ * @param {string} catalogueId - The unique identifier for the catalogue item
+ * @return {Promise<Object|null>} The AI-generated content as a JSON object or null if not found
+ */
+async function getAiStorage(app, catalogueId) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+  const filePath = `Catalogue/${catalogueId}/scenes.json`;
+  const file = bucket.file(filePath);
+
+  try {
+    const [exists] = await file.exists();
+    if (!exists) {
+      logger.warn(`AI content (scenes.json) not found for catalogue ${catalogueId}`);
+      return null;
+    }
+
+    const [content] = await file.download();
+    const aiContent = JSON.parse(content.toString());
+    return aiContent;
+  } catch (error) {
+    logger.error(`Error retrieving AI content for catalogue ${catalogueId}:`, error);
+    return null;
+  }
+}
+
 
 /**
  * Checks if a file exists in storage given the UID, path an filename
@@ -108,11 +135,37 @@ async function deleteFile(app, uid, path, filename) {
   return file.delete();
 }
 
+const uploadStreamAndGetPublicLink = async (app, stream, filename) => {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+  const file = bucket.file(filename);
+  const blobStream = file.createWriteStream();
+  stream.pipe(blobStream);
+  return new Promise((resolve, reject) => {
+    blobStream.on("error", (err) => {
+      logger.error("Error uploading file to GCP: " + err);
+      reject(err);
+    });
+    blobStream.on("finish", async () => {
+      // Make the file public
+      await file.makePublic().catch((err) => {
+        logger.error("Error making file public: " + err);
+        reject(err);
+      });
+
+      // Now the file is public, construct the public URL
+      const publicUrl = `https://storage.googleapis.com/${STORAGE_BUCKET_ID.value()}/${filename}`;
+      resolve(publicUrl);
+    });
+  });
+};
+
 export {
   createUserFolder,
   createCatalogueFolder,
   getCatalogueManifest,
   fileExists,
   deleteFile,
+  getAiStorage,
+  uploadStreamAndGetPublicLink,
 };
 

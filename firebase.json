@@ -64,6 +64,11 @@
         "source": "/v1/tmp/catalogue/**",
         "function": "v1catalogueGetManifest",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/ai/generateImages",
+        "function": "v1generateImages",
+        "region": "europe-west1"
       }
     ]
   }
