@@ -54,6 +54,11 @@
         "source": "/v1/admin/catalogue/delete",
         "function": "v1catalogueDelete",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/public/catalogue/opds",
+        "function": "v1catalogueGetOPDS",
+        "region": "europe-west1"
       }
     ]
   }

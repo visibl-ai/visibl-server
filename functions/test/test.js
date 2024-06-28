@@ -216,6 +216,29 @@ describe("Customer creation via Firebase Auth", () => {
     expect(updatedBook).to.deep.equal(catalogueBook);
   });
 
+  it(`test v1catalogueGetOPDS`, async () => {
+    const response = await chai
+        .request(APP_URL)
+        .get("/v1/public/catalogue/opds");
+
+    expect(response).to.have.status(200);
+    expect(response).to.be.json;
+
+    const result = response.body;
+    console.log(result);
+    console.log(result.publications);
+    // Check for basic OPDS structure in JSON format
+    expect(result).to.have.property("metadata");
+    expect(result.metadata).to.have.property("title", "Visibl Catalog");
+    expect(result).to.have.property("publications");
+    expect(result.publications).to.be.an("array").that.is.not.empty;
+
+    // Check for specific book entry
+    const foundBook = result.publications.find((publication) => publication.metadata.title === catalogueBook.title);
+    expect(foundBook).to.exist;
+    expect(foundBook.metadata.identifier).to.equal(catalogueBook.id);
+  });
+
   it(`uploads a manifest file to catalogue item`, async () => {
     const bucket = getStorage(app).bucket();
     const bucketPath = `Catalogue/${catalogueBook.id}/`;

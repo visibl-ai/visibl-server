@@ -179,12 +179,10 @@ async function catalogueAddFirestore(req, app) {
 /**
  * Retrieves all items from the Catalogue collection in Firestore.
  *
- * @param {string} uid - The user ID of the authenticated user.
- * @param {object} data - Any additional data passed to the function (not used in this implementation).
  * @param {object} app - The Firebase app instance.
  * @return {Promise<Array<object>>} A promise that resolves to an array of all catalogue items.
  */
-async function catalogueGetFirestore(uid, data, app) {
+async function catalogueGetFirestore(app) {
   const catalogueRef = getFirestore().collection("Catalogue");
   const snapshot = await catalogueRef.get();
 

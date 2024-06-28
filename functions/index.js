@@ -32,6 +32,10 @@ import {
 } from "firebase-functions/v2/identity";
 
 import {
+  generateOPDS,
+} from "./util/opds.js";
+
+import {
   ENVIRONMENT,
   OPENAI_API_KEY,
 } from "./config/config.js";
@@ -171,7 +175,11 @@ export const v1catalogueAdd = onRequest({region: "europe-west1"}, async (req, re
 
 export const v1catalogueGet = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return catalogueGetFirestore(uid, data, app);
+  return catalogueGetFirestore(app);
+});
+
+export const v1catalogueGetOPDS = onRequest({region: "europe-west1"}, async (req, res) => {
+  res.status(200).send(generateOPDS(await catalogueGetFirestore(app)));
 });
 
 
