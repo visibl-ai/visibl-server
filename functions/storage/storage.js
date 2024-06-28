@@ -79,6 +79,7 @@ async function getCatalogueManifest(app, catalogueId) {
   }
 }
 
+
 /**
  * Checks if a file exists in storage given the UID, path an filename
  * @param {Object} app - The Firebase app instance
@@ -131,6 +132,36 @@ const uploadStreamAndGetPublicLink = async (app, stream, filename) => {
   });
 };
 
+/**
+ * Stores scene data as a JSON file in the storage bucket
+ * @param {Object} app - The Firebase app instance
+ * @param {string} catalogueId - The catalogue's unique identifier
+ * @param {Object} sceneData - The JSON data to be stored
+ * @return {Promise<void>} A promise that resolves when the file is stored
+ */
+async function storeScenes(app, catalogueId, sceneData) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+  const filename = `Catalogue/${catalogueId}/scenes.json`;
+  const file = bucket.file(filename);
+
+  const jsonString = JSON.stringify(sceneData, null, 2);
+  const buffer = Buffer.from(jsonString);
+
+  return new Promise((resolve, reject) => {
+    file.save(buffer, {
+      contentType: "application/json",
+    }, (err) => {
+      if (err) {
+        logger.error("Error uploading scenes JSON to GCP: " + err);
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+
 export {
   createUserFolder,
   createCatalogueFolder,
@@ -138,5 +169,6 @@ export {
   fileExists,
   deleteFile,
   uploadStreamAndGetPublicLink,
+  storeScenes,
 };
 

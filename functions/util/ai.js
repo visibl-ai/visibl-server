@@ -3,7 +3,10 @@ import {logger} from "firebase-functions/v2";
 import OpenAI from "openai";
 import {OPENAI_API_KEY} from "../config/config.js";
 import axios from "axios";
-import {uploadStreamAndGetPublicLink} from "../storage/storage.js";
+import {
+  uploadStreamAndGetPublicLink,
+  storeScenes,
+} from "../storage/storage.js";
 
 async function generateImages(req, app) {
   try {
@@ -30,6 +33,7 @@ async function generateImages(req, app) {
         logger.info("fullScenes[sceneIndex].image = " + fullScenes[sceneIndex].image);
       }
     }
+    await storeScenes(app, catalogueId, fullScenes);
     return fullScenes;
   } catch (error) {
     logger.error(error);

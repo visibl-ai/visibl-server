@@ -209,7 +209,7 @@ export const v1catalogueUpdate = onRequest({region: "europe-west1"}, async (req,
 });
 
 // /v1/ai/generateImages
-export const v1generateImages = onRequest({region: "europe-west1"}, async (req, res) => {
+export const v1generateSceneImages = onRequest({region: "europe-west1", cors: true}, async (req, res) => {
   await validateOnRequestAdmin(req);
   res.status(200).send(await generateImages(req, app));
 });
