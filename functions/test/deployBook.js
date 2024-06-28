@@ -11,7 +11,7 @@ const expect = chai.expect;
 import fs from "fs";
 dotenv.config({path: ".env.visibl-dev-ali"}); // because firebase-functions-test doesn't work with conf.
 
-const APP_URL = `http://127.0.0.1:5002`;
+const APP_URL = `https://visibl-dev-ali.appspot.com`;
 describe("GenerateImages", () => {
   let catalogueBook ={};
   // it(`test v1catalogueAdd`, async () => {
