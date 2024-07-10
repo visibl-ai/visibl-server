@@ -341,19 +341,20 @@ describe("Customer creation via Firebase Auth", () => {
 
     libraryItem = result;
 
-    // Try to add the same item again, it should throw an error
-    try {
-      await wrapped({
-        auth: {
-          uid: userData.uid,
-        },
-        data: addData,
-      });
-      // If we reach here, the test should fail
-      expect.fail("Should have thrown an error for duplicate item");
-    } catch (error) {
-      expect(error.message).to.include("Item already exists in the user's library");
-    }
+    // Try to add the same item again, it should return the existing item
+    const duplicateResult = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: addData,
+    });
+
+    console.log("Duplicate add result:", duplicateResult);
+    expect(duplicateResult).to.deep.equal(result);
+    expect(duplicateResult.id).to.equal(libraryItem.id);
+    expect(duplicateResult.uid).to.equal(userData.uid);
+    expect(duplicateResult.catalogueId).to.equal(catalogueBook.id);
+    expect(duplicateResult.addedAt).to.exist;
   });
 
   it(`test v1getItemManifest`, async () => {

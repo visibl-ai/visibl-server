@@ -285,7 +285,11 @@ async function addItemToLibraryFirestore(uid, data, app) {
       .get();
 
   if (!existingItem.empty) {
-    throw new Error("Item already exists in the user's library");
+    logger.info(`Item with catalogueId ${data.catalogueId} already exists in user ${uid}'s library`);
+    return {
+      id: existingItem.docs[0].id,
+      ...existingItem.docs[0].data(),
+    };
   }
 
   // Add the new item to the Library
@@ -437,6 +441,8 @@ async function getAiFirestore(uid, data, app) {
   const libraryDoc = await libraryRef.get();
 
   if (!libraryDoc.exists) {
+    logger.debug(`Library item with id ${libraryId} not found`);
+    logger.debug(`Library item data: ${typeof data === "object" ? JSON.stringify(data) : data}`);
     throw new Error("Library item not found");
   }
 

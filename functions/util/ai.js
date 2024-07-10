@@ -64,7 +64,7 @@ async function dalle3(app, bookTitle, chapterNumber, scenes, imageTheme, catalog
     const dallE3Config = {
       model: "dall-e-3",
       quality: "hd",
-      size: "1024x1024",
+      size: "1024x1792",
       style: "vivid",
       n: 1,
       response_format: "url",
