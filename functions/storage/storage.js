@@ -1,3 +1,4 @@
+/* eslint-disable require-jsdoc */
 import {getStorage} from "firebase-admin/storage";
 import {logger} from "firebase-functions/v2";
 import {STORAGE_BUCKET_ID} from "../config/config.js";
@@ -139,20 +140,36 @@ const uploadStreamAndGetPublicLink = async (app, stream, filename) => {
  * @param {Object} sceneData - The JSON data to be stored
  * @return {Promise<void>} A promise that resolves when the file is stored
  */
-async function storeScenes(app, catalogueId, sceneData) {
-  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+async function storeCatalogueScenes(app, catalogueId, sceneData) {
   const filename = `Catalogue/${catalogueId}/scenes.json`;
+  return storeJsonFile(app, filename, sceneData);
+}
+
+
+async function storeUserScenes(app, uid, libraryId, sceneId, sceneData) {
+  const filename = `UserData/${uid}/Library/${libraryId}/Scenes/${sceneId}.json`;
+  return storeJsonFile(app, filename, sceneData);
+}
+
+/**
+ * Stores JSON data as a file in the storage bucket
+ * @param {Object} app - The Firebase app instance
+ * @param {string} filename - The name of the file to be stored
+ * @param {Object} data - The JSON data to be stored
+ * @return {Promise<void>} A promise that resolves when the file is stored
+ */
+async function storeJsonFile(app, filename, data) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(filename);
 
-  const jsonString = JSON.stringify(sceneData, null, 2);
+  const jsonString = JSON.stringify(data, null, 2);
   const buffer = Buffer.from(jsonString);
-
   return new Promise((resolve, reject) => {
     file.save(buffer, {
       contentType: "application/json",
     }, (err) => {
       if (err) {
-        logger.error("Error uploading scenes JSON to GCP: " + err);
+        logger.error("Error uploading JSON to GCP: " + err);
         reject(err);
       } else {
         resolve();
@@ -167,9 +184,26 @@ async function storeScenes(app, catalogueId, sceneData) {
  * @param {string} catalogueId - The catalogue's unique identifier
  * @return {Promise<Object>} A promise that resolves to the parsed JSON data
  */
-async function getScenes(app, catalogueId) {
-  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+async function getCatalogueScenes(app, catalogueId) {
   const filename = `Catalogue/${catalogueId}/scenes.json`;
+  return getJsonFile(app, filename);
+}
+
+async function getUserScenes(app, uid, libraryId, sceneId) {
+  const filename = `UserData/${uid}/Library/${libraryId}/Scenes/${sceneId}.json`;
+  return getJsonFile(app, filename);
+}
+
+/**
+ * Retrieves a JSON file from the storage bucket and parses its contents
+ *
+ * @param {Object} app - The Firebase app instance
+ * @param {string} filename - The name of the file to retrieve
+ * @return {Promise<Object>} A promise that resolves to the parsed JSON data
+ * @throws {Error} If there's an error downloading or parsing the file
+ */
+async function getJsonFile(app, filename) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(filename);
 
   return new Promise((resolve, reject) => {
@@ -182,7 +216,7 @@ async function getScenes(app, catalogueId) {
           const sceneData = JSON.parse(contents.toString());
           resolve(sceneData);
         } catch (parseError) {
-          logger.error("Error parsing scenes JSON: " + parseError);
+          logger.error("Error parsing JSON: " + parseError);
           reject(parseError);
         }
       }
@@ -198,7 +232,9 @@ export {
   fileExists,
   deleteFile,
   uploadStreamAndGetPublicLink,
-  storeScenes,
-  getScenes,
+  storeCatalogueScenes,
+  getCatalogueScenes,
+  storeUserScenes,
+  getUserScenes,
 };
 

@@ -5,7 +5,7 @@ import {OPENAI_API_KEY} from "../config/config.js";
 import axios from "axios";
 import {
   uploadStreamAndGetPublicLink,
-  storeScenes,
+  storeCatalogueScenes,
 } from "../storage/storage.js";
 
 async function generateImages(req, app) {
@@ -33,7 +33,7 @@ async function generateImages(req, app) {
         logger.info("fullScenes[sceneIndex].image = " + fullScenes[sceneIndex].image);
       }
     }
-    await storeScenes(app, catalogueId, fullScenes);
+    await storeCatalogueScenes(app, catalogueId, fullScenes);
     return fullScenes;
   } catch (error) {
     logger.error(error);

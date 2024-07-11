@@ -1,10 +1,13 @@
+/* eslint-disable require-jsdoc */
 /* eslint-disable no-unused-vars */
 import {
   getFirestore,
   Timestamp} from "firebase-admin/firestore";
 import {
   getCatalogueManifest,
-  getScenes,
+  getCatalogueScenes,
+  storeUserScenes,
+  getUserScenes,
 } from "./storage.js";
 import {logger} from "firebase-functions/v2";
 import {createBookPipeline} from "../util/pipeline.js";
@@ -302,6 +305,18 @@ async function addItemToLibraryFirestore(uid, data, app) {
   const docRef = await libraryRef.add(newItem);
   const addedDoc = await docRef.get();
 
+  // Create a new scene for the library item
+  const sceneData = await createLibraryScenesFirestore(uid, {
+    libraryId: addedDoc.id,
+    prompt: "",
+    userDefault: true,
+  }, app);
+  try {
+    await storeUserScenes(app, uid, addedDoc.id, sceneData.id, await getCatalogueScenes(app, data.catalogueId));
+  } catch (error) {
+    logger.error(`Error storing user scenes for library item ${addedDoc.id}:`, error);
+  }
+
   return {
     id: addedDoc.id,
     ...addedDoc.data(),
@@ -392,6 +407,7 @@ async function getLibraryFirestore(uid, data, app) {
 async function deleteItemFromLibraryFirestore(uid, data, app) {
   const db = getFirestore();
   const libraryRef = db.collection("Library");
+  const scenesRef = db.collection("Scenes");
   const {libraryIds} = data;
 
   if (!Array.isArray(libraryIds) || libraryIds.length === 0) {
@@ -407,6 +423,13 @@ async function deleteItemFromLibraryFirestore(uid, data, app) {
 
     if (doc.exists && doc.data().uid === uid) {
       batch.delete(docRef);
+
+      // Delete corresponding Scenes document
+      const sceneQuery = await scenesRef.where("uid", "==", uid).where("libraryId", "==", libraryId).get();
+      sceneQuery.forEach((sceneDoc) => {
+        batch.delete(sceneDoc.ref);
+      });
+
       deletionResults.success.push(libraryId);
     } else {
       deletionResults.failed.push(libraryId);
@@ -459,19 +482,89 @@ async function getAiFirestore(uid, data, app) {
   // Retrieve the scenes data for the catalogueId
   let scenes;
   try {
-    scenes = await getScenes(app, catalogueId);
+    scenes = await getUserLibraryScene(app, uid, libraryId);
   } catch (error) {
-    logger.error(`Error retrieving scenes for catalogueId ${catalogueId}:`, error);
+    logger.error(`Error retrieving scenes for libraryId ${libraryId}:`, error);
     throw new Error("Failed to retrieve scenes data");
   }
 
   if (!scenes) {
-    throw new Error("No scenes data found for the given catalogueId");
+    throw new Error("No scenes data found for the given libraryId");
   }
 
   // Here you would typically process the catalogueManifest and generate AI content
   // For now, we'll return a placeholder response
   return scenes;
+}
+
+async function createLibraryScenesFirestore(uid, data, app) {
+  const db = getFirestore();
+  // eslint-disable-next-line prefer-const
+  let {libraryId, prompt, userDefault} = data;
+  if (!libraryId) {
+    throw new Error("Both libraryId and prompt are required");
+  }
+  // Set userDefault to false if it's undefined
+  if (prompt === undefined) {
+    throw new Error("Prompt cannot be undefined");
+  }
+  userDefault === undefined ? false : userDefault;
+  const scenesRef = db.collection("Scenes");
+
+  // Check for existing scene
+  const existingScene = await scenesRef
+      .where("uid", "==", uid)
+      .where("libraryId", "==", libraryId)
+      .where("prompt", "==", prompt)
+      .limit(1)
+      .get();
+
+  if (!existingScene.empty) {
+    const existingSceneData = existingScene.docs[0].data();
+    return {id: existingScene.docs[0].id, ...existingSceneData};
+  }
+
+  // Create new scene if not exists
+  const newScene = {
+    uid,
+    libraryId,
+    prompt,
+    userDefault,
+    createdAt: Timestamp.now(),
+  };
+  const newSceneRef = await scenesRef.add(newScene);
+  return {id: newSceneRef.id, ...newScene};
+}
+
+async function getUserLibraryScene(app, uid, libraryId, sceneId) {
+  const db = getFirestore();
+  let sceneToFetch;
+  // We're told what scene to get.
+  if (sceneId) {
+    const sceneRef = db.collection("Scenes").doc(sceneId);
+    const scene = await sceneRef.get();
+
+    if (!scene.exists || scene.data().uid !== uid) {
+      throw new Error("Scene not found or does not belong to the user");
+    }
+
+    sceneToFetch = sceneId;
+  } else {
+    // No scene Id given. Get the default scene.
+    const defaultSceneQuery = await db.collection("Scenes")
+        .where("uid", "==", uid)
+        .where("libraryId", "==", libraryId)
+        .where("userDefault", "==", true)
+        .limit(1)
+        .get();
+
+    if (defaultSceneQuery.empty) {
+      throw new Error("No default scene found for this library item");
+    }
+
+    sceneToFetch = defaultSceneQuery.docs[0].id;
+  }
+  return await getUserScenes(app, uid, libraryId, sceneToFetch);
 }
 
 

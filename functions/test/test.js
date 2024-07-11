@@ -405,7 +405,7 @@ describe("Customer creation via Firebase Auth", () => {
       data: getAiData,
     });
 
-    console.log(result);
+    // console.log(result);
     expect(result).to.exist;
     expect(result).to.be.an("array");
     expect(result[0]).to.have.property("scene_number");
