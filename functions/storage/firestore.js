@@ -306,7 +306,7 @@ async function addItemToLibraryFirestore(uid, data, app) {
   const addedDoc = await docRef.get();
 
   // Create a new scene for the library item
-  const sceneData = await createLibraryScenesFirestore(uid, {
+  const sceneData = await addLibraryItemScenesFirestore(uid, {
     libraryId: addedDoc.id,
     prompt: "",
     userDefault: true,
@@ -497,44 +497,48 @@ async function getAiFirestore(uid, data, app) {
   return scenes;
 }
 
-async function createLibraryScenesFirestore(uid, data, app) {
-  const db = getFirestore();
-  // eslint-disable-next-line prefer-const
-  let {libraryId, prompt, userDefault} = data;
-  if (!libraryId) {
-    throw new Error("Both libraryId and prompt are required");
-  }
-  // Set userDefault to false if it's undefined
-  if (prompt === undefined) {
-    throw new Error("Prompt cannot be undefined");
-  }
-  userDefault === undefined ? false : userDefault;
-  const scenesRef = db.collection("Scenes");
+// async function createLibraryScenesFirestore(uid, data, app) {
+//   const db = getFirestore();
+//   // eslint-disable-next-line prefer-const
+//   let {libraryId, prompt, userDefault} = data;
+//   if (!libraryId) {
+//     throw new Error("Both libraryId and prompt are required");
+//   }
+//   // Set userDefault to false if it's undefined
+//   if (prompt === undefined) {
+//     throw new Error("Prompt cannot be undefined");
+//   }
+//   userDefault === undefined ? false : userDefault;
+//   const scenesRef = db.collection("Scenes");
 
-  // Check for existing scene
-  const existingScene = await scenesRef
-      .where("uid", "==", uid)
-      .where("libraryId", "==", libraryId)
-      .where("prompt", "==", prompt)
-      .limit(1)
-      .get();
+//   // Check for existing scene
+//   const existingScene = await scenesRef
+//       .where("uid", "==", uid)
+//       .where("libraryId", "==", libraryId)
+//       .where("prompt", "==", prompt)
+//       .limit(1)
+//       .get();
 
-  if (!existingScene.empty) {
-    const existingSceneData = existingScene.docs[0].data();
-    return {id: existingScene.docs[0].id, ...existingSceneData};
-  }
+//   if (!existingScene.empty) {
+//     const existingSceneData = existingScene.docs[0].data();
+//     return {id: existingScene.docs[0].id, ...existingSceneData};
+//   }
 
-  // Create new scene if not exists
-  const newScene = {
-    uid,
-    libraryId,
-    prompt,
-    userDefault,
-    createdAt: Timestamp.now(),
-  };
-  const newSceneRef = await scenesRef.add(newScene);
-  return {id: newSceneRef.id, ...newScene};
-}
+
+//   // Create new scene if not exists
+//   const newScene = {
+//     uid,
+//     libraryId,
+//     prompt,
+//     userDefault,
+//     createdAt: Timestamp.now(),
+//   };
+//   const newSceneRef = await scenesRef.add(newScene);
+//   if (userDefault) {
+//     await updateUserLibraryDefault(db, uid, newSceneRef, libraryId, newSceneRef.id);
+//   }
+//   return {id: newSceneRef.id, ...newScene};
+// }
 
 async function getUserLibraryScene(app, uid, libraryId, sceneId) {
   const db = getFirestore();
@@ -593,8 +597,8 @@ async function addLibraryItemScenesFirestore(uid, data, app) {
   const db = getFirestore();
   const {libraryId, prompt, userDefault} = data;
   // Check if prompt is undefined or an empty string
-  if (!prompt || prompt.trim() === "") {
-    throw new Error("Prompt cannot be empty or undefined");
+  if (prompt === undefined) {
+    throw new Error("Prompt cannot be undefined");
   }
 
   // Check if userDefault is undefined
@@ -620,18 +624,7 @@ async function addLibraryItemScenesFirestore(uid, data, app) {
 
   // If userDefault is true, update all existing scenes for this libraryId to false
   if (isUserDefault) {
-    const batch = db.batch();
-    const existingScenesQuery = await scenesRef
-        .where("uid", "==", uid)
-        .where("libraryId", "==", libraryId)
-        .where("userDefault", "==", true)
-        .get();
-
-    existingScenesQuery.forEach((doc) => {
-      batch.update(doc.ref, {userDefault: false});
-    });
-
-    await batch.commit();
+    await updateUserLibraryDefault(db, uid, scenesRef, libraryId);
   }
 
   const newScene = {
@@ -678,34 +671,32 @@ async function updateLibraryItemScenesFirestore(uid, data, app) {
 
   // If setting as default, update all other scenes for this libraryId to non-default
   if (isUserDefault) {
-    const batch = db.batch();
-    const existingScenesQuery = await scenesRef
-        .where("uid", "==", uid)
-        .where("libraryId", "==", libraryId)
-        .where("userDefault", "==", true)
-        .get();
-
-    existingScenesQuery.forEach((doc) => {
-      if (doc.id !== sceneId) {
-        batch.update(doc.ref, {userDefault: false});
-      }
-    });
-
-    // Update the current scene
-    batch.update(sceneToUpdate.ref, {userDefault: isUserDefault});
-
-    await batch.commit();
-  } else {
-    // If not setting as default, just update the current scene
-    await sceneToUpdate.ref.update({userDefault: isUserDefault});
+    await updateUserLibraryDefault(db, uid, scenesRef, libraryId, sceneId);
   }
-
+  await sceneToUpdate.ref.update({userDefault: isUserDefault});
   // Return the updated scene data
   return {
     id: sceneId,
     ...sceneData,
     userDefault: isUserDefault,
   };
+}
+
+async function updateUserLibraryDefault(db, uid, scenesRef, libraryId, sceneId) {
+  const batch = db.batch();
+  const existingScenesQuery = await scenesRef
+      .where("uid", "==", uid)
+      .where("libraryId", "==", libraryId)
+      .where("userDefault", "==", true)
+      .get();
+
+  existingScenesQuery.forEach((doc) => {
+    if (doc.id !== sceneId) {
+      batch.update(doc.ref, {userDefault: false});
+    }
+  });
+
+  await batch.commit();
 }
 
 export {
