@@ -567,6 +567,146 @@ async function getUserLibraryScene(app, uid, libraryId, sceneId) {
   return await getUserScenes(app, uid, libraryId, sceneToFetch);
 }
 
+async function getLibraryScenesFirestore(uid, data, app) {
+  const db = getFirestore();
+  const {libraryId} = data;
+  // Query the Scenes collection for items matching uid and libraryId
+  const scenesQuery = await db.collection("Scenes")
+      .where("uid", "==", uid)
+      .where("libraryId", "==", libraryId)
+      .get();
+
+  // If no scenes found, return an empty array
+  if (scenesQuery.empty) {
+    return [];
+  }
+
+  // Map the query results to an array of scene objects
+  const scenes = scenesQuery.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+  return scenes;
+}
+
+async function addLibraryItemScenesFirestore(uid, data, app) {
+  const db = getFirestore();
+  const {libraryId, prompt, userDefault} = data;
+  // Check if prompt is undefined or an empty string
+  if (!prompt || prompt.trim() === "") {
+    throw new Error("Prompt cannot be empty or undefined");
+  }
+
+  // Check if userDefault is undefined
+  if (userDefault === undefined) {
+    throw new Error("userDefault must be specified");
+  }
+
+  // Ensure userDefault is a boolean
+  const isUserDefault = Boolean(userDefault);
+
+  const scenesRef = db.collection("Scenes");
+
+  // Check if a scene with the same libraryId and prompt already exists
+  const existingSceneQuery = await scenesRef
+      .where("uid", "==", uid)
+      .where("libraryId", "==", libraryId)
+      .where("prompt", "==", prompt)
+      .get();
+
+  if (!existingSceneQuery.empty) {
+    throw new Error("A scene with the same libraryId and prompt already exists");
+  }
+
+  // If userDefault is true, update all existing scenes for this libraryId to false
+  if (isUserDefault) {
+    const batch = db.batch();
+    const existingScenesQuery = await scenesRef
+        .where("uid", "==", uid)
+        .where("libraryId", "==", libraryId)
+        .where("userDefault", "==", true)
+        .get();
+
+    existingScenesQuery.forEach((doc) => {
+      batch.update(doc.ref, {userDefault: false});
+    });
+
+    await batch.commit();
+  }
+
+  const newScene = {
+    uid,
+    libraryId,
+    prompt,
+    userDefault,
+    createdAt: Timestamp.now(),
+  };
+
+  const newSceneRef = await scenesRef.add(newScene);
+  return {id: newSceneRef.id, ...newScene};
+}
+
+async function updateLibraryItemScenesFirestore(uid, data, app) {
+  const db = getFirestore();
+  const {libraryId, sceneId, userDefault} = data;
+  if (!libraryId || !sceneId) {
+    throw new Error("libraryId and sceneId are required");
+  }
+
+  if (userDefault === undefined) {
+    throw new Error("userDefault must be specified");
+  }
+
+  // Ensure userDefault is a boolean
+  const isUserDefault = Boolean(userDefault);
+
+  const scenesRef = db.collection("Scenes");
+
+  // Get the scene to update
+  const sceneToUpdate = await scenesRef.doc(sceneId).get();
+
+  if (!sceneToUpdate.exists) {
+    throw new Error("Scene not found");
+  }
+
+  const sceneData = sceneToUpdate.data();
+
+  // Check if the scene belongs to the user and library
+  if (sceneData.uid !== uid || sceneData.libraryId !== libraryId) {
+    throw new Error("Unauthorized to update this scene");
+  }
+
+  // If setting as default, update all other scenes for this libraryId to non-default
+  if (isUserDefault) {
+    const batch = db.batch();
+    const existingScenesQuery = await scenesRef
+        .where("uid", "==", uid)
+        .where("libraryId", "==", libraryId)
+        .where("userDefault", "==", true)
+        .get();
+
+    existingScenesQuery.forEach((doc) => {
+      if (doc.id !== sceneId) {
+        batch.update(doc.ref, {userDefault: false});
+      }
+    });
+
+    // Update the current scene
+    batch.update(sceneToUpdate.ref, {userDefault: isUserDefault});
+
+    await batch.commit();
+  } else {
+    // If not setting as default, just update the current scene
+    await sceneToUpdate.ref.update({userDefault: isUserDefault});
+  }
+
+  // Return the updated scene data
+  return {
+    id: sceneId,
+    ...sceneData,
+    userDefault: isUserDefault,
+  };
+}
 
 export {
   saveUser,
@@ -583,4 +723,7 @@ export {
   getLibraryFirestore,
   deleteItemFromLibraryFirestore,
   getAiFirestore,
+  getLibraryScenesFirestore,
+  addLibraryItemScenesFirestore,
+  updateLibraryItemScenesFirestore,
 };

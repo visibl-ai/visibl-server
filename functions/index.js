@@ -25,6 +25,9 @@ import {
   getItemManifestFirestore,
   getLibraryFirestore,
   getAiFirestore,
+  getLibraryScenesFirestore,
+  addLibraryItemScenesFirestore,
+  updateLibraryItemScenesFirestore,
 } from "./storage/firestore.js";
 
 import {
@@ -217,4 +220,19 @@ export const v1generateSceneImages = onRequest({region: "europe-west1", cors: tr
 export const v1getAi = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await getAiFirestore(uid, data, app);
+});
+
+export const v1getLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await getLibraryScenesFirestore(uid, data, app);
+});
+
+export const v1addLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await addLibraryItemScenesFirestore(uid, data, app);
+});
+
+export const v1updateLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await updateLibraryItemScenesFirestore(uid, data, app);
 });

@@ -45,6 +45,9 @@ import {
   v1getItemManifest,
   v1catalogueGet,
   v1getAi,
+  v1getLibraryItemScenes,
+  v1addLibraryItemScenes,
+  v1updateLibraryItemScenes,
 } from "../index.js";
 
 
@@ -301,7 +304,7 @@ describe("Customer creation via Firebase Auth", () => {
         .get(`/v1/tmp/catalogue/${visiblId}`);
 
     const result = response.body;
-    console.log(result);
+    // console.log(result);
     expect(response).to.have.status(200);
     expect(response).to.be.json;
 
@@ -372,7 +375,7 @@ describe("Customer creation via Firebase Auth", () => {
       data: getManifestData,
     });
 
-    console.log(result);
+    // console.log(result);
     expect(result).to.exist;
 
     // Try to get manifest for a non-existent item, it should throw an error
@@ -390,7 +393,7 @@ describe("Customer creation via Firebase Auth", () => {
     }
   });
 
-  it(`test v1getAi`, async () => {
+  it(`test v1 without a sceneId`, async () => {
     const wrapped = firebaseTest.wrap(v1getAi);
 
     // Prepare the data for getting AI content
@@ -447,6 +450,147 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result[0]).to.have.property("catalogueId");
     expect(result[0]).to.not.have.property("manifest");
     console.log(result);
+  });
+  let originalScene;
+  it(`test v1getLibraryItemScenes`, async () => {
+    const wrapped = firebaseTest.wrap(v1getLibraryItemScenes);
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id,
+      },
+    });
+    console.log(result);
+    expect(result).to.be.an("array");
+    expect(result.length).to.be.at.least(1);
+
+    // Check properties of each scene
+    result.forEach((scene) => {
+      expect(scene).to.have.property("id");
+      expect(scene).to.have.property("uid").that.equals(userData.uid);
+      expect(scene).to.have.property("libraryId").that.equals(libraryItem.id);
+      expect(scene).to.have.property("prompt");
+      expect(scene).to.have.property("userDefault").that.is.a("boolean");
+      expect(scene).to.have.property("createdAt");
+    });
+
+    // Check if there's a default scene
+    const defaultScene = result.find((scene) => scene.userDefault === true);
+    expect(defaultScene).to.exist;
+    originalScene = defaultScene;
+    // Test with a non-existent library item
+    const nonExistentResult = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: "non-existent-id",
+      },
+    });
+    expect(nonExistentResult).to.be.an("array").that.is.empty;
+  });
+
+  let addedScene;
+  it(`test v1addLibraryItemScenes`, async () => {
+    const wrapped = firebaseTest.wrap(v1addLibraryItemScenes);
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id,
+        prompt: "Miyazaki",
+        userDefault: true,
+      },
+    });
+    console.log(result);
+    expect(result).to.have.property("id");
+    expect(result).to.have.property("prompt", "Miyazaki");
+    expect(result).to.have.property("userDefault", true);
+    addedScene = result;
+  });
+
+  it(`test v1getLibraryItemScenes after adding a new scene`, async () => {
+    const wrapped = firebaseTest.wrap(v1getLibraryItemScenes);
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id,
+      },
+    });
+
+    console.log(result);
+    expect(result).to.be.an("array");
+    expect(result.length).to.be.at.least(2);
+
+    // Check if the added scene is present
+    const addedSceneInResult = result.find((scene) => scene.id === addedScene.id);
+    expect(addedSceneInResult).to.exist;
+    expect(addedSceneInResult.prompt).to.equal("Miyazaki");
+    expect(addedSceneInResult.userDefault).to.be.true;
+
+    // Check if the original scene is no longer the default
+    const originalSceneInResult = result.find((scene) => scene.id === originalScene.id);
+    expect(originalSceneInResult).to.exist;
+    expect(originalSceneInResult.userDefault).to.be.false;
+
+    // Ensure only one scene is set as default
+    const defaultScenes = result.filter((scene) => scene.userDefault === true);
+    expect(defaultScenes.length).to.equal(1);
+    expect(defaultScenes[0].id).to.equal(addedScene.id);
+  });
+
+  it(`test v1updateLibraryItemScenes to set original scene back to default`, async () => {
+    const wrapped = firebaseTest.wrap(v1updateLibraryItemScenes);
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id,
+        sceneId: originalScene.id,
+        userDefault: true,
+      },
+    });
+
+    console.log(result);
+    expect(result).to.have.property("id", originalScene.id);
+    expect(result).to.have.property("userDefault", true);
+
+    // Now get the scenes again to verify the changes
+    const getScenes = firebaseTest.wrap(v1getLibraryItemScenes);
+    const scenesResult = await getScenes({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id,
+      },
+    });
+
+    console.log(scenesResult);
+    expect(scenesResult).to.be.an("array");
+    expect(scenesResult.length).to.be.at.least(2);
+
+    // Check if the original scene is now the default
+    const updatedOriginalScene = scenesResult.find((scene) => scene.id === originalScene.id);
+    expect(updatedOriginalScene).to.exist;
+    expect(updatedOriginalScene.userDefault).to.be.true;
+
+    // Check if the previously added scene is no longer the default
+    const updatedAddedScene = scenesResult.find((scene) => scene.id === addedScene.id);
+    expect(updatedAddedScene).to.exist;
+    expect(updatedAddedScene.userDefault).to.be.false;
+
+    // Ensure only one scene is set as default
+    const defaultScenes = scenesResult.filter((scene) => scene.userDefault === true);
+    expect(defaultScenes.length).to.equal(1);
+    expect(defaultScenes[0].id).to.equal(originalScene.id);
   });
 
   it(`test v1getLibrary with includeManifest=true`, async () => {
@@ -508,7 +652,7 @@ describe("Customer creation via Firebase Auth", () => {
         uid: userData.uid,
       },
       data: {
-        libraryIds: [itemId],
+        libraryIds: [itemId, libraryItem.id],
       },
     });
 
@@ -519,7 +663,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result.results).to.have.property("failed");
     expect(result.results.success).to.be.an("array").that.includes(itemId);
     expect(result.results.failed).to.be.an("array").that.is.empty;
-    console.log(result);
+    // console.log(result);
     // Verify the item is no longer in the library using v1getLibrary
     const libraryAfterDeletion = await firebaseTest.wrap(v1getLibrary)({
       auth: {
@@ -530,6 +674,32 @@ describe("Customer creation via Firebase Auth", () => {
 
     expect(libraryAfterDeletion).to.be.an("array");
     expect(libraryAfterDeletion.find((item) => item.id === itemId)).to.be.undefined;
+  });
+
+  it(`test no scenes for deleted book`, async () => {
+    const wrapped = firebaseTest.wrap(v1getLibraryItemScenes);
+
+    // Try to get scenes for the deleted book
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id, // Using the itemId from the previous test
+      },
+    });
+
+    // Check that the result is an empty array
+    expect(result).to.be.an("array").that.is.empty;
+
+    // Verify that the scenes collection is empty for this book
+    const db = getFirestore();
+    const scenesSnapshot = await db.collection("Scenes")
+        .where("uid", "==", userData.uid)
+        .where("libraryId", "==", libraryItem.id)
+        .get();
+
+    expect(scenesSnapshot.empty).to.be.true;
   });
 
 
