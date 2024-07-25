@@ -699,6 +699,60 @@ async function updateUserLibraryDefault(db, uid, scenesRef, libraryId, sceneId) 
   await batch.commit();
 }
 
+async function storeAudibleAuthFirestore(uid, audibleUserId, auth) {
+  const db = getFirestore();
+  const authRef = db.collection("AudibleAuth").doc(audibleUserId);
+  await authRef.set({uid, audibleUserId, auth, expires: auth.expires});
+}
+
+async function getAudibleAuthByAudibleId(audibleUserId) {
+  const db = getFirestore();
+  const authRef = db.collection("AudibleAuth").doc(audibleUserId);
+  const auth = await authRef.get();
+  return auth.data();
+}
+
+async function getAudibleAuthByUid(uid) {
+  const db = getFirestore();
+  const authRef = db.collection("AudibleAuth").where("uid", "==", uid);
+  const auth = await authRef.get();
+  return auth.docs[0].data().auth;
+}
+
+async function storeAudibleItemsFirestore(uid, library) {
+  const db = getFirestore();
+
+  const batch = db.batch();
+
+  for (const libraryItem of library) {
+    const asin = libraryItem.metadata.identifier;
+    const title = libraryItem.metadata.title;
+    const libraryRef = db.collection("UserAudibleSync").doc(`${uid}:${asin}`);
+    batch.set(libraryRef, {
+      uid,
+      title,
+      asin: asin,
+    }, {merge: true});
+  }
+  await batch.commit();
+}
+
+async function getAudibleItemsFirestore(uid) {
+  const db = getFirestore();
+  const itemsRef = db.collection("UserAudibleSync").where("uid", "==", uid);
+  const items = await itemsRef.get();
+  return items.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+}
+
+async function updateAudibleItemFirestore(item) {
+  const db = getFirestore();
+  const itemRef = db.collection("UserAudibleSync").doc(item.id);
+  await itemRef.update(item);
+}
+
 export {
   saveUser,
   getUser,
@@ -717,4 +771,10 @@ export {
   getLibraryScenesFirestore,
   addLibraryItemScenesFirestore,
   updateLibraryItemScenesFirestore,
+  storeAudibleAuthFirestore,
+  getAudibleAuthByAudibleId,
+  getAudibleAuthByUid,
+  storeAudibleItemsFirestore,
+  updateAudibleItemFirestore,
+  getAudibleItemsFirestore,
 };

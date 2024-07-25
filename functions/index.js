@@ -46,6 +46,12 @@ import {
 } from "./util/opds.js";
 
 import {
+  getAudibleLoginURL,
+  getAudibleAuth,
+  audiblePostAuthHook,
+} from "./util/audibleOpdsHelper.js";
+
+import {
   ENVIRONMENT,
   OPENAI_API_KEY,
 } from "./config/config.js";
@@ -235,4 +241,20 @@ export const v1addLibraryItemScenes = onCall({region: "europe-west1"}, async (co
 export const v1updateLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await updateLibraryItemScenesFirestore(uid, data, app);
+});
+
+// Endpoints to use audible-opds-firebase
+export const v1getAudibleLoginURL = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await getAudibleLoginURL(uid, data, app);
+});
+
+export const v1audibleGetAuth = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await getAudibleAuth(uid, data, app);
+});
+
+export const v1TMPaudiblePostAuthHook = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await audiblePostAuthHook(uid, data, app);
 });

@@ -48,6 +48,9 @@ import {
   v1getLibraryItemScenes,
   v1addLibraryItemScenes,
   v1updateLibraryItemScenes,
+  v1getAudibleLoginURL,
+  v1audibleGetAuth,
+  v1TMPaudiblePostAuthHook,
 } from "../index.js";
 
 
@@ -220,7 +223,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(updatedBook).to.deep.equal(catalogueBook);
   });
   let foundBook;
-  it(`test v1catalogueGetOPDS`, async () => {
+  it(`test v1catalogueGetOPDS (public)`, async () => {
     const response = await chai
         .request(APP_URL)
         .get("/v1/public/catalogue/opds");
@@ -242,6 +245,75 @@ describe("Customer creation via Firebase Auth", () => {
     expect(foundBook).to.exist;
     expect(foundBook.metadata.identifier).to.equal(catalogueBook.id);
   });
+
+  it("Audible - get login URL", async () => {
+    const wrapped = firebaseTest.wrap(v1getAudibleLoginURL);
+    const data = {
+      countryCode: "ca",
+    };
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.have.property("loginUrl");
+    expect(result).to.have.property("codeVerifier");
+    expect(result).to.have.property("serial");
+  });
+  const DO_AUDIBLE_LOGIN = false;
+  if (DO_AUDIBLE_LOGIN) {
+    it("Audible - submit login URL", async () => {
+    // Load the audibleUrl.json file
+      const audibleUrlPath = path.join("test", "bindings", "audibleUrl.json");
+      const audibleUrlData = JSON.parse(fs.readFileSync(audibleUrlPath, "utf8"));
+      // You can now use audibleUrlData in your test
+      expect(audibleUrlData).to.have.property("codeVerifier");
+      expect(audibleUrlData).to.have.property("serial");
+      expect(audibleUrlData).to.have.property("responseUrl");
+      expect(audibleUrlData).to.have.property("countryCode");
+
+      const wrapped = firebaseTest.wrap(v1audibleGetAuth);
+      const data = {
+        codeVerifier: audibleUrlData.codeVerifier,
+        responseUrl: audibleUrlData.responseUrl,
+        serial: audibleUrlData.serial,
+        countryCode: audibleUrlData.countryCode,
+      };
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      console.log(result);
+      expect(result).to.have.property("access_token");
+      expect(result).to.have.property("refresh_token");
+      // Write result to audibleAuth.json file
+      const audibleAuthPath = path.join("test", "bindings", "audibleAuth.json");
+      fs.writeFileSync(audibleAuthPath, JSON.stringify(result, null, 2));
+      console.log(`Audible auth data written to ${audibleAuthPath}`);
+    });
+  }
+  it("Audible - post auth automation.", async () => {
+    const audibleAuthPath = path.join("test", "bindings", "audibleAuth.json");
+    const auth = JSON.parse(fs.readFileSync(audibleAuthPath, "utf8"));
+    const wrapped = firebaseTest.wrap(v1TMPaudiblePostAuthHook);
+    const data = {auth};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+  });
+  return;
+  it("Audible - submit refresh token", async () => {
+
+  });
+
 
   it(`uploads a manifest file to catalogue item`, async () => {
     const bucket = getStorage(app).bucket();

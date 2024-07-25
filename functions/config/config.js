@@ -5,6 +5,8 @@ const ENVIRONMENT = defineString("ENVIRONMENT");
 const OPENAI_API_KEY = defineString("OPENAI_API_KEY");
 const ADMIN_API_KEY = defineString("ADMIN_API_KEY");
 const STORAGE_BUCKET_ID = defineString("STORAGE_BUCKET_ID");
+const AUDIBLE_OPDS_API_KEY = defineString("AUDIBLE_OPDS_API_KEY");
+const AUDIBLE_OPDS_FIREBASE_URL = defineString("AUDIBLE_OPDS_FIREBASE_URL");
 
 
 // SECRETS - warning: https://firebase.google.com/docs/functions/config-env?gen=2nd#node.js_6
@@ -17,5 +19,7 @@ export {
   ENVIRONMENT,
   ADMIN_API_KEY,
   STORAGE_BUCKET_ID,
+  AUDIBLE_OPDS_API_KEY,
+  AUDIBLE_OPDS_FIREBASE_URL,
 };
 
