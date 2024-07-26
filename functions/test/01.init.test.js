@@ -51,6 +51,7 @@ import {
   v1getAudibleLoginURL,
   v1audibleGetAuth,
   v1TMPaudiblePostAuthHook,
+  v1refreshAudibleTokens,
 } from "../index.js";
 
 
@@ -309,12 +310,39 @@ describe("Customer creation via Firebase Auth", () => {
     });
     console.log(result);
   });
-  return;
-  it("Audible - submit refresh token", async () => {
 
+  it("Audible - submit refresh token", async () => {
+    const wrapped = firebaseTest.wrap(v1refreshAudibleTokens);
+    const data = {
+      from: 0,
+      to: 999999999999999,
+    };
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.be.an("object");
+    expect(result).to.have.property("totalProcessed").that.is.a("number");
+    expect(result).to.have.property("successful").that.is.a("number");
+    expect(result).to.have.property("warnings").that.is.a("number");
+    expect(result).to.have.property("errors").that.is.a("number");
+    expect(result).to.have.property("details").that.is.an("array");
+
+    // Check if the numbers add up correctly
+    expect(result.totalProcessed).to.equal(result.successful + result.warnings + result.errors);
+
+    // Check each detail object
+    result.details.forEach((detail) => {
+      expect(detail).to.have.property("uid").that.is.a("string");
+      expect(detail).to.have.property("status").that.is.oneOf(["success", "warning", "error"]);
+      expect(detail).to.have.property("message").that.is.a("string");
+    });
   });
 
-
+  return;
   it(`uploads a manifest file to catalogue item`, async () => {
     const bucket = getStorage(app).bucket();
     const bucketPath = `Catalogue/${catalogueBook.id}/`;

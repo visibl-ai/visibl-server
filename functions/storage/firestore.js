@@ -705,6 +705,38 @@ async function storeAudibleAuthFirestore(uid, audibleUserId, auth) {
   await authRef.set({uid, audibleUserId, auth, expires: auth.expires});
 }
 
+async function getAllAudibleAuthFirestore(expiry, lastDocId = null, limit = 100) {
+  const db = getFirestore();
+  const authRef = db.collection("AudibleAuth");
+
+  let query = authRef.where("expires", ">=", expiry.from)
+      .where("expires", "<", expiry.to)
+      .orderBy("expires")
+      .limit(limit);
+
+  if (lastDocId) {
+    const lastDoc = await authRef.doc(lastDocId).get();
+    query = query.startAfter(lastDoc);
+  }
+
+  const snapshot = await query.get();
+
+  const results = snapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+
+  const lastVisible = snapshot.docs[snapshot.docs.length - 1];
+  const hasMore = snapshot.docs.length === limit;
+
+  return {
+    results,
+    lastVisible: hasMore ? lastVisible.id : null,
+    hasMore,
+  };
+}
+
+
 async function getAudibleAuthByAudibleId(audibleUserId) {
   const db = getFirestore();
   const authRef = db.collection("AudibleAuth").doc(audibleUserId);
@@ -777,4 +809,5 @@ export {
   storeAudibleItemsFirestore,
   updateAudibleItemFirestore,
   getAudibleItemsFirestore,
+  getAllAudibleAuthFirestore,
 };

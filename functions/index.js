@@ -49,6 +49,7 @@ import {
   getAudibleLoginURL,
   getAudibleAuth,
   audiblePostAuthHook,
+  refreshAudibleTokens,
 } from "./util/audibleOpdsHelper.js";
 
 import {
@@ -257,4 +258,9 @@ export const v1audibleGetAuth = onCall({region: "europe-west1"}, async (context)
 export const v1TMPaudiblePostAuthHook = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await audiblePostAuthHook(uid, data, app);
+});
+
+export const v1refreshAudibleTokens = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await refreshAudibleTokens(data);
 });

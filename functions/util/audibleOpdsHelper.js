@@ -4,7 +4,9 @@ import logger from "firebase-functions/logger";
 
 import {AUDIBLE_OPDS_API_KEY,
   AUDIBLE_OPDS_FIREBASE_URL,
-  STORAGE_BUCKET_ID} from "../config/config.js";
+  STORAGE_BUCKET_ID,
+  ENVIRONMENT,
+} from "../config/config.js";
 
 import {
   getAudibleAuthByAudibleId,
@@ -13,11 +15,12 @@ import {
   storeAudibleItemsFirestore,
   getAudibleItemsFirestore,
   updateAudibleItemFirestore,
+  getAllAudibleAuthFirestore,
 } from "../storage/firestore.js";
 
 
 function formatFunctionsUrl(functionName) {
-  return `${AUDIBLE_OPDS_FIREBASE_URL.value().replace("FUNCTION", functionName.replace(/_/g, "-"))}`;
+  return `${AUDIBLE_OPDS_FIREBASE_URL.value().replace("FUNCTION", functionName.replace(/_/g, "-"))}/${functionName}`;
 }
 
 /**
@@ -92,6 +95,12 @@ async function audiblePostAuthHook(uid, data, app) {
 async function generateM4B(uid, auth, itemsToProcess) {
   await Promise.all(itemsToProcess.map(async (item) => {
     try {
+      if (ENVIRONMENT.value() === "development") {
+        logger.info(`Skipping generation of m4b for item ${item.asin} in development environment.`);
+        item.m4bGenerated = true;
+        await updateAudibleItemFirestore(item);
+        return;
+      }
       const response = await axios.post(formatFunctionsUrl("audible_download_aaxc"), {
         country_code: auth.locale_code, // You might want to make this dynamic based on user's country
         auth: auth,
@@ -131,9 +140,14 @@ async function updateUsersAudibleCatalogue(uid, app) {
         "API-KEY": AUDIBLE_OPDS_API_KEY.value(),
       },
     });
-    logger.info("audible library response", {response: response.data});
     if (response.status === 200 && response.data.status === "success") {
-      const library = response.data.library;
+      let library = response.data.library;
+      if (ENVIRONMENT.value() === "development") {
+        logger.info("TEST, return reduced list for library.");
+        const asins = [process.env.ASIN1, process.env.ASIN2];
+        library = library.filter((item) => asins.includes(item.metadata.identifier));
+        logger.info(`Reduced library to ${library.length} items for development environment.`);
+      }
       // Process the library data here
       // For example, you might want to store it in Firestore or perform other operations
       logger.info(`Successfully retrieved Audible library for user ${uid}`);
@@ -149,8 +163,56 @@ async function updateUsersAudibleCatalogue(uid, app) {
   }
 }
 
+async function refreshAudibleTokens(data) {
+  // TODO Add pagination.
+  const itemsToRefresh = await getAllAudibleAuthFirestore({from: data.from, to: data.to});
+  const auth = itemsToRefresh.results;
+  logger.info(`Items to refresh ${auth.length}`);
+
+  const results = await Promise.all(auth.map(async (item) => {
+    try {
+      const originalExpiry = item.expires;
+      const response = await axios.post(formatFunctionsUrl("refresh_audible_tokens"), {
+        auth: item.auth,
+      }, {
+        headers: {
+          "API-KEY": AUDIBLE_OPDS_API_KEY.value(),
+        },
+      });
+
+      if (response.status === 200) {
+        const result = response.data;
+        if (result.updated_auth) {
+          const newExpiry = result.updated_auth.expires;
+          logger.info(`Refreshed Audible tokens for user ${item.uid} from ${originalExpiry} to ${newExpiry}`);
+          await storeAudibleAuthFirestore(item.uid, item.audibleUserId, result.updated_auth);
+          return {uid: item.uid, status: "success", message: "Tokens refreshed successfully", originalExpiry, newExpiry};
+        } else {
+          logger.warn(`No updated auth received for user ${item.uid}`);
+          return {uid: item.uid, status: "warning", message: "No updated auth received"};
+        }
+      } else {
+        logger.error(`Failed to refresh Audible tokens for user ${item.uid}`, response.data);
+        return {uid: item.uid, status: "error", message: "Failed to refresh tokens", error: response.data};
+      }
+    } catch (error) {
+      logger.error(`Error refreshing Audible tokens for user ${item.uid}`, error);
+      return {uid: item.uid, status: "error", message: "Error refreshing tokens", error: error.message};
+    }
+  }));
+
+  return {
+    totalProcessed: results.length,
+    successful: results.filter((r) => r.status === "success").length,
+    warnings: results.filter((r) => r.status === "warning").length,
+    errors: results.filter((r) => r.status === "error").length,
+    details: results,
+  };
+}
+
 export {
   getAudibleLoginURL,
   getAudibleAuth,
   audiblePostAuthHook,
+  refreshAudibleTokens,
 };
