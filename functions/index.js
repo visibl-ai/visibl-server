@@ -57,6 +57,10 @@ import {
   OPENAI_API_KEY,
 } from "./config/config.js";
 
+import {
+  generateTranscriptions,
+} from "./util/transcribe.js";
+
 // import {onInit} from "firebase-functions/v2/core";
 // let openaiKey;
 // onInit(() => {
@@ -263,4 +267,13 @@ export const v1TMPaudiblePostAuthHook = onCall({region: "europe-west1"}, async (
 export const v1refreshAudibleTokens = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await refreshAudibleTokens(data);
+});
+
+export const v1generateTranscriptions = onCall({
+  region: "europe-west1",
+  memory: "32GiB",
+  concurrency: 1,
+}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await generateTranscriptions(uid, data, app);
 });
