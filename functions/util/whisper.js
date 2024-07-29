@@ -2,14 +2,15 @@
 // Import the OpenAI library
 import OpenAI from "openai";
 import fs from "fs";
-import logger from "firebase-functions/logger";
-import {OPEN_AI_API_KEY} from "../config.js";
+import {logger} from "firebase-functions/v2";
+import {OPENAI_API_KEY} from "../config/config.js";
 
 // Initialize the OpenAI client with the API key from environment variables
-const openai = new OpenAI(OPEN_AI_API_KEY.value());
+
 
 async function whisperTranscribe(file, offset, retry = true) {
   let map = {};
+  const openai = new OpenAI(OPENAI_API_KEY.value());
   try {
     const transcription = await openai.audio.transcriptions.create({
       file: fs.createReadStream(file),

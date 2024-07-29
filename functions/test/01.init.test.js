@@ -52,6 +52,7 @@ import {
   v1audibleGetAuth,
   v1TMPaudiblePostAuthHook,
   v1refreshAudibleTokens,
+  v1generateTranscriptions,
 } from "../index.js";
 
 
@@ -71,7 +72,7 @@ const APP_URL = `http://127.0.0.1:5002`;
 const auth = getAuth();
 // const db = getFirestore();
 
-const TEST_USER_EMAIL = `john.doe@example.com`;
+const TEST_USER_EMAIL = `john.${Date.now()}@example.com`;
 describe("Customer creation via Firebase Auth", () => {
   let userData;
   it("creates a new user and checks Firestore for the user data", async () => {
@@ -381,8 +382,44 @@ describe("Customer creation via Firebase Auth", () => {
     }
   });
 
+  it(`upload ffmpeg binary to test bucket`, async () => {
+    const bucket = getStorage(app).bucket();
+    const bucketPath = `bin/`;
+    console.log(bucketPath);
+    const bucketFilename = `ffmpeg`;
+    console.log(`Bucket filename: ${bucketFilename}`);
+    const filePath = `${bucketPath}${bucketFilename}`;
+    const file = bucket.file(filePath);
+    try {
+      const stream = fs.createReadStream(`./test/bindings/bin/ffmpeg`);
+
+      await new Promise((resolve, reject) => {
+        stream.pipe(file.createWriteStream({}))
+            .on("error", (error) => {
+              console.error("Upload failed:", error);
+              reject(error);
+            })
+            .on("finish", () => {
+              console.log("File uploaded successfully");
+              resolve();
+            });
+      });
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+    }
+  });
+
   it(`generates transcriptions for the two books`, async () => {
     const wrapped = firebaseTest.wrap(v1generateTranscriptions);
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        asin: process.env.ASIN1,
+      },
+    });
+    console.log(result);
   });
 
   return;

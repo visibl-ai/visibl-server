@@ -18,6 +18,7 @@
     "axios": "^1.7.2",
     "firebase-admin": "^11.8.0",
     "firebase-functions": "^5.0.1",
+    "fluent-ffmpeg": "git+https://github.com/moeadham/node-fluent-ffmpeg.git#7f6c04566873451ee1bbf139b6c0caa56b9ba3ad",
     "openai": "^4.48.2"
   },
   "devDependencies": {

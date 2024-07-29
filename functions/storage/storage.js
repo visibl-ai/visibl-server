@@ -2,6 +2,8 @@
 import {getStorage} from "firebase-admin/storage";
 import {logger} from "firebase-functions/v2";
 import {STORAGE_BUCKET_ID} from "../config/config.js";
+import fs from "fs/promises";
+import path from "path";
 // Get a reference to the default storage bucket
 
 /**
@@ -11,7 +13,7 @@ import {STORAGE_BUCKET_ID} from "../config/config.js";
  */
 async function createUserFolder(app, uid) {
   const bucket = getStorage(app).bucket();
-  const folderPath = `UserData/${uid}/rawUploads/`; // Folder path in the bucket
+  const folderPath = `UserData/${uid}/`; // Folder path in the bucket
   const file = bucket.file(folderPath + ".placeholder"); // Create a placeholder file to establish the folder
 
   try {
@@ -224,6 +226,53 @@ async function getJsonFile(app, filename) {
   });
 }
 
+async function downloadFileFromBucket(app, bucketPath, localPath) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+  const file = bucket.file(bucketPath);
+
+
+  // Ensure the directory exists
+  await fs.mkdir(path.dirname(localPath), {recursive: true});
+
+  // Download the file
+  return await file.download({destination: localPath});
+}
+
+async function uploadFileToBucket(app, localPath, bucketPath) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+
+  try {
+    const [uploadResponse] = await bucket.upload(localPath, {
+      destination: bucketPath,
+    });
+
+    logger.debug(`uploadFileToBucket: Upload response for ${localPath} to ${bucketPath}: ${uploadResponse.name}`);
+    return uploadResponse;
+  } catch (error) {
+    logger.error(`Error uploading file ${localPath} to ${bucketPath}:`, error);
+    throw error;
+  }
+}
+
+async function uploadJsonToBucket(app, json, bucketPath) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+  const file = bucket.file(bucketPath);
+  const jsonString = JSON.stringify(json);
+  logger.debug(`uploadJsonToBucket: Uploading JSON to ${bucketPath}: ${jsonString.substring(0, 100)}`);
+  try {
+    await file.save(jsonString, {
+      contentType: "application/json",
+      metadata: {
+        cacheControl: "no-cache",
+      },
+    });
+    return file;
+  } catch (error) {
+    logger.error(`Error uploading JSON to ${bucketPath}:`, error);
+    throw error;
+  }
+}
+
 
 export {
   createUserFolder,
@@ -236,5 +285,8 @@ export {
   getCatalogueScenes,
   storeUserScenes,
   getUserScenes,
+  downloadFileFromBucket,
+  uploadFileToBucket,
+  getJsonFile,
+  uploadJsonToBucket,
 };
-
