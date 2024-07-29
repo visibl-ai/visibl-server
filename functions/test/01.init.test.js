@@ -298,6 +298,71 @@ describe("Customer creation via Firebase Auth", () => {
       console.log(`Audible auth data written to ${audibleAuthPath}`);
     });
   }
+  it(`upload ffmpeg binary to test bucket`, async () => {
+    const bucket = getStorage(app).bucket();
+    const bucketPath = `bin/`;
+    console.log(bucketPath);
+    const bucketFilename = `ffmpeg`;
+    console.log(`Bucket filename: ${bucketFilename}`);
+    const filePath = `${bucketPath}${bucketFilename}`;
+    const file = bucket.file(filePath);
+    try {
+      const stream = fs.createReadStream(`./test/bindings/bin/ffmpeg`);
+
+      await new Promise((resolve, reject) => {
+        stream.pipe(file.createWriteStream({}))
+            .on("error", (error) => {
+              console.error("Upload failed:", error);
+              reject(error);
+            })
+            .on("finish", () => {
+              console.log("File uploaded successfully");
+              resolve();
+            });
+      });
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+    }
+  });
+  it(`Uploads audible files to UserData`, async () => {
+    const fileList = [
+      `${process.env.ASIN1}.aaxc`,
+      `${process.env.ASIN1}.jpg`,
+      `${process.env.ASIN1}.json`,
+      `${process.env.ASIN1}.m4b`,
+      `${process.env.ASIN2}.aaxc`,
+      `${process.env.ASIN2}.jpg`,
+      `${process.env.ASIN2}.json`,
+      `${process.env.ASIN2}.m4b`,
+    ];
+
+    const bucket = getStorage(app).bucket();
+    const bucketPath = `UserData/${userData.uid}/Uploads/AudibleRaw/`;
+    console.log(bucketPath);
+
+    for (const fileName of fileList) {
+      console.log(`Uploading file: ${fileName}`);
+      const filePath = `${bucketPath}${fileName}`;
+      const file = bucket.file(filePath);
+      try {
+        const stream = fs.createReadStream(`./test/bindings/m4b/${fileName}`);
+
+        await new Promise((resolve, reject) => {
+          stream.pipe(file.createWriteStream({}))
+              .on("error", (error) => {
+                console.error(`Upload failed for ${fileName}:`, error);
+                reject(error);
+              })
+              .on("finish", () => {
+                console.log(`File ${fileName} uploaded successfully`);
+                resolve();
+              });
+        });
+      } catch (error) {
+        console.error(`Failed to upload file ${fileName}:`, error);
+      }
+    }
+  });
   it("Audible - post auth automation.", async () => {
     const audibleAuthPath = path.join("test", "bindings", "audibleAuth.json");
     const auth = JSON.parse(fs.readFileSync(audibleAuthPath, "utf8"));
@@ -342,85 +407,23 @@ describe("Customer creation via Firebase Auth", () => {
       expect(detail).to.have.property("message").that.is.a("string");
     });
   });
-  it(`Uploads audible files to UserData`, async () => {
-    const fileList = [
-      `${process.env.ASIN1}.aaxc`,
-      `${process.env.ASIN1}.jpg`,
-      `${process.env.ASIN1}.json`,
-      `${process.env.ASIN1}.m4b`,
-      `${process.env.ASIN2}.aaxc`,
-      `${process.env.ASIN2}.jpg`,
-      `${process.env.ASIN2}.json`,
-      `${process.env.ASIN2}.m4b`,
-    ];
 
-    const bucket = getStorage(app).bucket();
-    const bucketPath = `UserData/${userData.uid}/Uploads/AudibleRaw/`;
-    console.log(bucketPath);
 
-    for (const fileName of fileList) {
-      console.log(`Uploading file: ${fileName}`);
-      const filePath = `${bucketPath}${fileName}`;
-      const file = bucket.file(filePath);
-      try {
-        const stream = fs.createReadStream(`./test/bindings/m4b/${fileName}`);
-
-        await new Promise((resolve, reject) => {
-          stream.pipe(file.createWriteStream({}))
-              .on("error", (error) => {
-                console.error(`Upload failed for ${fileName}:`, error);
-                reject(error);
-              })
-              .on("finish", () => {
-                console.log(`File ${fileName} uploaded successfully`);
-                resolve();
-              });
-        });
-      } catch (error) {
-        console.error(`Failed to upload file ${fileName}:`, error);
-      }
-    }
-  });
-
-  it(`upload ffmpeg binary to test bucket`, async () => {
-    const bucket = getStorage(app).bucket();
-    const bucketPath = `bin/`;
-    console.log(bucketPath);
-    const bucketFilename = `ffmpeg`;
-    console.log(`Bucket filename: ${bucketFilename}`);
-    const filePath = `${bucketPath}${bucketFilename}`;
-    const file = bucket.file(filePath);
-    try {
-      const stream = fs.createReadStream(`./test/bindings/bin/ffmpeg`);
-
-      await new Promise((resolve, reject) => {
-        stream.pipe(file.createWriteStream({}))
-            .on("error", (error) => {
-              console.error("Upload failed:", error);
-              reject(error);
-            })
-            .on("finish", () => {
-              console.log("File uploaded successfully");
-              resolve();
-            });
+  const GENERATE_TRANSCRIPTIONS = false;
+  if (GENERATE_TRANSCRIPTIONS) {
+    it(`generates transcriptions for the two books`, async () => {
+      const wrapped = firebaseTest.wrap(v1generateTranscriptions);
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data: {
+          asin: process.env.ASIN1,
+        },
       });
-    } catch (error) {
-      console.error("Failed to upload file:", error);
-    }
-  });
-
-  it(`generates transcriptions for the two books`, async () => {
-    const wrapped = firebaseTest.wrap(v1generateTranscriptions);
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data: {
-        asin: process.env.ASIN1,
-      },
+      console.log(result);
     });
-    console.log(result);
-  });
+  }
 
   return;
   it(`uploads a manifest file to catalogue item`, async () => {

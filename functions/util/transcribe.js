@@ -110,14 +110,6 @@ async function pipeline(app, asin, uid, bookId, ffmpegPath ) {
   logger.debug("STEP 4: Files uploaded to bucket.");
   // 5. Transcribe the files
   console.log(metadata);
-  // if (ENVIRONMENT.value() === "development") {
-  //   // Trim outputFiles to the first 6 items for development purposes
-  //   outputFiles = outputFiles.slice(0, 6);
-  //   metadata.bookData.chapters = Object.fromEntries(
-  //       Object.entries(metadata.bookData.chapters).slice(0, 6),
-  //   );
-  //   logger.debug(`Trimmed outputFiles to first 6 items: ${JSON.stringify(metadata.outputFiles)}`);
-  // }
   const transcriptions = await transcribeFilesInParallel(metadata.bookData, outputFiles);
   if (transcriptions === undefined) {
     logger.error(`Transcriptions are undefined for ${asin}`);

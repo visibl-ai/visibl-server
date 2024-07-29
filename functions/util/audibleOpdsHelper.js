@@ -18,6 +18,8 @@ import {
   getAllAudibleAuthFirestore,
 } from "../storage/firestore.js";
 
+import {generateTranscriptions} from "../util/transcribe.js";
+
 
 function formatFunctionsUrl(functionName) {
   return `${AUDIBLE_OPDS_FIREBASE_URL.value().replace("FUNCTION", functionName.replace(/_/g, "-"))}/${functionName}`;
@@ -85,10 +87,12 @@ async function audiblePostAuthHook(uid, data, app) {
   // or not in the users Bucket, do it!.
   const userItems = await getAudibleItemsFirestore(uid);
   logger.info("userItems", {userItems});
-  const itemsToProcess = userItems.filter((item) => item.m4bGenerated !== true);
-  logger.info("itemsToProcess", {itemsToProcess});
+  let itemsToProcess = userItems.filter((item) => item.m4bGenerated !== true);
+  logger.info("M4B itemsToProcess", {itemsToProcess});
   await generateM4B(uid, auth, itemsToProcess);
-
+  itemsToProcess = userItems.filter((item) => item.transcriptionsGenerated !== true);
+  logger.info("Transcriptions itemsToProcess", {itemsToProcess});
+  await transcribe(app, uid, itemsToProcess);
   return {success: true};
 }
 
@@ -126,6 +130,21 @@ async function generateM4B(uid, auth, itemsToProcess) {
     } catch (error) {
       const errorMessage = error.toString().substring(0, 500);
       logger.error(`Error generating m4b for item ${item.asin}`, errorMessage);
+    }
+  }));
+}
+
+async function transcribe(app, uid, itemsToProcess) {
+  await Promise.all(itemsToProcess.map(async (item) => {
+    try {
+      const transcription = await generateTranscriptions(uid, item, app);
+      item.transcriptions = transcription.transcriptions;
+      item.metadata = transcription.metadata;
+      item.splitAudio = transcription.splitAudio;
+      item.transcriptionsGenerated = true;
+      await updateAudibleItemFirestore(item);
+    } catch (error) {
+      logger.error(`Error generating transcriptions for item ${item.asin}`, error);
     }
   }));
 }
