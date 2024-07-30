@@ -154,6 +154,7 @@ async function updateUsersAudibleCatalogue(uid, app) {
   try {
     const response = await axios.post(formatFunctionsUrl("audible_get_library"), {
       auth: auth,
+      type: "raw",
     }, {
       headers: {
         "API-KEY": AUDIBLE_OPDS_API_KEY.value(),
@@ -164,7 +165,7 @@ async function updateUsersAudibleCatalogue(uid, app) {
       if (ENVIRONMENT.value() === "development") {
         logger.info("TEST, return reduced list for library.");
         const asins = [process.env.ASIN1, process.env.ASIN2];
-        library = library.filter((item) => asins.includes(item.metadata.asin));
+        library = library.filter((item) => asins.includes(item.asin));
         logger.info(`Reduced library to ${library.length} items for development environment.`);
       }
       // Process the library data here
@@ -227,10 +228,6 @@ async function refreshAudibleTokens(data) {
     errors: results.filter((r) => r.status === "error").length,
     details: results,
   };
-}
-
-async function updateCatalogueWithItem(app, item, uid) {
-
 }
 
 export {

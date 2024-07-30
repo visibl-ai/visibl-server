@@ -599,24 +599,18 @@ async function storeAudibleItemsFirestore(uid, library) {
   const batch = db.batch();
 
   for (const libraryItem of library) {
-    const asin = libraryItem.metadata.asin;
-    const title = libraryItem.metadata.title;
-    const sku = libraryItem.metadata.identifier;
+    const asin = libraryItem.asin;
+    const title = libraryItem.title;
+    const sku = libraryItem.sku_lite;
     const libraryRef = db.collection("UserAudibleSync").doc(`${uid}:${asin}`);
     batch.set(libraryRef, {
       uid,
       title,
-      asin: asin,
-      sku: sku,
+      asin,
+      sku,
     }, {merge: true});
   }
   await batch.commit();
-}
-
-async function populateCatalogueWithAudibleItems(uid, library) {
-  const db = getFirestore();
-  const catalogueRef = db.collection("Catalogue");
-  const batch = db.batch();
 }
 
 async function getAudibleItemsFirestore(uid) {
