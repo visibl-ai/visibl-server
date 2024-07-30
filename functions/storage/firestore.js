@@ -108,164 +108,6 @@ function removeUndefinedProperties(data) {
 }
 
 /**
-   * Validates the audiobook data object.
-   * @param {object} data - The audiobook data to validate.
-   * @throws {Error} If any required field is missing or invalid.
-   */
-function validateAudiobookData(data) {
-  // Ensure required fields are present
-  const requiredFields = ["type", "title", "author", "duration", "metadata", "language"];
-  for (const field of requiredFields) {
-    if (!data[field]) {
-      throw new Error(`Missing required field: ${field}`);
-    }
-  }
-
-  // Validate required fields
-  if (data.type !== "audiobook") {
-    throw new Error("Type must be 'audiobook'");
-  }
-  if (!Array.isArray(data.author)) {
-    throw new Error("Author must be an array");
-  }
-  if (typeof data.duration !== "number") {
-    throw new Error("Duration must be a number");
-  }
-  if (typeof data.metadata !== "object") {
-    throw new Error("Metadata must be an object");
-  }
-  if (typeof data.language !== "string") {
-    throw new Error("Language must be a string");
-  }
-
-  // Optional fields with type checking
-  if (data.narrator && !Array.isArray(data.narrator)) {
-    throw new Error("Narrator must be an array");
-  }
-  if (data.genres && !Array.isArray(data.genres)) {
-    throw new Error("Genres must be an array");
-  }
-  if (data.publicationDate && !(data.publicationDate instanceof Timestamp)) {
-    throw new Error("PublicationDate must be a Timestamp");
-  }
-  if (data.rating && typeof data.rating !== "number") {
-    throw new Error("Rating must be a number");
-  }
-  if (data.tags && !Array.isArray(data.tags)) {
-    throw new Error("Tags must be an array");
-  }
-}
-
-/**
- * Adds a new item to the Catalogue collection in Firestore.
- *
- * @param {object} req - The request object from Express.
- * @param {object} app - The Firebase app instance.
- * @return {Promise<object>} A promise that resolves to the full document data of the newly created catalogue item.
- */
-async function catalogueAddFirestore(req, app) {
-  // Remove any undefined properties from data
-  let data = req.body;
-  data = removeUndefinedProperties(data);
-  // Validate the audiobook data
-  validateAudiobookData(data);
-  const docRef = getFirestore().collection("Catalogue").doc(); // Create a document reference
-  // Add createdAt and updatedAt timestamps
-  data.createdAt = Timestamp.now();
-  data.updatedAt = Timestamp.now();
-  await docRef.set({...data}); // Set the data
-  const snapshot = await docRef.get(); // Get the document snapshot
-  const r = snapshot.data();
-  r.id = snapshot.id; // Add the document ID to the data
-  return r; // Return the full document data with ID
-}
-
-/**
- * Retrieves all items from the Catalogue collection in Firestore.
- *
- * @param {object} app - The Firebase app instance.
- * @return {Promise<Array<object>>} A promise that resolves to an array of all catalogue items.
- */
-async function catalogueGetFirestore(app) {
-  const catalogueRef = getFirestore().collection("Catalogue");
-  const snapshot = await catalogueRef.get();
-
-  if (snapshot.empty) {
-    return [];
-  }
-
-  const catalogueItems = [];
-  snapshot.forEach((doc) => {
-    const item = doc.data();
-    item.id = doc.id;
-    catalogueItems.push(item);
-  });
-
-  return catalogueItems;
-}
-
-/**
- * Deletes an item from the Catalogue collection in Firestore.
- *
- * @param {object} req - The request object from Express.
- * @param {object} app - The Firebase app instance.
- * @return {Promise<object>} A promise that resolves to an object indicating the success of the deletion.
- */
-async function catalogueDeleteFirestore(req, app) {
-  const data = req.body;
-  if (!data.id) {
-    throw new Error("Item ID is required for deletion");
-  }
-
-  const docRef = getFirestore().collection("Catalogue").doc(data.id);
-  const doc = await docRef.get();
-
-  if (!doc.exists) {
-    throw new Error("Item not found");
-  }
-
-  await docRef.delete();
-
-  return {success: true, message: "Item deleted successfully"};
-}
-
-/**
- * Updates an item in the Catalogue collection in Firestore.
- *
- * @param {object} req - The request object from Express.
- * @param {object} app - The Firebase app instance.
- * @return {Promise<object>} A promise that resolves to the updated catalogue item.
- */
-async function catalogueUpdateFirestore(req, app) {
-  const data = req.body;
-  if (!data.id) {
-    throw new Error("Item ID is required for update");
-  }
-
-  const docRef = getFirestore().collection("Catalogue").doc(data.id);
-  const doc = await docRef.get();
-
-  if (!doc.exists) {
-    throw new Error("Item not found");
-  }
-
-  const updatedData = {
-    ...data,
-    updatedAt: new Date(),
-  };
-
-  delete updatedData.id; // Remove the id from the data to be updated
-
-  await docRef.update(updatedData);
-
-  const updatedDoc = await docRef.get();
-  const updatedItem = updatedDoc.data();
-  updatedItem.id = updatedDoc.id;
-
-  return updatedItem;
-}
-
-/**
  * Adds an item from the Catalogue to the user's Library in Firestore.
  *
  * @param {string} uid - The user ID of the authenticated user.
@@ -757,16 +599,24 @@ async function storeAudibleItemsFirestore(uid, library) {
   const batch = db.batch();
 
   for (const libraryItem of library) {
-    const asin = libraryItem.metadata.identifier;
+    const asin = libraryItem.metadata.asin;
     const title = libraryItem.metadata.title;
+    const sku = libraryItem.metadata.identifier;
     const libraryRef = db.collection("UserAudibleSync").doc(`${uid}:${asin}`);
     batch.set(libraryRef, {
       uid,
       title,
       asin: asin,
+      sku: sku,
     }, {merge: true});
   }
   await batch.commit();
+}
+
+async function populateCatalogueWithAudibleItems(uid, library) {
+  const db = getFirestore();
+  const catalogueRef = db.collection("Catalogue");
+  const batch = db.batch();
 }
 
 async function getAudibleItemsFirestore(uid) {
@@ -791,10 +641,6 @@ export {
   createPipelineFirestore,
   updatePipelineFirestore,
   getPipelineFirestore,
-  catalogueAddFirestore,
-  catalogueGetFirestore,
-  catalogueDeleteFirestore,
-  catalogueUpdateFirestore,
   addItemToLibraryFirestore,
   getItemManifestFirestore,
   getLibraryFirestore,
@@ -810,4 +656,5 @@ export {
   updateAudibleItemFirestore,
   getAudibleItemsFirestore,
   getAllAudibleAuthFirestore,
+  removeUndefinedProperties,
 };

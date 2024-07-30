@@ -16,10 +16,7 @@ import {
 import {
   getUser,
   getPipelineFirestore,
-  catalogueAddFirestore,
-  catalogueGetFirestore,
-  catalogueDeleteFirestore,
-  catalogueUpdateFirestore,
+
   addItemToLibraryFirestore,
   deleteItemFromLibraryFirestore,
   getItemManifestFirestore,
@@ -29,6 +26,13 @@ import {
   addLibraryItemScenesFirestore,
   updateLibraryItemScenesFirestore,
 } from "./storage/firestore.js";
+
+import {
+  catalogueAddFirestore,
+  catalogueGetFirestore,
+  catalogueDeleteFirestore,
+  catalogueUpdateFirestore,
+} from "./storage/firestore/catalogue.js";
 
 import {
   getCatalogueManifest,

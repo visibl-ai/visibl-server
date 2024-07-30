@@ -140,6 +140,7 @@ describe("Customer creation via Firebase Auth", () => {
       author: [metadata.author],
       duration: metadata.length,
       metadata: metadata,
+      visibility: "public",
       language: "en", // Assuming English, adjust if needed
     };
 
@@ -425,7 +426,15 @@ describe("Customer creation via Firebase Auth", () => {
     });
   }
 
-  return;
+  // Ensure imported items have been added to the global catalogue
+
+  // Get an OPDS feed for the user and ensure it has the imported items
+
+  // Add an amazon item to the users library
+
+  // Get an auto-generated manifest for the added item
+
+
   it(`uploads a manifest file to catalogue item`, async () => {
     const bucket = getStorage(app).bucket();
     const bucketPath = `Catalogue/${catalogueBook.id}/`;

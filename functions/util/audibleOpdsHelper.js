@@ -164,7 +164,7 @@ async function updateUsersAudibleCatalogue(uid, app) {
       if (ENVIRONMENT.value() === "development") {
         logger.info("TEST, return reduced list for library.");
         const asins = [process.env.ASIN1, process.env.ASIN2];
-        library = library.filter((item) => asins.includes(item.metadata.identifier));
+        library = library.filter((item) => asins.includes(item.metadata.asin));
         logger.info(`Reduced library to ${library.length} items for development environment.`);
       }
       // Process the library data here
@@ -227,6 +227,10 @@ async function refreshAudibleTokens(data) {
     errors: results.filter((r) => r.status === "error").length,
     details: results,
   };
+}
+
+async function updateCatalogueWithItem(app, item, uid) {
+
 }
 
 export {
