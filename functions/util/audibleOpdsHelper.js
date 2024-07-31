@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /* eslint-disable require-jsdoc */
 import axios from "axios";
 import logger from "firebase-functions/logger";
@@ -20,7 +21,8 @@ import {
 } from "../storage/firestore.js";
 
 import {
-  populateCatalogueWithAudibleItems,
+  catalogueGetItemFirestore,
+  catalogueAddFirestore,
 } from "../storage/firestore/catalogue.js";
 
 import {generateTranscriptions} from "../util/transcribe.js";
@@ -114,6 +116,7 @@ async function generateM4B(uid, auth, itemsToProcess) {
         country_code: auth.locale_code, // You might want to make this dynamic based on user's country
         auth: auth,
         asin: item.asin,
+        sku: item.sku,
         bucket: STORAGE_BUCKET_ID.value(),
         path: `UserData/${uid}/Uploads/AudibleRaw/`,
       }, {
@@ -139,6 +142,7 @@ async function generateM4B(uid, auth, itemsToProcess) {
   }));
 }
 
+
 async function transcribe(app, uid, itemsToProcess) {
   await Promise.all(itemsToProcess.map(async (item) => {
     try {
@@ -148,6 +152,7 @@ async function transcribe(app, uid, itemsToProcess) {
       item.splitAudio = transcription.splitAudio;
       item.transcriptionsGenerated = true;
       await updateAudibleItemFirestore(item);
+      await addSkuToCatalogue(uid, item.metadata);
     } catch (error) {
       logger.error(`Error generating transcriptions for item ${item.asin}`, error);
     }
@@ -169,8 +174,8 @@ async function updateUsersAudibleCatalogue(uid, app) {
       let library = response.data.library;
       if (ENVIRONMENT.value() === "development") {
         logger.info("TEST, return reduced list for library.");
-        const asins = [process.env.ASIN1, process.env.ASIN2];
-        library = library.filter((item) => asins.includes(item.asin));
+        const skus = [process.env.SKU1, process.env.SKU2];
+        library = library.filter((item) => skus.includes(item.sku_lite));
         logger.info(`Reduced library to ${library.length} items for development environment.`);
       }
       // Process the library data here
@@ -183,10 +188,10 @@ async function updateUsersAudibleCatalogue(uid, app) {
         visibility: "private",
         addedBy: uid,
         sku: item.sku_lite,
-        feedTemplate: itemToOPDSFeed(item),
+        // feedTemplate: itemToOPDSFeed(item),
       }));
-      const addedItems = await populateCatalogueWithAudibleItems(uid, library);
-      logger.info(`Added ${addedItems.map((item) => item.sku).join(", ")} items to catalogue`);
+      // const addedItems = await populateCatalogueWithAudibleItems(uid, library);
+      // logger.info(`Added ${addedItems.map((item) => item.sku).join(", ")} items to catalogue`);
       return;
     } else {
       logger.error(`Failed to retrieve Audible library for user ${uid}`, response.data);
@@ -246,6 +251,8 @@ async function refreshAudibleTokens(data) {
 }
 
 /* OPDS Catalogue item template
+    # https://test.opds.io/2.0/home.json
+    # https://readium.org/webpub-manifest/examples/Flatland/manifest.json
 {
   "metadata": {
     "@type": "http://schema.org/Audiobook",
@@ -276,7 +283,8 @@ async function refreshAudibleTokens(data) {
     },
   ],
 };
-*//*
+*/
+/*
 {
   asin: "B07231BVRJ",
   asset_details: [],
@@ -363,24 +371,62 @@ async function refreshAudibleTokens(data) {
 };
 */
 
-function itemToOPDSFeed(item) {
+function itemToOPDSMetadata(metadata) {
   const feed = {
     metadata: {
       "@type": "http://schema.org/Audiobook",
-      "title": item.title,
-      // "author": get  from metadata.
-      "identifier": item.sku_lite,
     },
-    links: item.links,
-    images: item.images,
-    language: ISO6391.getCode(item.language) || item.language,
-    modified: "",
-    published: item.publication_datetime.split("T")[0],
-    // duration: get from metadata.
-    description: item.merchandising_summary.replace(/<[^>]*>/g, ""),
-    visiblId: "",
   };
+
+  if (metadata.title) feed.metadata.title = metadata.title;
+  if (metadata.author) feed.metadata.author = metadata.author;
+  if (metadata.sku) feed.metadata.identifier = metadata.sku;
+  if (metadata.language) feed.metadata.language = ISO6391.getCode(metadata.language) || metadata.language;
+  if (metadata.published) feed.metadata.published = metadata.published.split("T")[0];
+  if (metadata.description) feed.metadata.description = metadata.description.replace(/<[^>]*>/g, "");
+  if (metadata.length) feed.metadata.duration = metadata.length;
+  feed.metadata.visiblId = "";
   return feed;
+}
+
+function itemToOPDSReadingOrder(metadata) {
+  const readingOrder = metadata.chapters.map((chapter) => ({
+    type: "audio/mp4",
+    duration: chapter.endTime - chapter.startTime,
+    title: chapter.title,
+  }));
+  return readingOrder;
+}
+
+/*
+      library = library.map((item) => ({
+        type: "audiobook",
+        title: item.title,
+        visibility: "private",
+        addedBy: uid,
+        sku: item.sku_lite,
+        feedTemplate: itemToOPDSFeed(item),
+      }));
+*/
+async function addSkuToCatalogue(uid, metadata) {
+  logger.info(`Updating catalogue with metadata for item ${metadata.sku}`);
+  const catalogueItem = await catalogueGetItemFirestore({sku: metadata.sku});
+  if (catalogueItem) {
+    logger.info(`Catalogue item already exists for ${metadata.sku}`);
+    return;
+  }
+  console.log(metadata);
+  const itemToAdd = {
+    type: "audiobook",
+    title: metadata.title,
+    author: metadata.author,
+    duration: metadata.duration,
+    visibility: "private",
+    addedBy: uid,
+    sku: metadata.sku,
+    metadata: metadata,
+  };
+  return await catalogueAddFirestore({body: itemToAdd});
 }
 
 export {
@@ -388,4 +434,5 @@ export {
   getAudibleAuth,
   audiblePostAuthHook,
   refreshAudibleTokens,
+  addSkuToCatalogue,
 };

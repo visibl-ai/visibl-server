@@ -80,6 +80,15 @@ async function catalogueAddFirestore(req) {
   // Remove any undefined properties from item
   let item = req.body;
   item = removeUndefinedProperties(item);
+  if (item.opdsMetadata) {
+    item.opdsMetadata = removeUndefinedProperties(item.opdsMetadata);
+  }
+  if (item.opdsReadingOrder) {
+    item.opdsReadingOrder = removeUndefinedProperties(item.opdsReadingOrder);
+  }
+  if (item.metadata) {
+    item.metadata = removeUndefinedProperties(item.metadata);
+  }
   // Call catalogueBatchAddFirestore with a single item
   const addedItems = await catalogueBatchAddFirestore([item]);
   // Return the first (and only) element of the list
@@ -149,6 +158,50 @@ async function catalogueGetFirestore(app) {
   return catalogueItems;
 }
 
+/**
+ * Retrieves a specific item from the Catalogue collection in Firestore.
+ *
+ * @param {object} identifier - An object containing either id or sku of the item to retrieve.
+ * @param {string} [identifier.id] - The id of the item to retrieve.
+ * @param {string} [identifier.sku] - The sku of the item to retrieve.
+ * @return {Promise<object|null>} A promise that resolves to the catalogue item or null if not found.
+ */
+async function catalogueGetItemFirestore(identifier) {
+  const db = getFirestore();
+  const catalogueRef = db.collection("Catalogue");
+  let query;
+
+  if (identifier.id) {
+    query = catalogueRef.doc(identifier.id);
+  } else if (identifier.sku) {
+    query = catalogueRef.where("sku", "==", identifier.sku).limit(1);
+  } else {
+    throw new Error("Invalid identifier. Please provide either id or sku.");
+  }
+
+  try {
+    const snapshot = await query.get();
+
+    if (identifier.id) {
+      if (!snapshot.exists) {
+        return null;
+      }
+      const data = snapshot.data();
+      return {id: snapshot.id, ...data};
+    } else {
+      if (snapshot.empty) {
+        return null;
+      }
+      const doc = snapshot.docs[0];
+      const data = doc.data();
+      return {id: doc.id, ...data};
+    }
+  } catch (error) {
+    console.error("Error retrieving catalogue item:", error);
+    throw error;
+  }
+}
+
 
 /**
  * Deletes an item from the Catalogue collection in Firestore.
@@ -179,10 +232,9 @@ async function catalogueDeleteFirestore(req, app) {
    * Updates an item in the Catalogue collection in Firestore.
    *
    * @param {object} req - The request object from Express.
-   * @param {object} app - The Firebase app instance.
    * @return {Promise<object>} A promise that resolves to the updated catalogue item.
    */
-async function catalogueUpdateFirestore(req, app) {
+async function catalogueUpdateFirestore(req) {
   const data = req.body;
   if (!data.id) {
     throw new Error("Item ID is required for update");
@@ -257,4 +309,5 @@ export {
   catalogueDeleteFirestore,
   catalogueUpdateFirestore,
   populateCatalogueWithAudibleItems,
+  catalogueGetItemFirestore,
 };

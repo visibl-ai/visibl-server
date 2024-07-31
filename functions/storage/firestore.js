@@ -602,7 +602,7 @@ async function storeAudibleItemsFirestore(uid, library) {
     const asin = libraryItem.asin;
     const title = libraryItem.title;
     const sku = libraryItem.sku_lite;
-    const libraryRef = db.collection("UserAudibleSync").doc(`${uid}:${asin}`);
+    const libraryRef = db.collection("UserAudibleSync").doc(`${uid}:${sku}`);
     batch.set(libraryRef, {
       uid,
       title,
@@ -621,6 +621,19 @@ async function getAudibleItemsFirestore(uid) {
     id: doc.id,
     ...doc.data(),
   }));
+}
+
+async function getAsinFromSkuFirestore(uid, sku) {
+  const db = getFirestore();
+  const itemRef = db.collection("UserAudibleSync").doc(`${uid}:${sku}`);
+  const item = await itemRef.get();
+
+  if (!item.exists) {
+    return null; // or throw an error, depending on your preference
+  }
+
+  const data = item.data();
+  return data && data.asin ? data.asin : null;
 }
 
 async function updateAudibleItemFirestore(item) {
@@ -651,4 +664,5 @@ export {
   getAudibleItemsFirestore,
   getAllAudibleAuthFirestore,
   removeUndefinedProperties,
+  getAsinFromSkuFirestore,
 };

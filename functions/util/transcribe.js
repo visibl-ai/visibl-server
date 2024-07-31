@@ -12,6 +12,8 @@ import {uploadFileToBucket,
   uploadJsonToBucket,
 } from "../storage/storage.js";
 
+import {getAsinFromSkuFirestore} from "../storage/firestore.js";
+
 const MAX_SIZE = process.env.MAX_SIZE || 24;
 const NUM_THREADS = process.env.NUM_THREADS || 32;
 
@@ -57,17 +59,17 @@ async function transcribeFilesInParallel(bookData, outputFiles) {
   return transcriptions;
 }
 
-async function getMetaData(app, uid, asin, path) {
-  const bookData = await getJsonFile(app, `UserData/${uid}/Uploads/AudibleRaw/${asin}.json`);
+async function getMetaData(app, uid, sku, path) {
+  const bookData = await getJsonFile(app, `UserData/${uid}/Uploads/AudibleRaw/${sku}.json`);
   logger.debug(`Book Data: ${JSON.stringify(bookData, null, 2)}`);
   if (ENVIRONMENT.value() === "development") {
     bookData.chapters = Object.fromEntries(
         Object.entries(bookData.chapters).slice(0, 6),
     );
   }
-  const inputFiles = Object.values(bookData.chapters).map(() => `${path}${asin}.m4b`);
+  const inputFiles = Object.values(bookData.chapters).map(() => `${path}${sku}.m4b`);
   const outputFiles = Object.keys(bookData.chapters).map(
-      (chapterIndex) => `${path}${asin}-ch${chapterIndex}.m4a`,
+      (chapterIndex) => `${path}${sku}-ch${chapterIndex}.m4a`,
   );
   const startTimes = Object.values(bookData.chapters).map(
       (chapter) => chapter.startTime,
@@ -80,16 +82,16 @@ async function getMetaData(app, uid, asin, path) {
 }
 
 // TODO: Add AAX support.
-async function pipeline(app, asin, uid, bookId, ffmpegPath ) {
+async function pipeline(app, uid, sku, ffmpegPath ) {
   // 1. Download file from bucket to local - or, use the one already there.
-  const inputFilePath = `./bin/${asin}.m4b`;
+  const inputFilePath = `./bin/${sku}.m4b`;
   const path = `./bin/`;
 
-  await downloadFileFromBucket(app, `UserData/${uid}/Uploads/AudibleRaw/${asin}.m4b`, inputFilePath);
+  await downloadFileFromBucket(app, `UserData/${uid}/Uploads/AudibleRaw/${sku}.m4b`, inputFilePath);
   logger.debug("STEP 1: File downloaded from bucket.");
   // 2. get metadata from audio file
 
-  const metadata = await getMetaData(app, uid, asin, path);
+  const metadata = await getMetaData(app, uid, sku, path);
   logger.debug("STEP 2: Metadata Obtained");
   // 3. Split file in parallel
   const outputFiles = await ffmpegTools.splitAudioInParallel(
@@ -106,19 +108,19 @@ async function pipeline(app, asin, uid, bookId, ffmpegPath ) {
   logger.debug(`STEP 3: File Split into chapters of ${MAX_SIZE}mb`);
   // 4. Upload the split files to bucket?
   let splitAudio = "";
-  splitAudio = await uploadFilesToBucket(app, asin, outputFiles, `UserData/${uid}/Uploads/Processed/${asin}/`);
+  splitAudio = await uploadFilesToBucket(app, sku, outputFiles, `UserData/${uid}/Uploads/Processed/${sku}/`);
   logger.debug("STEP 4: Files uploaded to bucket.");
   // 5. Transcribe the files
   console.log(metadata);
   const transcriptions = await transcribeFilesInParallel(metadata.bookData, outputFiles);
   if (transcriptions === undefined) {
-    logger.error(`Transcriptions are undefined for ${asin}`);
+    logger.error(`Transcriptions are undefined for ${sku}`);
     return;
   } else {
     logger.debug("STEP 5: Transcriptions Complete");
   }
   // 6. Upload Transcriptions to Bucket.
-  const transcriptionsFile = await uploadJsonToBucket(app, transcriptions, `UserData/${uid}/Uploads/Processed/${asin}/${asin}-transcriptions.json`);
+  const transcriptionsFile = await uploadJsonToBucket(app, transcriptions, `UserData/${uid}/Uploads/Processed/${sku}/${sku}-transcriptions.json`);
   logger.debug("STEP 6: Transcriptions Uploaded to Bucket.");
   return {transcriptions: transcriptionsFile.metadata.name, metadata: metadata.bookData, splitAudio};
 }
@@ -134,15 +136,17 @@ async function generateTranscriptions(uid, data, app) {
   //     logger.debug("not running due to body.run");
   //     return {pong: true};
   //   }
-  const asin = data.asin;
-  logger.debug(`Processing FileName: ${asin} for ${uid}`);
+  const sku = data.sku;
+  logger.debug(`Processing FileName: ${sku} for ${uid}`);
+  const asin = await getAsinFromSkuFirestore(uid, sku);
+  logger.debug(`Asin for SKU: ${sku} is ${asin}`);
   let ffmpegPath;
   logger.debug(`Downloading ffmpeg binary`);
   ffmpegPath = await downloadFffmpegBinary(app);
   if (ENVIRONMENT.value() === "development") {
     ffmpegPath = `ffmpeg`;
   }
-  const urls = await pipeline(app, asin, uid, asin, ffmpegPath);
+  const urls = await pipeline(app, uid, sku, ffmpegPath);
   return urls;
 }
 

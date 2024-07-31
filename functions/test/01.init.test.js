@@ -141,7 +141,6 @@ describe("Customer creation via Firebase Auth", () => {
       duration: metadata.length,
       metadata: metadata,
       visibility: "public",
-      language: "en", // Assuming English, adjust if needed
     };
 
     // Make a POST request to the v1catalogueAdd endpoint
@@ -327,14 +326,14 @@ describe("Customer creation via Firebase Auth", () => {
   });
   it(`Uploads audible files to UserData`, async () => {
     const fileList = [
-      `${process.env.ASIN1}.aaxc`,
-      `${process.env.ASIN1}.jpg`,
-      `${process.env.ASIN1}.json`,
-      `${process.env.ASIN1}.m4b`,
-      `${process.env.ASIN2}.aaxc`,
-      `${process.env.ASIN2}.jpg`,
-      `${process.env.ASIN2}.json`,
-      `${process.env.ASIN2}.m4b`,
+      `${process.env.SKU1}.aaxc`,
+      `${process.env.SKU1}.jpg`,
+      `${process.env.SKU1}.json`,
+      `${process.env.SKU1}.m4b`,
+      `${process.env.SKU2}.aaxc`,
+      `${process.env.SKU2}.jpg`,
+      `${process.env.SKU2}.json`,
+      `${process.env.SKU2}.m4b`,
     ];
 
     const bucket = getStorage(app).bucket();
@@ -419,7 +418,7 @@ describe("Customer creation via Firebase Auth", () => {
           uid: userData.uid,
         },
         data: {
-          asin: process.env.ASIN1,
+          sku: process.env.SKU1,
         },
       });
       console.log(result);
