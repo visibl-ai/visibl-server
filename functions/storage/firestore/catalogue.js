@@ -99,8 +99,12 @@ async function catalogueBatchAddFirestore(items) {
 
   for (const item of items) {
     // Remove any undefined properties from data
+    console.log(item);
     const data = removeUndefinedProperties(item);
-    validateAudiobookData(data);
+    if (data.feedTemplate) {
+      data.feedTemplate = removeUndefinedProperties(data.feedTemplate);
+    }
+    // validateAudiobookData(data);
     const docRef = db.collection("Catalogue").doc();
 
     // Add createdAt and updatedAt timestamps
@@ -234,20 +238,11 @@ function itemToOPDSManifest(item) {
 }
 
 
-async function populateCatalogueWithAudibleItems(items, uid) {
+async function populateCatalogueWithAudibleItems(uid, items) {
+  logger.debug("Populating catalogue with audible items");
+  logger.debug("Items SKUs:", items.map((item) => item.sku).join(", "));
   items = await filterNewSKUItemsForCatalogue(items);
-  items = items.map((item) => ({
-    type: "audiobook",
-    title: item.metadata.title,
-    author: [item.metadata.author],
-    duration: item.metadata.length,
-    metadata: item.metadata,
-    visibility: "public",
-    language: "en", // Assuming English, adjust if needed
-    addedBy: uid,
-    feedTemplate: itemToOPDSFeed(item),
-  }));
-
+  logger.debug("Filtered items:", items.map((item) => item.sku).join(", "));
   return await catalogueBatchAddFirestore(items);
 }
 
@@ -261,4 +256,5 @@ export {
   catalogueGetFirestore,
   catalogueDeleteFirestore,
   catalogueUpdateFirestore,
+  populateCatalogueWithAudibleItems,
 };

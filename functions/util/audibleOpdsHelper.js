@@ -19,6 +19,10 @@ import {
   getAllAudibleAuthFirestore,
 } from "../storage/firestore.js";
 
+import {
+  populateCatalogueWithAudibleItems,
+} from "../storage/firestore/catalogue.js";
+
 import {generateTranscriptions} from "../util/transcribe.js";
 
 
@@ -173,6 +177,16 @@ async function updateUsersAudibleCatalogue(uid, app) {
       // For example, you might want to store it in Firestore or perform other operations
       logger.info(`Successfully retrieved Audible library for user ${uid}`);
       await storeAudibleItemsFirestore(uid, library);
+      library = library.map((item) => ({
+        type: "audiobook",
+        title: item.title,
+        visibility: "private",
+        addedBy: uid,
+        sku: item.sku_lite,
+        feedTemplate: itemToOPDSFeed(item),
+      }));
+      const addedItems = await populateCatalogueWithAudibleItems(uid, library);
+      logger.info(`Added ${addedItems.map((item) => item.sku).join(", ")} items to catalogue`);
       return;
     } else {
       logger.error(`Failed to retrieve Audible library for user ${uid}`, response.data);
@@ -350,7 +364,7 @@ async function refreshAudibleTokens(data) {
 */
 
 function itemToOPDSFeed(item) {
-  const manifest = {
+  const feed = {
     metadata: {
       "@type": "http://schema.org/Audiobook",
       "title": item.title,
@@ -366,7 +380,7 @@ function itemToOPDSFeed(item) {
     description: item.merchandising_summary.replace(/<[^>]*>/g, ""),
     visiblId: "",
   };
-  return manifest;
+  return feed;
 }
 
 export {
