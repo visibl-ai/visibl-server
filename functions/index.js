@@ -47,6 +47,7 @@ import {
 
 import {
   generateOPDS,
+  processRawPublicItem,
 } from "./util/opds.js";
 
 import {
@@ -280,4 +281,9 @@ export const v1generateTranscriptions = onCall({
 }, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await generateTranscriptions(uid, data, app);
+});
+
+export const v1catalogueProcessRaw = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await processRawPublicItem(req, app));
 });

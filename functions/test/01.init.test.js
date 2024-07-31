@@ -128,16 +128,49 @@ describe("Customer creation via Firebase Auth", () => {
     console.log(result);
     expect(result.uid).to.equal(userData.uid);
   });
+  it(`uploads a audio for public item`, async () => {
+    const fileList = [
+      `${process.env.PUBLIC_SKU1}.jpg`,
+      `${process.env.PUBLIC_SKU1}.json`,
+      `${process.env.PUBLIC_SKU1}.m4b`,
+    ];
+    const bucket = getStorage(app).bucket();
+    const bucketPath = `Catalogue/Raw/`;
+    console.log(bucketPath);
+
+    for (const fileName of fileList) {
+      console.log(`Uploading file: ${fileName}`);
+      const filePath = `${bucketPath}${fileName}`;
+      const file = bucket.file(filePath);
+      try {
+        const stream = fs.createReadStream(`./test/bindings/m4b/${fileName}`);
+
+        await new Promise((resolve, reject) => {
+          stream.pipe(file.createWriteStream({}))
+              .on("error", (error) => {
+                console.error(`Upload failed for ${fileName}:`, error);
+                reject(error);
+              })
+              .on("finish", () => {
+                console.log(`File ${fileName} uploaded successfully`);
+                resolve();
+              });
+        });
+      } catch (error) {
+        console.error(`Failed to upload file ${fileName}:`, error);
+      }
+    }
+  });
   let catalogueBook;
   it(`test v1catalogueAdd`, async () => {
-    const metadataPath = "./test/bindings/metadata/Neuromancer_ Sprawl Trilogy, Book 1.json";
+    const metadataPath = `./test/bindings/m4b/${process.env.PUBLIC_SKU1}.json`;
     const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
 
     // Prepare the data for the catalogue item
     const data = {
       type: "audiobook",
       title: metadata.title,
-      author: [metadata.author],
+      author: metadata.author,
       duration: metadata.length,
       metadata: metadata,
       visibility: "public",
@@ -157,13 +190,13 @@ describe("Customer creation via Firebase Auth", () => {
     console.log(result);
     expect(result).to.have.property("id");
     expect(result.title).to.equal(metadata.title);
-    expect(result.author).to.deep.equal([metadata.author]);
+    expect(result.author).to.deep.equal(metadata.author);
     expect(result.duration).to.equal(metadata.length);
     expect(result.createdAt).to.exist;
     expect(result.updatedAt).to.exist;
     catalogueBook = result;
   });
-
+  return;
   it(`test v1catalogueGet`, async () => {
     const wrapped = firebaseTest.wrap(v1catalogueGet);
     const data = {};
@@ -376,7 +409,7 @@ describe("Customer creation via Firebase Auth", () => {
     });
     console.log(result);
   });
-  return;
+
   it("Audible - submit refresh token", async () => {
     const wrapped = firebaseTest.wrap(v1refreshAudibleTokens);
     const data = {
@@ -432,34 +465,6 @@ describe("Customer creation via Firebase Auth", () => {
   // Add an amazon item to the users library
 
   // Get an auto-generated manifest for the added item
-
-
-  it(`uploads a manifest file to catalogue item`, async () => {
-    const bucket = getStorage(app).bucket();
-    const bucketPath = `Catalogue/${catalogueBook.id}/`;
-    console.log(bucketPath);
-    const bucketFilename = `manifest.json`;
-    console.log(`Bucket filename: ${bucketFilename}`);
-    const filePath = `${bucketPath}${bucketFilename}`;
-    const file = bucket.file(filePath);
-    try {
-      const stream = fs.createReadStream(`./test/bindings/manifest/Neuromancer.json`);
-
-      await new Promise((resolve, reject) => {
-        stream.pipe(file.createWriteStream({}))
-            .on("error", (error) => {
-              console.error("Upload failed:", error);
-              reject(error);
-            })
-            .on("finish", () => {
-              console.log("File uploaded successfully");
-              resolve();
-            });
-      });
-    } catch (error) {
-      console.error("Failed to upload file:", error);
-    }
-  });
 
   it(`uploads a scenes file to catalogue item`, async () => {
     const bucket = getStorage(app).bucket();

@@ -2,7 +2,6 @@
 /* eslint-disable require-jsdoc */
 import axios from "axios";
 import logger from "firebase-functions/logger";
-import ISO6391 from "iso-639-1";
 
 import {AUDIBLE_OPDS_API_KEY,
   AUDIBLE_OPDS_FIREBASE_URL,
@@ -25,7 +24,7 @@ import {
   catalogueAddFirestore,
 } from "../storage/firestore/catalogue.js";
 
-import {generateTranscriptions} from "../util/transcribe.js";
+import {generateTranscriptions} from "./transcribe.js";
 
 
 function formatFunctionsUrl(functionName) {
@@ -250,164 +249,6 @@ async function refreshAudibleTokens(data) {
   };
 }
 
-/* OPDS Catalogue item template
-    # https://test.opds.io/2.0/home.json
-    # https://readium.org/webpub-manifest/examples/Flatland/manifest.json
-{
-  "metadata": {
-    "@type": "http://schema.org/Audiobook",
-    "title": "Neuromancer: Sprawl Trilogy, Book 1",
-    "author": {
-      "name": "William Gibson",
-      "sortAs": "Gibson, William",
-    },
-    "identifier": "riw7PiKBeKZF70WUMoSw",
-    "language": "en",
-    "modified": "2024-06-28T15:28:26.000Z",
-    "published": "2021",
-    "duration": 30777.168345,
-    "description": "Neuromancer: Sprawl Trilogy, Book 1",
-    "visiblId": "riw7PiKBeKZF70WUMoSw",
-  },
-  "images": [
-    {
-      "href": "https://firebasestorage.googleapis.com/v0/b/visibl-dev-ali.appspot.com/o/Catalogue%2Friw7PiKBeKZF70WUMoSw%2Fcover.jpg?alt=media&token=97680a18-f041-4e9e-9d72-90e9e85280c5",
-      "type": "image/jpeg",
-    },
-  ],
-  "links": [
-    {
-      "href": "https://visibl-dev-ali.web.app/v1/tmp/catalogue/riw7PiKBeKZF70WUMoSw",
-      "type": "application/audiobook+json",
-      "rel": "http://opds-spec.org/acquisition/buy",
-    },
-  ],
-};
-*/
-/*
-{
-  asin: "B07231BVRJ",
-  asset_details: [],
-  available_codecs: [
-    {
-      enhanced_codec: "LC_64_22050_stereo",
-      format: "Enhanced",
-      is_kindle_enhanced: true,
-      name: "aax_22_64",
-    },
-    {
-      enhanced_codec: "LC_32_22050_stereo",
-      format: "Enhanced",
-      is_kindle_enhanced: true,
-      name: "aax_22_32",
-    },
-    {
-      enhanced_codec: "format4",
-      format: "Format4",
-      is_kindle_enhanced: false,
-      name: "format4",
-    },
-    {
-      enhanced_codec: "mp42264",
-      format: "Enhanced",
-      is_kindle_enhanced: true,
-      name: "mp4_22_64",
-    },
-    {
-      enhanced_codec: "piff2232",
-      format: "Enhanced",
-      is_kindle_enhanced: true,
-      name: "piff_22_32",
-    },
-    {
-      enhanced_codec: "mp42232",
-      format: "Enhanced",
-      is_kindle_enhanced: true,
-      name: "mp4_22_32",
-    },
-    {
-      enhanced_codec: "piff2264",
-      format: "Enhanced",
-      is_kindle_enhanced: true,
-      name: "piff_22_64",
-    },
-    {
-      enhanced_codec: "aax",
-      format: "Enhanced",
-      is_kindle_enhanced: false,
-      name: "aax",
-    },
-  ],
-  content_delivery_type: "MultiPartBook",
-  content_type: "Product",
-  format_type: "unabridged",
-  has_children: true,
-  is_adult_product: false,
-  is_ayce: false,
-  is_listenable: true,
-  is_purchasability_suppressed: false,
-  is_removable_by_parent: true,
-  is_vvab: false,
-  issue_date: "2011-08-16",
-  language: "english",
-  library_status: {
-    date_added: "2019-08-31T23:20:57.950Z",
-    is_pending: null,
-    is_preordered: null,
-    is_removable: null,
-    is_visible: null,
-  },
-  merchandising_summary: "<p>In the year 2045, reality is an ugly place. The only time Wade Watts really feels alive is when he’s jacked into the OASIS, a vast virtual world where most of humanity spends their days....</p>",
-  publication_datetime: "2011-08-16T05:00:00Z",
-  publication_name: "Ready Player One",
-  purchase_date: "2019-08-31T23:20:57.950Z",
-  release_date: "2011-08-16",
-  runtime_length_min: 940,
-  sku: "BK_RAND_002735CA",
-  sku_lite: "BK_RAND_002735",
-  status: "Active",
-  thesaurus_subject_keywords: ["literature-and-fiction"],
-  title: "Ready Player One",
-};
-*/
-
-function itemToOPDSMetadata(metadata) {
-  const feed = {
-    metadata: {
-      "@type": "http://schema.org/Audiobook",
-    },
-  };
-
-  if (metadata.title) feed.metadata.title = metadata.title;
-  if (metadata.author) feed.metadata.author = metadata.author;
-  if (metadata.sku) feed.metadata.identifier = metadata.sku;
-  if (metadata.language) feed.metadata.language = ISO6391.getCode(metadata.language) || metadata.language;
-  if (metadata.published) feed.metadata.published = metadata.published.split("T")[0];
-  if (metadata.description) feed.metadata.description = metadata.description.replace(/<[^>]*>/g, "");
-  if (metadata.length) feed.metadata.duration = metadata.length;
-  feed.metadata.visiblId = "";
-  return feed;
-}
-
-function itemToOPDSReadingOrder(metadata) {
-  const readingOrder = metadata.chapters.map((chapter) => ({
-    type: "audio/mp4",
-    duration: chapter.endTime - chapter.startTime,
-    title: chapter.title,
-  }));
-  return readingOrder;
-}
-
-/*
-      library = library.map((item) => ({
-        type: "audiobook",
-        title: item.title,
-        visibility: "private",
-        addedBy: uid,
-        sku: item.sku_lite,
-        feedTemplate: itemToOPDSFeed(item),
-      }));
-*/
 async function addSkuToCatalogue(uid, metadata) {
   logger.info(`Updating catalogue with metadata for item ${metadata.sku}`);
   const catalogueItem = await catalogueGetItemFirestore({sku: metadata.sku});
