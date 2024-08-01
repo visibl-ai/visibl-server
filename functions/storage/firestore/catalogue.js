@@ -138,11 +138,12 @@ async function catalogueBatchAddFirestore(items) {
  * Retrieves all items from the Catalogue collection in Firestore.
  *
  * @param {object} app - The Firebase app instance.
+ * @param {string} [visibility] - The visibility of the items to retrieve. Defaults to "public".
  * @return {Promise<Array<object>>} A promise that resolves to an array of all catalogue items.
  */
-async function catalogueGetFirestore(app) {
+async function catalogueGetFirestore(app, visibility = "public") {
   const catalogueRef = getFirestore().collection("Catalogue");
-  const snapshot = await catalogueRef.get();
+  const snapshot = await catalogueRef.where("visibility", "==", visibility).get();
 
   if (snapshot.empty) {
     return [];

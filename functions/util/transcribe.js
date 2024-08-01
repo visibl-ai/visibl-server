@@ -59,12 +59,44 @@ async function transcribeFilesInParallel(bookData, outputFiles) {
   return transcriptions;
 }
 
+function getMetadataPath(uid, sku) {
+  if (uid === "admin") {
+    return `Catalogue/Raw/${sku}.json`;
+  } else {
+    return `UserData/${uid}/Uploads/AudibleRaw/${sku}.json`;
+  }
+}
+
+function getM4BPath(uid, sku) {
+  if (uid === "admin") {
+    return `Catalogue/Raw/${sku}.m4b`;
+  } else {
+    return `UserData/${uid}/Uploads/AudibleRaw/${sku}.m4b`;
+  }
+}
+
+function getSplitAudioPath(uid, sku) {
+  if (uid === "admin") {
+    return `Catalogue/Processed/${sku}/`;
+  } else {
+    return `UserData/${uid}/Uploads/Processed/${sku}/`;
+  }
+}
+
+function getTranscriptionsPath(uid, sku) {
+  if (uid === "admin") {
+    return `Catalogue/Processed/${sku}/${sku}-transcriptions.json`;
+  } else {
+    return `UserData/${uid}/Uploads/Processed/${sku}/${sku}-transcriptions.json`;
+  }
+}
+
 async function getMetaData(app, uid, sku, path) {
-  const bookData = await getJsonFile(app, `UserData/${uid}/Uploads/AudibleRaw/${sku}.json`);
+  const bookData = await getJsonFile(app, getMetadataPath(uid, sku));
   logger.debug(`Book Data: ${JSON.stringify(bookData, null, 2)}`);
   if (ENVIRONMENT.value() === "development") {
     bookData.chapters = Object.fromEntries(
-        Object.entries(bookData.chapters).slice(0, 6),
+        Object.entries(bookData.chapters).slice(0, 2),
     );
   }
   const inputFiles = Object.values(bookData.chapters).map(() => `${path}${sku}.m4b`);
@@ -87,7 +119,7 @@ async function pipeline(app, uid, sku, ffmpegPath ) {
   const inputFilePath = `./bin/${sku}.m4b`;
   const path = `./bin/`;
 
-  await downloadFileFromBucket(app, `UserData/${uid}/Uploads/AudibleRaw/${sku}.m4b`, inputFilePath);
+  await downloadFileFromBucket(app, getM4BPath(uid, sku), inputFilePath);
   logger.debug("STEP 1: File downloaded from bucket.");
   // 2. get metadata from audio file
 
@@ -108,7 +140,7 @@ async function pipeline(app, uid, sku, ffmpegPath ) {
   logger.debug(`STEP 3: File Split into chapters of ${MAX_SIZE}mb`);
   // 4. Upload the split files to bucket?
   let splitAudio = "";
-  splitAudio = await uploadFilesToBucket(app, sku, outputFiles, `UserData/${uid}/Uploads/Processed/${sku}/`);
+  splitAudio = await uploadFilesToBucket(app, sku, outputFiles, getSplitAudioPath(uid, sku));
   logger.debug("STEP 4: Files uploaded to bucket.");
   // 5. Transcribe the files
   console.log(metadata);
@@ -120,7 +152,7 @@ async function pipeline(app, uid, sku, ffmpegPath ) {
     logger.debug("STEP 5: Transcriptions Complete");
   }
   // 6. Upload Transcriptions to Bucket.
-  const transcriptionsFile = await uploadJsonToBucket(app, transcriptions, `UserData/${uid}/Uploads/Processed/${sku}/${sku}-transcriptions.json`);
+  const transcriptionsFile = await uploadJsonToBucket(app, transcriptions, getTranscriptionsPath(uid, sku));
   logger.debug("STEP 6: Transcriptions Uploaded to Bucket.");
   return {transcriptions: transcriptionsFile.metadata.name, metadata: metadata.bookData, splitAudio};
 }

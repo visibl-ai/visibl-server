@@ -4,13 +4,14 @@ import {
   getFirestore,
   Timestamp} from "firebase-admin/firestore";
 import {
-  getCatalogueManifest,
   getCatalogueScenes,
   storeUserScenes,
   getUserScenes,
 } from "./storage.js";
 import {logger} from "firebase-functions/v2";
 import {createBookPipeline} from "../util/pipeline.js";
+import {generateManifest} from "../util/opds.js";
+
 /**
  * Adds a new user to the Firestore database.
  *
@@ -165,50 +166,36 @@ async function addItemToLibraryFirestore(uid, data, app) {
   };
 }
 
-/**
- * Retrieves the manifest for a specific item in the user's library from Firestore.
- *
- * @param {string} uid - The user ID of the authenticated user.
- * @param {object} data - The data object containing the item ID.
- * @param {object} app - The Firebase app instance.
- * @return {Promise<object>} A promise that resolves to the item manifest.
- */
-async function getItemManifestFirestore(uid, data, app) {
-  if (!data.libraryId) {
-    throw new Error("Library ID is required");
-  }
-
+async function getLibraryItemFirestore(uid, data) {
   const db = getFirestore();
+  logger.debug(`getting library item ${data.libraryId}`);
   const libraryRef = db.collection("Library").doc(data.libraryId);
-
   const doc = await libraryRef.get();
 
-  if (!doc.exists || doc.data().uid !== uid) {
+  if (!doc.exists) {
     throw new Error("Item not found in the user's library");
   }
 
-  try {
-    const catalogueId = doc.data().catalogueId;
-    const manifest = await getCatalogueManifest(app, catalogueId);
-    if (!manifest) {
-      throw new Error("Manifest not found");
-    }
-    return manifest;
-  } catch (error) {
-    console.error("Error retrieving manifest:", error);
-    throw new Error("Failed to retrieve item manifest");
+  const docData = doc.data();
+  if (docData.uid !== uid) {
+    throw new Error("Unauthorized access to library item");
   }
+
+  return {
+    id: doc.id,
+    ...docData,
+  };
 }
 
 /**
  * Retrieves the user's library items from Firestore.
  *
+ * @param {object} app - The Firebase app instance.
  * @param {string} uid - The user ID of the authenticated user.
  * @param {object} data - The data object containing optional parameters.
- * @param {object} app - The Firebase app instance.
  * @return {Promise<Array>} A promise that resolves to an array of library items.
  */
-async function getLibraryFirestore(uid, data, app) {
+async function getLibraryFirestore(app, uid, data) {
   const db = getFirestore();
   const libraryRef = db.collection("Library").where("uid", "==", uid);
 
@@ -226,7 +213,7 @@ async function getLibraryFirestore(uid, data, app) {
   if (data.includeManifest) {
     libraryItems = await Promise.all(libraryItems.map(async (item) => {
       try {
-        const manifest = await getItemManifestFirestore(uid, {libraryId: item.id}, app);
+        const manifest = await generateManifest(app, uid, item.catalogueId);
         return {...item, manifest};
       } catch (error) {
         console.error(`Error fetching manifest for item ${item.id}:`, error);
@@ -649,7 +636,6 @@ export {
   updatePipelineFirestore,
   getPipelineFirestore,
   addItemToLibraryFirestore,
-  getItemManifestFirestore,
   getLibraryFirestore,
   deleteItemFromLibraryFirestore,
   getAiFirestore,
@@ -665,4 +651,5 @@ export {
   getAllAudibleAuthFirestore,
   removeUndefinedProperties,
   getAsinFromSkuFirestore,
+  getLibraryItemFirestore,
 };

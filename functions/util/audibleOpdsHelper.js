@@ -19,12 +19,9 @@ import {
   getAllAudibleAuthFirestore,
 } from "../storage/firestore.js";
 
-import {
-  catalogueGetItemFirestore,
-  catalogueAddFirestore,
-} from "../storage/firestore/catalogue.js";
-
 import {generateTranscriptions} from "./transcribe.js";
+
+import {addSkuToCatalogue} from "./opds.js";
 
 
 function formatFunctionsUrl(functionName) {
@@ -151,7 +148,7 @@ async function transcribe(app, uid, itemsToProcess) {
       item.splitAudio = transcription.splitAudio;
       item.transcriptionsGenerated = true;
       await updateAudibleItemFirestore(item);
-      await addSkuToCatalogue(uid, item.metadata);
+      await addSkuToCatalogue(uid, item.metadata, "private");
     } catch (error) {
       logger.error(`Error generating transcriptions for item ${item.asin}`, error);
     }
@@ -249,31 +246,9 @@ async function refreshAudibleTokens(data) {
   };
 }
 
-async function addSkuToCatalogue(uid, metadata) {
-  logger.info(`Updating catalogue with metadata for item ${metadata.sku}`);
-  const catalogueItem = await catalogueGetItemFirestore({sku: metadata.sku});
-  if (catalogueItem) {
-    logger.info(`Catalogue item already exists for ${metadata.sku}`);
-    return;
-  }
-  console.log(metadata);
-  const itemToAdd = {
-    type: "audiobook",
-    title: metadata.title,
-    author: metadata.author,
-    duration: metadata.duration,
-    visibility: "private",
-    addedBy: uid,
-    sku: metadata.sku,
-    metadata: metadata,
-  };
-  return await catalogueAddFirestore({body: itemToAdd});
-}
-
 export {
   getAudibleLoginURL,
   getAudibleAuth,
   audiblePostAuthHook,
   refreshAudibleTokens,
-  addSkuToCatalogue,
 };

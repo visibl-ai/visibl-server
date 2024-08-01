@@ -2,6 +2,9 @@
 /* eslint-disable no-unused-vars */
 // import {onRequest} from "firebase-functions/v2/https";
 import {initializeApp} from "firebase-admin/app";
+import {onTaskDispatched} from "firebase-functions/v2/tasks";
+import {getFunctions} from "firebase-admin/functions";
+import {GoogleAuth} from "google-auth-library";
 const app = initializeApp();
 import {onRequest, onCall} from "firebase-functions/v2/https";
 // import {onObjectFinalized} from "firebase-functions/v2/storage";
@@ -16,10 +19,8 @@ import {
 import {
   getUser,
   getPipelineFirestore,
-
   addItemToLibraryFirestore,
   deleteItemFromLibraryFirestore,
-  getItemManifestFirestore,
   getLibraryFirestore,
   getAiFirestore,
   getLibraryScenesFirestore,
@@ -34,10 +35,6 @@ import {
   catalogueUpdateFirestore,
 } from "./storage/firestore/catalogue.js";
 
-import {
-  getCatalogueManifest,
-} from "./storage/storage.js";
-
 import {generateImages} from "./util/ai.js";
 
 import {
@@ -46,8 +43,10 @@ import {
 } from "firebase-functions/v2/identity";
 
 import {
-  generateOPDS,
+  generatePublicOPDS,
   processRawPublicItem,
+  generateManifest,
+  generateUserItemManifest,
 } from "./util/opds.js";
 
 import {
@@ -148,7 +147,7 @@ export const v1addItemToLibrary = onCall({region: "europe-west1"}, async (contex
  */
 export const v1getItemManifest = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return getItemManifestFirestore(uid, data, app);
+  return generateUserItemManifest(app, uid, data);
 });
 
 /**
@@ -160,7 +159,7 @@ export const v1getItemManifest = onCall({region: "europe-west1"}, async (context
  */
 export const v1getLibrary = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return getLibraryFirestore(uid, data, app);
+  return getLibraryFirestore(app, uid, data);
 });
 
 /**
@@ -204,7 +203,7 @@ export const v1catalogueGet = onCall({region: "europe-west1"}, async (context) =
 });
 
 export const v1catalogueGetOPDS = onRequest({region: "europe-west1"}, async (req, res) => {
-  res.status(200).send(generateOPDS(await catalogueGetFirestore(app)));
+  res.status(200).send(await generatePublicOPDS(app));
 });
 
 export const v1catalogueGetManifest = onRequest({region: "europe-west1"}, async (req, res) => {
@@ -214,7 +213,7 @@ export const v1catalogueGetManifest = onRequest({region: "europe-west1"}, async 
     return;
   }
   console.log(`catalogueId: ${catalogueId}`);
-  res.status(200).send(await getCatalogueManifest(app, catalogueId));
+  res.status(200).send(await generateManifest(app, "admin", catalogueId));
 });
 
 export const v1catalogueDelete = onRequest({region: "europe-west1"}, async (req, res) => {
@@ -264,7 +263,12 @@ export const v1audibleGetAuth = onCall({region: "europe-west1"}, async (context)
   return await getAudibleAuth(uid, data, app);
 });
 
-export const v1TMPaudiblePostAuthHook = onCall({region: "europe-west1"}, async (context) => {
+export const v1TMPaudiblePostAuthHook = onCall({
+  region: "europe-west1",
+  memory: "32GiB",
+  concurrency: 1,
+  timeoutSeconds: 540,
+}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await audiblePostAuthHook(uid, data, app);
 });
@@ -278,12 +282,69 @@ export const v1generateTranscriptions = onCall({
   region: "europe-west1",
   memory: "32GiB",
   concurrency: 1,
+  timeoutSeconds: 540,
 }, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await generateTranscriptions(uid, data, app);
 });
 
-export const v1catalogueProcessRaw = onRequest({region: "europe-west1"}, async (req, res) => {
+export const v1catalogueProcessRaw = onRequest({
+  region: "europe-west1",
+}, async (req, res) => {
   await validateOnRequestAdmin(req);
-  res.status(200).send(await processRawPublicItem(req, app));
+  const queue = getFunctions().taskQueue("processM4B");
+  const targetUri = await getFunctionUrl("processM4B");
+  const task = queue.enqueue({sku: req.body.sku}, {
+    scheduleDelaySeconds: 1,
+    dispatchDeadlineSeconds: 60 * 5, // 5 minutes
+    uri: targetUri,
+  });
+  res.status(200).send(task);
 });
+
+export const processM4B = onTaskDispatched(
+    {
+      retryConfig: {
+        maxAttempts: 5,
+        minBackoffSeconds: 1,
+      },
+      rateLimits: {
+        maxConcurrentDispatches: 1,
+      },
+      region: "europe-west1",
+      memory: "32GiB",
+      timeoutSeconds: 540,
+    },
+    async (req) => {
+      logger.debug(`processM4B: ${req.data}`);
+      return await processRawPublicItem({body: req.data}, app);
+    },
+);
+
+
+let auth;
+/**
+ * Get the URL of a given v2 cloud function.
+ *
+ * @param {string} name the function's name
+ * @param {string} location the function's location
+ * @return {Promise<string>} The URL of the function
+ */
+async function getFunctionUrl(name, location="europe-west1") {
+  if (!auth) {
+    auth = new GoogleAuth({
+      scopes: "https://www.googleapis.com/auth/cloud-platform",
+    });
+  }
+  const projectId = await auth.getProjectId();
+  const url = "https://cloudfunctions.googleapis.com/v2beta/" +
+    `projects/${projectId}/locations/${location}/functions/${name}`;
+
+  const client = await auth.getClient();
+  const res = await client.request({url});
+  const uri = res.data?.serviceConfig?.uri;
+  if (!uri) {
+    throw new Error(`Unable to retreive uri for function at ${url}`);
+  }
+  return uri;
+}

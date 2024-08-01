@@ -1,5 +1,5 @@
 /* eslint-disable require-jsdoc */
-import {getStorage} from "firebase-admin/storage";
+import {getStorage, getDownloadURL} from "firebase-admin/storage";
 import {logger} from "firebase-functions/v2";
 import {STORAGE_BUCKET_ID} from "../config/config.js";
 import fs from "fs/promises";
@@ -50,34 +50,6 @@ async function createCatalogueFolder(app, catalogueId) {
     return folderPath;
   } catch (error) {
     logger.error(`Error creating folder for catalogue ${catalogueId}:`, error);
-    return null;
-  }
-}
-
-/**
- * Retrieves the manifest file for a catalogue item
- * @param {Object} app - The Firebase app instance
- * @param {string} catalogueId - The unique identifier for the catalogue item
- * @return {Promise<Object|null>} The manifest JSON object or null if not found
- */
-async function getCatalogueManifest(app, catalogueId) {
-  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
-  const filePath = `Catalogue/${catalogueId}/manifest.json`;
-  const file = bucket.file(filePath);
-
-  try {
-    const [exists] = await file.exists();
-    if (!exists) {
-      logger.warn(`Manifest file not found for catalogue ${catalogueId}`);
-      return null;
-    }
-
-    const [content] = await file.download();
-    const manifest = JSON.parse(content.toString());
-    manifest.metadata.visiblId = catalogueId;
-    return manifest;
-  } catch (error) {
-    logger.error(`Error retrieving manifest for catalogue ${catalogueId}:`, error);
     return null;
   }
 }
@@ -273,11 +245,26 @@ async function uploadJsonToBucket(app, json, bucketPath) {
   }
 }
 
+async function copyFile(app, sourcePath, destinationPath) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+  const sourceFile = bucket.file(sourcePath);
+  const destinationFile = bucket.file(destinationPath);
+  await sourceFile.copy(destinationFile);
+  return destinationFile;
+}
+
+async function getPublicUrl(app, path) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+  const file = bucket.file(path);
+
+  const downloadUrl = await getDownloadURL(file);
+  return downloadUrl;
+}
+
 
 export {
   createUserFolder,
   createCatalogueFolder,
-  getCatalogueManifest,
   fileExists,
   deleteFile,
   uploadStreamAndGetPublicLink,
@@ -289,4 +276,6 @@ export {
   uploadFileToBucket,
   getJsonFile,
   uploadJsonToBucket,
+  copyFile,
+  getPublicUrl,
 };

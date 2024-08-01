@@ -71,6 +71,11 @@
         "source": "/v1/admin/ai/generateSceneImages",
         "function": "v1generateSceneImages",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/catalogue/process",
+        "function": "v1catalogueProcessRaw",
+        "region": "europe-west1"
       }
     ]
   }
