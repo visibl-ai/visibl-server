@@ -18,7 +18,7 @@ import {
   getLibraryItemFirestore,
 } from "../storage/firestore.js";
 
-import {ENVIRONMENT} from "../config/config.js";
+import {ENVIRONMENT, HOSTING_DOMAIN} from "../config/config.js";
 
 async function generateOPDS(app, uid, catalogueItems) {
   console.log(catalogueItems);
@@ -37,7 +37,7 @@ async function generateOPDS(app, uid, catalogueItems) {
       ],
       links: [
         {
-          href: `https://visibl-dev-ali.web.app/v1/tmp/catalogue/${item.id}`,
+          href: `${HOSTING_DOMAIN.value()}/v1/tmp/catalogue/${item.id}`,
           type: "application/audiobook+json",
           rel: "http://opds-spec.org/acquisition/buy",
         },

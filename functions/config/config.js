@@ -7,6 +7,7 @@ const ADMIN_API_KEY = defineString("ADMIN_API_KEY");
 const STORAGE_BUCKET_ID = defineString("STORAGE_BUCKET_ID");
 const AUDIBLE_OPDS_API_KEY = defineString("AUDIBLE_OPDS_API_KEY");
 const AUDIBLE_OPDS_FIREBASE_URL = defineString("AUDIBLE_OPDS_FIREBASE_URL");
+const HOSTING_DOMAIN = defineString("HOSTING_DOMAIN");
 
 
 // SECRETS - warning: https://firebase.google.com/docs/functions/config-env?gen=2nd#node.js_6
@@ -21,5 +22,6 @@ export {
   STORAGE_BUCKET_ID,
   AUDIBLE_OPDS_API_KEY,
   AUDIBLE_OPDS_FIREBASE_URL,
+  HOSTING_DOMAIN,
 };
 
