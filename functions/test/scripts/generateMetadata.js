@@ -12,6 +12,8 @@ const expect = chai.expect;
 dotenv.config({path: "../../.env.visibl-dev"}); // because firebase-functions-test doesn't work with conf.
 // eslint-disable-next-line no-undef
 
+const SKU = process.env.SKU;
+
 function parseRawFFprobeOutput(ffprobeOutput) {
   const result = {
     title: "",
@@ -96,8 +98,10 @@ function parseRawFFprobeOutput(ffprobeOutput) {
 describe("Generate metadata.json from m4b file", () => {
   // eslint-disable-next-line no-undef
   it(`test v1catalogueProcessRaw`, async () => {
-    const rawFileContent = fs.readFileSync("../bindings/ffprobe/raw.txt", "utf8");
+    const rawFileContent = fs.readFileSync(`../bindings/m4b/${SKU}.ffprobe`, "utf8");
     const metadata = parseRawFFprobeOutput(rawFileContent);
+    metadata.sku = SKU;
     console.log(metadata);
+    fs.writeFileSync(`../bindings/m4b/${SKU}.json`, JSON.stringify(metadata, null, 2));
   });
 });

@@ -28,7 +28,7 @@ describe("Customer creation via Firebase Auth", () => {
         .request("https://visibl-dev.web.app")
         .post("/v1/admin/catalogue/process")
         .set("API-KEY", process.env.ADMIN_API_KEY)
-        .send({sku: process.env.PUBLIC_SKU1});
+        .send({sku: process.env.SKU});
     expect(response).to.have.status(200);
   });
 });
