@@ -294,6 +294,7 @@ export const v1catalogueProcessRaw = onRequest({
   await validateOnRequestAdmin(req);
   const queue = getFunctions().taskQueue("processM4B");
   const targetUri = await getFunctionUrl("processM4B");
+  logger.debug(`v1catalogueProcessRaw targetUri: ${targetUri} for ${req.body}`);
   const task = queue.enqueue({sku: req.body.sku}, {
     scheduleDelaySeconds: 1,
     dispatchDeadlineSeconds: 60 * 5, // 5 minutes
@@ -305,18 +306,18 @@ export const v1catalogueProcessRaw = onRequest({
 export const processM4B = onTaskDispatched(
     {
       retryConfig: {
-        maxAttempts: 5,
+        maxAttempts: 1,
         minBackoffSeconds: 1,
       },
       rateLimits: {
         maxConcurrentDispatches: 1,
       },
-      region: "europe-west1",
+      region: "us-central1", // Tasks only work here for some reason!
       memory: "32GiB",
       timeoutSeconds: 540,
     },
     async (req) => {
-      logger.debug(`processM4B: ${req.data}`);
+      logger.debug(`processM4B: ${JSON.stringify(req.data)}`);
       return await processRawPublicItem({body: req.data}, app);
     },
 );
@@ -330,14 +331,14 @@ let auth;
  * @param {string} location the function's location
  * @return {Promise<string>} The URL of the function
  */
-async function getFunctionUrl(name, location="europe-west1") {
+async function getFunctionUrl(name, location="us-central1") {
   if (!auth) {
     auth = new GoogleAuth({
       scopes: "https://www.googleapis.com/auth/cloud-platform",
     });
   }
   const projectId = await auth.getProjectId();
-  const url = "https://cloudfunctions.googleapis.com/v2beta/" +
+  const url = "https://cloudfunctions.googleapis.com/v2/" +
     `projects/${projectId}/locations/${location}/functions/${name}`;
 
   const client = await auth.getClient();

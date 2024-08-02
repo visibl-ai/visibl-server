@@ -11,6 +11,7 @@ import {uploadFileToBucket,
   getJsonFile,
   uploadJsonToBucket,
 } from "../storage/storage.js";
+import fs from "fs/promises";
 
 import {getAsinFromSkuFirestore} from "../storage/firestore.js";
 
@@ -158,7 +159,9 @@ async function pipeline(app, uid, sku, ffmpegPath ) {
 }
 
 async function downloadFffmpegBinary(app) {
-  const ffmpegPath = await downloadFileFromBucket(app, "bin/ffmpeg", "./bin/ffmpeg");
+  const ffmpegPath = "./bin/ffmpeg";
+  await downloadFileFromBucket(app, "bin/ffmpeg", ffmpegPath);
+  await fs.chmod(ffmpegPath, 0o755);
   return ffmpegPath;
 }
 
@@ -178,6 +181,7 @@ async function generateTranscriptions(uid, data, app) {
   if (ENVIRONMENT.value() === "development") {
     ffmpegPath = `ffmpeg`;
   }
+  logger.debug(`using ffmpeg path: ${ffmpegPath}`);
   const urls = await pipeline(app, uid, sku, ffmpegPath);
   return urls;
 }
