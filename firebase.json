@@ -76,6 +76,11 @@
         "source": "/v1/admin/catalogue/process",
         "function": "v1catalogueProcessRaw",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/aax/setAvailable",
+        "function": "v1AdminSetAAXAvailable",
+        "region": "europe-west1"
       }
     ]
   }

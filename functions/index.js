@@ -35,6 +35,11 @@ import {
   catalogueUpdateFirestore,
 } from "./storage/firestore/catalogue.js";
 
+import {
+  getAAXAvailableFirestore,
+  setAAXAvailableFirestore,
+} from "./storage/firestore/users.js";
+
 import {generateImages} from "./util/ai.js";
 
 import {
@@ -54,6 +59,7 @@ import {
   getAudibleAuth,
   audiblePostAuthHook,
   refreshAudibleTokens,
+  submitAAXAuth,
 } from "./util/audibleOpdsHelper.js";
 
 import {
@@ -258,9 +264,23 @@ export const v1getAudibleLoginURL = onCall({region: "europe-west1"}, async (cont
   return await getAudibleLoginURL(uid, data, app);
 });
 
-export const v1audibleGetAuth = onCall({region: "europe-west1"}, async (context) => {
+export const v1aaxGetAuth = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await getAudibleAuth(uid, data, app);
+  const auth = await getAudibleAuth(uid, data, app);
+  const queue = getFunctions().taskQueue("aaxPostAuthHook");
+  const targetUri = await getFunctionUrl("aaxPostAuthHook");
+  logger.debug(`v1aaxGetAuth targetUri: ${targetUri} for ${uid}`);
+  const task = queue.enqueue({uid: uid, auth: auth}, {
+    scheduleDelaySeconds: 1,
+    dispatchDeadlineSeconds: 60 * 5, // 5 minutes
+    uri: targetUri,
+  });
+  return auth;
+});
+
+export const v1AdminSubmitAAXAuth = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await submitAAXAuth(req, app));
 });
 
 export const v1TMPaudiblePostAuthHook = onCall({
@@ -302,6 +322,41 @@ export const v1catalogueProcessRaw = onRequest({
   });
   res.status(200).send(task);
 });
+
+export const v1getAAXAvailable = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await getAAXAvailableFirestore(uid, data, app);
+});
+
+export const v1AdminSetAAXAvailable = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await setAAXAvailableFirestore(req, app));
+});
+
+export const v1getPrivateOPDSFeed = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return;// await getPrivateOPDSFeed(uid, data, app);
+});
+
+export const aaxPostAuthHook = onTaskDispatched(
+    {
+      retryConfig: {
+        maxAttempts: 1,
+        minBackoffSeconds: 1,
+      },
+      rateLimits: {
+        maxConcurrentDispatches: 1,
+      },
+      region: "us-central1",
+      memory: "32GiB",
+      timeoutSeconds: 540,
+    },
+    async (req) => {
+      logger.debug(`aaxPostAuthHook: ${JSON.stringify(req.data)}`);
+      const body = req.data;
+      return await audiblePostAuthHook(body.uid, {auth: body.auth}, app);
+    },
+);
 
 export const processM4B = onTaskDispatched(
     {

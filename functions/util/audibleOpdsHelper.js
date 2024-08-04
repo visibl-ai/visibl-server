@@ -10,6 +10,10 @@ import {AUDIBLE_OPDS_API_KEY,
 } from "../config/config.js";
 
 import {
+  getAAXAvailableFirestore,
+} from "../storage/firestore/users.js";
+
+import {
   getAudibleAuthByAudibleId,
   storeAudibleAuthFirestore,
   getAudibleAuthByUid,
@@ -39,6 +43,10 @@ function formatFunctionsUrl(functionName) {
  * @throws {Error} If there's an issue with the API request.
  */
 async function getAudibleLoginURL(uid, data, app) {
+  const aaxAvailable = await getAAXAvailableFirestore(uid);
+  if (!aaxAvailable) {
+    return {error: "AAX not available"};
+  }
   const response = await axios.post(formatFunctionsUrl("get_login_url"), {
     country_code: data.countryCode,
   }, {
@@ -46,6 +54,7 @@ async function getAudibleLoginURL(uid, data, app) {
       "API-KEY": AUDIBLE_OPDS_API_KEY.value(),
     },
   });
+
   const loginUrl = response.data.login_url;
   const codeVerifier = response.data.code_verifier;
   const serial = response.data.serial;
@@ -72,6 +81,7 @@ async function getAudibleAuth(uid, data, app) {
 }
 
 async function audiblePostAuthHook(uid, data, app) {
+  logger.debug(`audiblePostAuthHook: uid: ${uid}, data: ${JSON.stringify(data)}`);
   const auth = data.auth;
   const audibleUserId = auth.customer_info.user_id;
   // 1. Check that no other user has already registered this Audible account
@@ -246,9 +256,16 @@ async function refreshAudibleTokens(data) {
   };
 }
 
+async function submitAAXAuth(req, app) {
+  const auth = req.body.auth;
+  const uid = req.body.uid;
+  return await audiblePostAuthHook(uid, auth, app);
+}
+
 export {
   getAudibleLoginURL,
   getAudibleAuth,
   audiblePostAuthHook,
   refreshAudibleTokens,
+  submitAAXAuth,
 };

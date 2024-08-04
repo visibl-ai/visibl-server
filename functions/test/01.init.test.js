@@ -50,10 +50,12 @@ import {
   v1addLibraryItemScenes,
   v1updateLibraryItemScenes,
   v1getAudibleLoginURL,
-  v1audibleGetAuth,
+  v1aaxGetAuth,
   v1TMPaudiblePostAuthHook,
   v1refreshAudibleTokens,
   v1generateTranscriptions,
+  v1getPrivateOPDSFeed,
+  v1getAAXAvailable,
 } from "../index.js";
 
 
@@ -199,7 +201,7 @@ describe("Customer creation via Firebase Auth", () => {
   // eslint-disable-next-line no-undef
   it(`test processM4B taskQueue`, async () => {
     const response = await chai
-        .request("http://127.0.0.1:5001/visibl-dev-ali/europe-west1")
+        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
         .post("/processM4B")
         .set("Content-Type", "application/json")
         .send({
@@ -311,6 +313,86 @@ describe("Customer creation via Firebase Auth", () => {
     console.log(foundBook);
   });
   // eslint-disable-next-line no-undef
+  it("Audible - checks if audible connect is available for user (default true)", async () => {
+    const wrapped = firebaseTest.wrap(v1getAAXAvailable);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    expect(result).to.be.true;
+  });
+  // eslint-disable-next-line no-undef
+  it("Audible - ADMIN disables audible connect.", async () => {
+    const data = {
+      active: false,
+      uid: userData.uid,
+    };
+
+    const response = await chai
+        .request(APP_URL)
+        .post("/v1/admin/aax/setAvailable")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send(data);
+    expect(response).to.have.status(200);
+    expect(response.body).to.deep.equal(data);
+  });
+  // eslint-disable-next-line no-undef
+  it("Audible - checks if audible connect is available for user (false)", async () => {
+    const wrapped = firebaseTest.wrap(v1getAAXAvailable);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    expect(result).to.be.false;
+  });
+
+  // eslint-disable-next-line no-undef
+  it("Audible - get login URL when disabled", async () => {
+    const wrapped = firebaseTest.wrap(v1getAudibleLoginURL);
+    const data = {
+      countryCode: "ca",
+    };
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.be.an("object");
+  });
+  // eslint-disable-next-line no-undef
+  it("Audible - ADMIN enables audible connect.", async () => {
+    const data = {
+      active: true,
+      uid: userData.uid,
+    };
+    const response = await chai
+        .request(APP_URL)
+        .post("/v1/admin/aax/setAvailable")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send(data);
+    expect(response).to.have.status(200);
+  });
+  // eslint-disable-next-line no-undef
+  it("Audible - checks if audible connect is available for user (true)", async () => {
+    const wrapped = firebaseTest.wrap(v1getAAXAvailable);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    expect(result).to.be.true;
+  });
+  // eslint-disable-next-line no-undef
   it("Audible - get login URL", async () => {
     const wrapped = firebaseTest.wrap(v1getAudibleLoginURL);
     const data = {
@@ -340,7 +422,7 @@ describe("Customer creation via Firebase Auth", () => {
       expect(audibleUrlData).to.have.property("responseUrl");
       expect(audibleUrlData).to.have.property("countryCode");
 
-      const wrapped = firebaseTest.wrap(v1audibleGetAuth);
+      const wrapped = firebaseTest.wrap(v1aaxGetAuth);
       const data = {
         codeVerifier: audibleUrlData.codeVerifier,
         responseUrl: audibleUrlData.responseUrl,
@@ -360,8 +442,29 @@ describe("Customer creation via Firebase Auth", () => {
       const audibleAuthPath = path.join("test", "bindings", "audibleAuth.json");
       fs.writeFileSync(audibleAuthPath, JSON.stringify(result, null, 2));
       console.log(`Audible auth data written to ${audibleAuthPath}`);
+      await new Promise((resolve) => setTimeout(resolve, 30000));
+      console.log("Waited for 30 seconds after setting auth for the user");
+    });
+  } else {
+  // eslint-disable-next-line no-undef
+    it("Audible - Post auth hook for AAX auth.", async () => {
+      const auth = JSON.parse(fs.readFileSync(path.join("test", "bindings", "audibleAuth.json"), "utf8"));
+      const data = {
+        uid: userData.uid,
+        auth: auth,
+      };
+      const response = await chai
+          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .post("/aaxPostAuthHook")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+      // Wait for 30 seconds before exiting the function
+      await new Promise((resolve) => setTimeout(resolve, 30000));
+      console.log("Waited for 30 seconds after setting auth for the user");
     });
   }
+  return;
   // eslint-disable-next-line no-undef
   it(`Uploads audible files to UserData`, async () => {
     const fileList = [
@@ -467,13 +570,24 @@ describe("Customer creation via Firebase Auth", () => {
     });
   }
 
-  // Ensure imported items have been added to the global catalogue
-
-  // Get an OPDS feed for the user and ensure it has the imported items
-
+  // Get an OPDS feed for the users private items
+  // eslint-disable-next-line no-undef
+  it("TEST1 Audible - get private OPDS feeds", async () => {
+    const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeed);
+    const data = {auth};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+  });
+  return;
   // Add an amazon item to the users library
 
   // Get an auto-generated manifest for the added item
+
 
   // eslint-disable-next-line no-undef
   it(`uploads a scenes file to catalogue item`, async () => {
