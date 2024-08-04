@@ -50,6 +50,7 @@ import {
 
 import {
   generatePublicOPDS,
+  generatePrivateOPDS,
   processRawPublicItem,
   generateManifest,
   generateUserItemManifest,
@@ -285,15 +286,15 @@ export const v1AdminSubmitAAXAuth = onRequest({region: "europe-west1"}, async (r
   res.status(200).send(await submitAAXAuth(req, app));
 });
 
-export const v1TMPaudiblePostAuthHook = onCall({
-  region: "europe-west1",
-  memory: "32GiB",
-  concurrency: 1,
-  timeoutSeconds: 540,
-}, async (context) => {
-  const {uid, data} = await validateOnCallAuth(context);
-  return await audiblePostAuthHook(uid, data, app);
-});
+// export const v1TMPaudiblePostAuthHook = onCall({
+//   region: "europe-west1",
+//   memory: "32GiB",
+//   concurrency: 1,
+//   timeoutSeconds: 540,
+// }, async (context) => {
+//   const {uid, data} = await validateOnCallAuth(context);
+//   return await audiblePostAuthHook(uid, data, app);
+// });
 
 export const v1getAAXConnectStatus = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
@@ -347,7 +348,7 @@ export const v1AdminSetAAXAvailable = onRequest({region: "europe-west1"}, async 
 
 export const v1getPrivateOPDSFeed = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return;// await getPrivateOPDSFeed(uid, data, app);
+  return await generatePrivateOPDS(uid, data, app);
 });
 
 export const aaxPostAuthHook = onTaskDispatched(

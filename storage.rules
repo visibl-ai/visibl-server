@@ -8,8 +8,14 @@ service firebase.storage {
     }
 
     // Existing rules for UserData
-    match /UserData/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    //match /UserData/{userId}/{allPaths=**} {
+    //  allow read, write: if request.auth != null && request.auth.uid == userId;
+    //}
+
+    // TODO: look into readium's ability to get data via firebase
+    match /UserData/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;  // Restrict writes to server-side only
     }
 
     // Default rule for other paths

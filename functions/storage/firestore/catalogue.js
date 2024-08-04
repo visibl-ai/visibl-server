@@ -159,6 +159,45 @@ async function catalogueGetFirestore(app, visibility = "public") {
   return catalogueItems;
 }
 
+async function getPrivateCatalogueItemsFirestore(uid) {
+  const db = getFirestore();
+  const userAudibleSyncRef = db.collection("UserAudibleSync");
+  const snapshot = await userAudibleSyncRef.where("uid", "==", uid).get();
+
+  if (snapshot.empty) {
+    logger.debug(`No private catalogue items found for user ${uid}`);
+    return [];
+  }
+
+  const skus = [];
+  logger.debug(`Found ${snapshot.size} private catalogue items for user ${uid}`);
+  snapshot.forEach((doc) => {
+    const item = doc.data();
+    if (item.sku) {
+      skus.push(item.sku);
+    }
+  });
+
+  if (skus.length === 0) {
+    logger.debug(`No private catalogue items found for user ${uid}`);
+    return [];
+  }
+
+  const catalogueRef = db.collection("Catalogue");
+  const catalogueItems = await Promise.all(
+      skus.map(async (sku) => {
+        const snapshot = await catalogueRef.where("sku", "==", sku).limit(1).get();
+        if (!snapshot.empty) {
+          const doc = snapshot.docs[0];
+          return {id: doc.id, ...doc.data()};
+        }
+        return null;
+      }),
+  );
+
+  return catalogueItems.filter((item) => item !== null);
+}
+
 /**
  * Retrieves a specific item from the Catalogue collection in Firestore.
  *
@@ -311,4 +350,5 @@ export {
   catalogueUpdateFirestore,
   populateCatalogueWithAudibleItems,
   catalogueGetItemFirestore,
+  getPrivateCatalogueItemsFirestore,
 };

@@ -50,7 +50,7 @@ import {
   v1addLibraryItemScenes,
   v1updateLibraryItemScenes,
   v1aaxConnect,
-  v1TMPaudiblePostAuthHook,
+  // v1TMPaudiblePostAuthHook,
   v1refreshAudibleTokens,
   v1generateTranscriptions,
   v1getPrivateOPDSFeed,
@@ -428,107 +428,6 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result).to.have.property("codeVerifier");
     expect(result).to.have.property("serial");
   });
-  const DO_AUDIBLE_LOGIN = false;
-  if (DO_AUDIBLE_LOGIN) {
-    // eslint-disable-next-line no-undef
-    it("Audible - submit login URL", async () => {
-    // Load the audibleUrl.json file
-      const audibleUrlPath = path.join("test", "bindings", "audibleUrl.json");
-      const audibleUrlData = JSON.parse(fs.readFileSync(audibleUrlPath, "utf8"));
-      // You can now use audibleUrlData in your test
-      expect(audibleUrlData).to.have.property("codeVerifier");
-      expect(audibleUrlData).to.have.property("serial");
-      expect(audibleUrlData).to.have.property("responseUrl");
-      expect(audibleUrlData).to.have.property("countryCode");
-
-      const wrapped = firebaseTest.wrap(v1aaxConnect);
-      const data = {
-        codeVerifier: audibleUrlData.codeVerifier,
-        responseUrl: audibleUrlData.responseUrl,
-        serial: audibleUrlData.serial,
-        countryCode: audibleUrlData.countryCode,
-      };
-      const result = await wrapped({
-        auth: {
-          uid: userData.uid,
-        },
-        data,
-      });
-      console.log(result);
-      expect(result).to.have.property("access_token");
-      expect(result).to.have.property("refresh_token");
-      // Write result to audibleAuth.json file
-      const audibleAuthPath = path.join("test", "bindings", "audibleAuth.json");
-      fs.writeFileSync(audibleAuthPath, JSON.stringify(result, null, 2));
-      console.log(`Audible auth data written to ${audibleAuthPath}`);
-      await new Promise((resolve) => setTimeout(resolve, 30000));
-      console.log("Waited for 30 seconds after setting auth for the user");
-    });
-  } else {
-  // eslint-disable-next-line no-undef
-    it("Audible - Post auth hook for AAX auth.", async () => {
-      const auth = JSON.parse(fs.readFileSync(path.join("test", "bindings", "audibleAuth.json"), "utf8"));
-      const data = {
-        uid: userData.uid,
-        auth: auth,
-      };
-      const response = await chai
-          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
-          .post("/aaxPostAuthHook")
-          .set("Content-Type", "application/json")
-          .send({data: data}); // nest object as this is a dispatch.
-      expect(response).to.have.status(204);
-      // Wait for 30 seconds before exiting the function
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      console.log("Waited for 2 seconds after setting auth for the user");
-    });
-  }
-  // eslint-disable-next-line no-undef
-  it(`should check if audible is connected`, async () => {
-    const wrapped = firebaseTest.wrap(v1getAAXConnectStatus);
-    const data = {};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    console.log(result);
-    expect(result).to.have.property("connected").that.is.a("boolean");
-    expect(result).to.have.property("source").that.is.a("string");
-    expect(result).to.have.property("accountOwner").that.is.a("string");
-    expect(result.connected).to.be.true;
-    expect(result.source).to.equal(process.env.AAX_CONNECT_SOURCE);
-  });
-  // eslint-disable-next-line no-undef
-  it(`should disconnect from AAX`, async () => {
-    const wrapped = firebaseTest.wrap(v1disconnectAAX);
-    const data = {};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    console.log(result);
-    expect(result).to.have.property("deletedCount").that.is.a("number");
-    expect(result.deletedCount).to.equal(1);
-  });
-  // eslint-disable-next-line no-undef
-  it(`should check that AAX is not connected`, async () => {
-    const wrapped = firebaseTest.wrap(v1getAAXConnectStatus);
-    const data = {};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    expect(result).to.have.property("connected").that.is.a("boolean");
-    expect(result.connected).to.be.false;
-  });
-  return;
-
   // eslint-disable-next-line no-undef
   it(`Uploads audible files to UserData`, async () => {
     const fileList = [
@@ -569,12 +468,65 @@ describe("Customer creation via Firebase Auth", () => {
       }
     }
   });
+  const DO_AUDIBLE_LOGIN = false;
+  if (DO_AUDIBLE_LOGIN) {
+    // eslint-disable-next-line no-undef
+    it("Audible - submit login URL", async () => {
+    // Load the audibleUrl.json file
+      const audibleUrlPath = path.join("test", "bindings", "audibleUrl.json");
+      const audibleUrlData = JSON.parse(fs.readFileSync(audibleUrlPath, "utf8"));
+      // You can now use audibleUrlData in your test
+      expect(audibleUrlData).to.have.property("codeVerifier");
+      expect(audibleUrlData).to.have.property("serial");
+      expect(audibleUrlData).to.have.property("responseUrl");
+      expect(audibleUrlData).to.have.property("countryCode");
+
+      const wrapped = firebaseTest.wrap(v1aaxConnect);
+      const data = {
+        codeVerifier: audibleUrlData.codeVerifier,
+        responseUrl: audibleUrlData.responseUrl,
+        serial: audibleUrlData.serial,
+        countryCode: audibleUrlData.countryCode,
+      };
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      console.log(result);
+      expect(result).to.have.property("access_token");
+      expect(result).to.have.property("refresh_token");
+      // Write result to audibleAuth.json file
+      const audibleAuthPath = path.join("test", "bindings", "audibleAuth.json");
+      fs.writeFileSync(audibleAuthPath, JSON.stringify(result, null, 2));
+      console.log(`Audible auth data written to ${audibleAuthPath}`);
+      await new Promise((resolve) => setTimeout(resolve, 90000));
+      console.log("Waited for 30 seconds after setting auth for the user");
+    });
+  } else {
   // eslint-disable-next-line no-undef
-  it("Audible - post auth automation.", async () => {
-    const audibleAuthPath = path.join("test", "bindings", "audibleAuth.json");
-    const auth = JSON.parse(fs.readFileSync(audibleAuthPath, "utf8"));
-    const wrapped = firebaseTest.wrap(v1TMPaudiblePostAuthHook);
-    const data = {auth};
+    it("Audible - Post auth hook for AAX auth.", async () => {
+      const auth = JSON.parse(fs.readFileSync(path.join("test", "bindings", "audibleAuth.json"), "utf8"));
+      const data = {
+        uid: userData.uid,
+        auth: auth,
+      };
+      const response = await chai
+          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .post("/aaxPostAuthHook")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+      // Wait for 30 seconds before exiting the function
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      console.log("Waited for 2 seconds after setting auth for the user");
+    });
+  }
+  // eslint-disable-next-line no-undef
+  it(`should check if audible is connected`, async () => {
+    const wrapped = firebaseTest.wrap(v1getAAXConnectStatus);
+    const data = {};
     const result = await wrapped({
       auth: {
         uid: userData.uid,
@@ -582,7 +534,27 @@ describe("Customer creation via Firebase Auth", () => {
       data,
     });
     console.log(result);
+    expect(result).to.have.property("connected").that.is.a("boolean");
+    expect(result).to.have.property("source").that.is.a("string");
+    expect(result).to.have.property("accountOwner").that.is.a("string");
+    expect(result.connected).to.be.true;
+    expect(result.source).to.equal(process.env.AAX_CONNECT_SOURCE);
   });
+
+  // eslint-disable-next-line no-undef
+  // it("Audible - post auth automation.", async () => {
+  //   const audibleAuthPath = path.join("test", "bindings", "audibleAuth.json");
+  //   const auth = JSON.parse(fs.readFileSync(audibleAuthPath, "utf8"));
+  //   const wrapped = firebaseTest.wrap(v1TMPaudiblePostAuthHook);
+  //   const data = {auth};
+  //   const result = await wrapped({
+  //     auth: {
+  //       uid: userData.uid,
+  //     },
+  //     data,
+  //   });
+  //   console.log(result);
+  // });
 
   // eslint-disable-next-line no-undef
   it("Audible - submit refresh token", async () => {
@@ -638,7 +610,8 @@ describe("Customer creation via Firebase Auth", () => {
   // eslint-disable-next-line no-undef
   it("TEST1 Audible - get private OPDS feeds", async () => {
     const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeed);
-    const data = {auth};
+    const data = {};
+
     const result = await wrapped({
       auth: {
         uid: userData.uid,
@@ -646,11 +619,17 @@ describe("Customer creation via Firebase Auth", () => {
       data,
     });
     console.log(result);
+    expect(result).to.have.property("metadata");
+    expect(result.metadata).to.have.property("title", `${process.env.AAX_CONNECT_SOURCE} Import`);
+    expect(result).to.have.property("publications");
+    console.log(result.publications);
+    console.log(result.publications[0].links);
+    expect(result.publications).to.be.an("array").that.is.not.empty;
   });
-  return;
-  // Add an amazon item to the users library
 
-  // Get an auto-generated manifest for the added item
+  // Add item to the library
+
+  // Get the manifest
 
 
   // eslint-disable-next-line no-undef
@@ -1161,5 +1140,33 @@ describe("Customer creation via Firebase Auth", () => {
     // Check that the deleted item is no longer in the catalogue
     const deletedBook = getResult.find((book) => book.id === catalogueBook.id);
     expect(deletedBook).to.be.undefined;
+  });
+
+  // eslint-disable-next-line no-undef
+  it(`should disconnect from AAX`, async () => {
+    const wrapped = firebaseTest.wrap(v1disconnectAAX);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.have.property("deletedCount").that.is.a("number");
+    expect(result.deletedCount).to.equal(1);
+  });
+  // eslint-disable-next-line no-undef
+  it(`should check that AAX is not connected`, async () => {
+    const wrapped = firebaseTest.wrap(v1getAAXConnectStatus);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    expect(result).to.have.property("connected").that.is.a("boolean");
+    expect(result.connected).to.be.false;
   });
 });

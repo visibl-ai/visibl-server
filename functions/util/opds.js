@@ -12,19 +12,20 @@ import {
   catalogueGetItemFirestore,
   catalogueAddFirestore,
   catalogueGetFirestore,
+  getPrivateCatalogueItemsFirestore,
 } from "../storage/firestore/catalogue.js";
 
 import {
   getLibraryItemFirestore,
 } from "../storage/firestore.js";
 
-import {ENVIRONMENT, HOSTING_DOMAIN} from "../config/config.js";
+import {AAX_CONNECT_SOURCE, ENVIRONMENT, HOSTING_DOMAIN} from "../config/config.js";
 
-async function generateOPDS(app, uid, catalogueItems) {
+async function generateOPDS(app, uid, catalogueItems, title) {
   console.log(catalogueItems);
   const opdsResponse = {
     metadata: {
-      title: "Visibl Catalog",
+      title: title,
     },
 
     publications: await Promise.all(catalogueItems.map(async (item) => ({
@@ -51,7 +52,13 @@ async function generateOPDS(app, uid, catalogueItems) {
 async function generatePublicOPDS(app) {
   const uid = "admin";
   const catalogueItems = await catalogueGetFirestore(app);
-  return await generateOPDS(app, uid, catalogueItems);
+  return await generateOPDS(app, uid, catalogueItems, "Visibl Catalog");
+}
+
+async function generatePrivateOPDS(uid, data, app) {
+  const catalogueItems = await getPrivateCatalogueItemsFirestore(uid);
+  logger.debug(`Generating private OPDS for ${catalogueItems.length} items`);
+  return await generateOPDS(app, uid, catalogueItems, `${AAX_CONNECT_SOURCE.value()} Import`);
 }
 
 async function generateUserItemManifest(app, uid, data) {
@@ -197,6 +204,7 @@ export {
   metadataToOPDSReadingOrder,
   metadataToOPDSMetadata,
   addSkuToCatalogue,
+  generatePrivateOPDS,
 };
 
 /* OPDS Catalogue item template
