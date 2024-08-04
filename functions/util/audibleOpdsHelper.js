@@ -11,6 +11,7 @@ import {AUDIBLE_OPDS_API_KEY,
 
 import {
   getAAXAvailableFirestore,
+  setAAXConnectDisableFirestore,
 } from "../storage/firestore/users.js";
 
 import {
@@ -44,7 +45,8 @@ function formatFunctionsUrl(functionName) {
  */
 async function getAudibleLoginURL(uid, data, app) {
   const aaxAvailable = await getAAXAvailableFirestore(uid);
-  if (!aaxAvailable) {
+  logger.debug(`aaxAvailable: ${aaxAvailable.active} for ${uid}`);
+  if (!aaxAvailable.active) {
     return {error: "AAX not available"};
   }
   const response = await axios.post(formatFunctionsUrl("get_login_url"), {
@@ -81,7 +83,7 @@ async function getAudibleAuth(uid, data, app) {
 }
 
 async function audiblePostAuthHook(uid, data, app) {
-  logger.debug(`audiblePostAuthHook: uid: ${uid}, data: ${JSON.stringify(data)}`);
+  // logger.debug(`audiblePostAuthHook: uid: ${uid}, data: ${JSON.stringify(data)}`);
   const auth = data.auth;
   const audibleUserId = auth.customer_info.user_id;
   // 1. Check that no other user has already registered this Audible account
@@ -262,10 +264,16 @@ async function submitAAXAuth(req, app) {
   return await audiblePostAuthHook(uid, auth, app);
 }
 
+async function disconnectAAXAuth(uid) {
+  // TODO: A lot more to delete here!
+  return await setAAXConnectDisableFirestore(uid);
+}
+
 export {
   getAudibleLoginURL,
   getAudibleAuth,
   audiblePostAuthHook,
   refreshAudibleTokens,
   submitAAXAuth,
+  disconnectAAXAuth,
 };

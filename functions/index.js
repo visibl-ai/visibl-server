@@ -38,6 +38,7 @@ import {
 import {
   getAAXAvailableFirestore,
   setAAXAvailableFirestore,
+  getAAXConnectStatusFirestore,
 } from "./storage/firestore/users.js";
 
 import {generateImages} from "./util/ai.js";
@@ -60,6 +61,7 @@ import {
   audiblePostAuthHook,
   refreshAudibleTokens,
   submitAAXAuth,
+  disconnectAAXAuth,
 } from "./util/audibleOpdsHelper.js";
 
 import {
@@ -259,12 +261,12 @@ export const v1updateLibraryItemScenes = onCall({region: "europe-west1"}, async 
 });
 
 // Endpoints to use audible-opds-firebase
-export const v1getAudibleLoginURL = onCall({region: "europe-west1"}, async (context) => {
+export const v1getAAXLoginURL = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await getAudibleLoginURL(uid, data, app);
 });
 
-export const v1aaxGetAuth = onCall({region: "europe-west1"}, async (context) => {
+export const v1aaxConnect = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   const auth = await getAudibleAuth(uid, data, app);
   const queue = getFunctions().taskQueue("aaxPostAuthHook");
@@ -291,6 +293,16 @@ export const v1TMPaudiblePostAuthHook = onCall({
 }, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await audiblePostAuthHook(uid, data, app);
+});
+
+export const v1getAAXConnectStatus = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await getAAXConnectStatusFirestore(uid);
+});
+
+export const v1disconnectAAX = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await disconnectAAXAuth(uid, data, app);
 });
 
 export const v1refreshAudibleTokens = onCall({region: "europe-west1"}, async (context) => {
@@ -352,7 +364,7 @@ export const aaxPostAuthHook = onTaskDispatched(
       timeoutSeconds: 540,
     },
     async (req) => {
-      logger.debug(`aaxPostAuthHook: ${JSON.stringify(req.data)}`);
+      // logger.debug(`aaxPostAuthHook: ${JSON.stringify(req.data)}`);
       const body = req.data;
       return await audiblePostAuthHook(body.uid, {auth: body.auth}, app);
     },

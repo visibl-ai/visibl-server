@@ -8,6 +8,7 @@ const STORAGE_BUCKET_ID = defineString("STORAGE_BUCKET_ID");
 const AUDIBLE_OPDS_API_KEY = defineString("AUDIBLE_OPDS_API_KEY");
 const AUDIBLE_OPDS_FIREBASE_URL = defineString("AUDIBLE_OPDS_FIREBASE_URL");
 const HOSTING_DOMAIN = defineString("HOSTING_DOMAIN");
+const AAX_CONNECT_SOURCE = defineString("AAX_CONNECT_SOURCE");
 
 
 // SECRETS - warning: https://firebase.google.com/docs/functions/config-env?gen=2nd#node.js_6
@@ -23,5 +24,6 @@ export {
   AUDIBLE_OPDS_API_KEY,
   AUDIBLE_OPDS_FIREBASE_URL,
   HOSTING_DOMAIN,
+  AAX_CONNECT_SOURCE,
 };
 
