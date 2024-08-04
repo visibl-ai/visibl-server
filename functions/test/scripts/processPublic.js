@@ -6,7 +6,7 @@ import chai from "chai";
 import chaiHttp from "chai-http";
 chai.use(chaiHttp);
 const expect = chai.expect;
-dotenv.config({path: "../../.env.visibl-dev"}); // because firebase-functions-test doesn't work with conf.
+dotenv.config({path: "../../.env.visibl-dev-ali"}); // because firebase-functions-test doesn't work with conf.
 // eslint-disable-next-line no-undef
 describe("Customer creation via Firebase Auth", () => {
   // eslint-disable-next-line no-undef
@@ -25,7 +25,7 @@ describe("Customer creation via Firebase Auth", () => {
   // eslint-disable-next-line no-undef
   it(`test v1catalogueProcessRaw`, async () => {
     const response = await chai
-        .request("https://visibl-dev.web.app")
+        .request(process.env.HOSTING_DOMAIN)
         .post("/v1/admin/catalogue/process")
         .set("API-KEY", process.env.ADMIN_API_KEY)
         .send({sku: process.env.SKU});
