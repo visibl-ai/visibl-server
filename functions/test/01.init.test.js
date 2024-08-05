@@ -58,6 +58,7 @@ import {
   v1getAAXLoginURL,
   v1getAAXConnectStatus,
   v1disconnectAAX,
+  v1getPrivateOPDSFeedURL,
 } from "../index.js";
 
 
@@ -608,7 +609,7 @@ describe("Customer creation via Firebase Auth", () => {
 
   // Get an OPDS feed for the users private items
   // eslint-disable-next-line no-undef
-  it("TEST1 Audible - get private OPDS feeds", async () => {
+  it("Audible - get private OPDS feeds", async () => {
     const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeed);
     const data = {};
 
@@ -625,6 +626,33 @@ describe("Customer creation via Firebase Auth", () => {
     console.log(result.publications);
     console.log(result.publications[0].links);
     expect(result.publications).to.be.an("array").that.is.not.empty;
+  });
+  let privateOPDSUrl;
+  // eslint-disable-next-line no-undef
+  it("Audible - get private OPDS URL", async () => {
+    const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeedURL);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.have.property("url");
+    expect(result.url).to.be.a("string");
+    privateOPDSUrl = result.url;
+  });
+
+  // eslint-disable-next-line no-undef
+  it("Audible - get private OPDS feed via URL", async () => {
+    const response = await chai
+        .request(privateOPDSUrl)
+        .get("");
+    expect(response).to.have.status(200);
+    expect(response).to.be.json;
+    expect(response.body).to.have.property("metadata");
+    expect(response.body.metadata).to.have.property("title", `${process.env.AAX_CONNECT_SOURCE} Import`);
   });
 
   // Add item to the library

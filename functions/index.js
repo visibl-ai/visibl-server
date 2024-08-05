@@ -68,6 +68,7 @@ import {
 import {
   ENVIRONMENT,
   OPENAI_API_KEY,
+  HOSTING_DOMAIN,
 } from "./config/config.js";
 
 import {
@@ -349,6 +350,16 @@ export const v1AdminSetAAXAvailable = onRequest({region: "europe-west1"}, async 
 export const v1getPrivateOPDSFeed = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await generatePrivateOPDS(uid, data, app);
+});
+
+export const v1getPrivateOPDSFeedURL = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return {url: `${HOSTING_DOMAIN.value()}/v1/tmp/privateOPDS/${uid}`};
+});
+
+export const v1TMPgetPrivateOPDSFeed = onRequest({region: "europe-west1"}, async (req, res) => {
+  const uid = req.path.split("/").pop();
+  res.status(200).send(await generatePrivateOPDS(uid, req.body, app));
 });
 
 export const aaxPostAuthHook = onTaskDispatched(
