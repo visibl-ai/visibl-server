@@ -28,7 +28,7 @@ async function setAAXAvailableFirestore(req) {
 async function getAAXConnectStatusFirestore(uid) {
   const db = getFirestore();
   logger.debug(`getAAXConnectStatusFirestore: ${uid}`);
-  const authRef = db.collection("AudibleAuth").where("uid", "==", uid);
+  const authRef = db.collection("AAXAuth").where("uid", "==", uid);
   const snapshot = await authRef.get();
 
   if (!snapshot.empty) {
@@ -50,7 +50,7 @@ async function getAAXConnectStatusFirestore(uid) {
 async function setAAXConnectDisableFirestore(uid) {
   const db = getFirestore();
   logger.debug(`setAAXConnectDisableFirestore: ${uid}`);
-  const authRef = db.collection("AudibleAuth").where("uid", "==", uid);
+  const authRef = db.collection("AAXAuth").where("uid", "==", uid);
   const snapshot = await authRef.get();
   if (!snapshot.empty) {
     const batch = db.batch();

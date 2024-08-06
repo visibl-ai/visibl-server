@@ -12,7 +12,7 @@ import path from "path";
  * @param {string} uid - The user's unique identifier
  */
 async function createUserFolder(app, uid) {
-  const bucket = getStorage(app).bucket();
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const folderPath = `UserData/${uid}/`; // Folder path in the bucket
   const file = bucket.file(folderPath + ".placeholder"); // Create a placeholder file to establish the folder
 
@@ -36,7 +36,7 @@ async function createUserFolder(app, uid) {
  * @param {string} catalogueId - The unique identifier for the catalogue
  */
 async function createCatalogueFolder(app, catalogueId) {
-  const bucket = getStorage(app).bucket();
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const folderPath = `Catalogue/${catalogueId}/`;
   const file = bucket.file(folderPath + ".placeholder");
 
@@ -58,15 +58,14 @@ async function createCatalogueFolder(app, catalogueId) {
 /**
  * Checks if a file exists in storage given the UID, path an filename
  * @param {Object} app - The Firebase app instance
- * @param {string} uid - The user's unique identifier
  * @param {string} path - The path to the file in the bucket
  * @param {string} filename - The name of the file
  */
-async function fileExists(app, uid, path, filename) {
-  const bucket = getStorage(app).bucket();
-  const filePath = `UserData/${uid}/${path}${filename}`;
-  const file = bucket.file(filePath);
-  return file.exists();
+async function fileExists(app, path) {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+  const file = bucket.file(path);
+  const [exists] = await file.exists();
+  return exists;
 }
 
 /**
@@ -77,7 +76,7 @@ async function fileExists(app, uid, path, filename) {
  * @param {string} filename - The name of the file
  */
 async function deleteFile(app, uid, path, filename) {
-  const bucket = getStorage(app).bucket();
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const filePath = `UserData/${uid}/${path}${filename}`;
   const file = bucket.file(filePath);
   return file.delete();
@@ -155,11 +154,11 @@ async function storeJsonFile(app, filename, data) {
 /**
  * Retrieves scene data as a JSON file from the storage bucket
  * @param {Object} app - The Firebase app instance
- * @param {string} catalogueId - The catalogue's unique identifier
+ * @param {string} sku - The catalogue's unique identifier
  * @return {Promise<Object>} A promise that resolves to the parsed JSON data
  */
-async function getCatalogueScenes(app, catalogueId) {
-  const filename = `Catalogue/${catalogueId}/scenes.json`;
+async function getCatalogueScenes(app, sku) {
+  const filename = `Catalogue/Processed/${sku}/${sku}-scenes.json`;
   return getJsonFile(app, filename);
 }
 

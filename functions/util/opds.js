@@ -11,13 +11,13 @@ import {
 import {
   catalogueGetItemFirestore,
   catalogueAddFirestore,
-  catalogueGetFirestore,
+  catalogueGetAllFirestore,
   getPrivateCatalogueItemsFirestore,
 } from "../storage/firestore/catalogue.js";
 
 import {
-  getLibraryItemFirestore,
-} from "../storage/firestore.js";
+  libraryGetFirestore,
+} from "../storage/firestore/library.js";
 
 import {AAX_CONNECT_SOURCE, ENVIRONMENT, HOSTING_DOMAIN} from "../config/config.js";
 
@@ -51,7 +51,7 @@ async function generateOPDS(app, uid, catalogueItems, title) {
 
 async function generatePublicOPDS(app) {
   const uid = "admin";
-  const catalogueItems = await catalogueGetFirestore(app);
+  const catalogueItems = await catalogueGetAllFirestore(app);
   return await generateOPDS(app, uid, catalogueItems, "Visibl Catalog");
 }
 
@@ -62,7 +62,7 @@ async function generatePrivateOPDS(uid, data, app) {
 }
 
 async function generateUserItemManifest(app, uid, data) {
-  const libraryItem = await getLibraryItemFirestore(uid, data);
+  const libraryItem = await libraryGetFirestore(uid, data.libraryId);
   return await generateManifest(app, uid, libraryItem.catalogueId);
 }
 
@@ -97,7 +97,7 @@ async function getAlbumArtUrl(app, visibility, uid, sku) {
   if (visibility === "public") {
     return await getPublicUrl(app, `Catalogue/Processed/${sku}/${sku}.jpg`);
   } else {
-    return await getPublicUrl(app, `UserData/${uid}/Uploads/AudibleRaw/${sku}.jpg`);
+    return await getPublicUrl(app, `UserData/${uid}/Uploads/AAXRaw/${sku}.jpg`);
   }
 }
 

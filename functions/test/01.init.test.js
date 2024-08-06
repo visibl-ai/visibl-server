@@ -51,7 +51,7 @@ import {
   v1updateLibraryItemScenes,
   v1aaxConnect,
   // v1TMPaudiblePostAuthHook,
-  v1refreshAudibleTokens,
+  v1refreshAAXTokens,
   v1generateTranscriptions,
   v1getPrivateOPDSFeed,
   v1getAAXAvailable,
@@ -316,7 +316,7 @@ describe("Customer creation via Firebase Auth", () => {
     console.log(foundBook);
   });
   // eslint-disable-next-line no-undef
-  it("Audible - checks if audible connect is available for user (default true)", async () => {
+  it("AAX - checks if audible connect is available for user (default true)", async () => {
     const wrapped = firebaseTest.wrap(v1getAAXAvailable);
     const data = {};
     const result = await wrapped({
@@ -329,7 +329,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result.source).to.equal(process.env.AAX_CONNECT_SOURCE);
   });
   // eslint-disable-next-line no-undef
-  it("Audible - ADMIN disables audible connect.", async () => {
+  it("AAX - ADMIN disables audible connect.", async () => {
     const data = {
       active: false,
       uid: userData.uid,
@@ -344,7 +344,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(response.body).to.deep.equal(data);
   });
   // eslint-disable-next-line no-undef
-  it("Audible - checks if audible connect is available for user (false)", async () => {
+  it("AAX - checks if audible connect is available for user (false)", async () => {
     const wrapped = firebaseTest.wrap(v1getAAXAvailable);
     const data = {};
     const result = await wrapped({
@@ -358,7 +358,7 @@ describe("Customer creation via Firebase Auth", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it("Audible - get login URL when disabled", async () => {
+  it("AAX - get login URL when disabled", async () => {
     const wrapped = firebaseTest.wrap(v1getAAXLoginURL);
     const data = {
       countryCode: "ca",
@@ -375,7 +375,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result.error).to.equal("AAX not available");
   });
   // eslint-disable-next-line no-undef
-  it("Audible - ADMIN enables audible connect.", async () => {
+  it("AAX - ADMIN enables audible connect.", async () => {
     const data = {
       active: true,
       uid: userData.uid,
@@ -388,7 +388,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(response).to.have.status(200);
   });
   // eslint-disable-next-line no-undef
-  it("Audible - checks if audible connect is available for user (true)", async () => {
+  it("AAX - checks if audible connect is available for user (true)", async () => {
     const wrapped = firebaseTest.wrap(v1getAAXAvailable);
     const data = {};
     const result = await wrapped({
@@ -413,7 +413,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result.connected).to.be.false;
   });
   // eslint-disable-next-line no-undef
-  it("Audible - get login URL", async () => {
+  it("AAX - get login URL", async () => {
     const wrapped = firebaseTest.wrap(v1getAAXLoginURL);
     const data = {
       countryCode: "ca",
@@ -443,13 +443,14 @@ describe("Customer creation via Firebase Auth", () => {
     ];
 
     const bucket = getStorage(app).bucket();
-    const bucketPath = `UserData/${userData.uid}/Uploads/AudibleRaw/`;
+    const bucketPath = `UserData/${userData.uid}/Uploads/AAXRaw/`;
     console.log(bucketPath);
 
-    for (const fileName of fileList) {
-      console.log(`Uploading file: ${fileName}`);
+    const uploadPromises = fileList.map(async (fileName) => {
+      console.log(`Preparing to upload file: ${fileName}`);
       const filePath = `${bucketPath}${fileName}`;
       const file = bucket.file(filePath);
+
       try {
         const stream = fs.createReadStream(`./test/bindings/m4b/${fileName}`);
 
@@ -466,13 +467,21 @@ describe("Customer creation via Firebase Auth", () => {
         });
       } catch (error) {
         console.error(`Failed to upload file ${fileName}:`, error);
+        throw error; // Re-throw the error to be caught by Promise.all
       }
+    });
+
+    try {
+      await Promise.all(uploadPromises);
+      console.log("All files uploaded successfully");
+    } catch (error) {
+      console.error("One or more file uploads failed:", error);
     }
   });
   const DO_AUDIBLE_LOGIN = false;
   if (DO_AUDIBLE_LOGIN) {
     // eslint-disable-next-line no-undef
-    it("Audible - submit login URL", async () => {
+    it("AAX - submit login URL", async () => {
     // Load the audibleUrl.json file
       const audibleUrlPath = path.join("test", "bindings", "audibleUrl.json");
       const audibleUrlData = JSON.parse(fs.readFileSync(audibleUrlPath, "utf8"));
@@ -501,13 +510,13 @@ describe("Customer creation via Firebase Auth", () => {
       // Write result to audibleAuth.json file
       const audibleAuthPath = path.join("test", "bindings", "audibleAuth.json");
       fs.writeFileSync(audibleAuthPath, JSON.stringify(result, null, 2));
-      console.log(`Audible auth data written to ${audibleAuthPath}`);
+      console.log(`AAX auth data written to ${audibleAuthPath}`);
       await new Promise((resolve) => setTimeout(resolve, 90000));
       console.log("Waited for 30 seconds after setting auth for the user");
     });
   } else {
   // eslint-disable-next-line no-undef
-    it("Audible - Post auth hook for AAX auth.", async () => {
+    it("AAX - Post auth hook for AAX auth.", async () => {
       const auth = JSON.parse(fs.readFileSync(path.join("test", "bindings", "audibleAuth.json"), "utf8"));
       const data = {
         uid: userData.uid,
@@ -543,23 +552,8 @@ describe("Customer creation via Firebase Auth", () => {
   });
 
   // eslint-disable-next-line no-undef
-  // it("Audible - post auth automation.", async () => {
-  //   const audibleAuthPath = path.join("test", "bindings", "audibleAuth.json");
-  //   const auth = JSON.parse(fs.readFileSync(audibleAuthPath, "utf8"));
-  //   const wrapped = firebaseTest.wrap(v1TMPaudiblePostAuthHook);
-  //   const data = {auth};
-  //   const result = await wrapped({
-  //     auth: {
-  //       uid: userData.uid,
-  //     },
-  //     data,
-  //   });
-  //   console.log(result);
-  // });
-
-  // eslint-disable-next-line no-undef
-  it("Audible - submit refresh token", async () => {
-    const wrapped = firebaseTest.wrap(v1refreshAudibleTokens);
+  it("AAX - submit refresh token", async () => {
+    const wrapped = firebaseTest.wrap(v1refreshAAXTokens);
     const data = {
       from: 0,
       to: 999999999999999,
@@ -609,7 +603,7 @@ describe("Customer creation via Firebase Auth", () => {
 
   // Get an OPDS feed for the users private items
   // eslint-disable-next-line no-undef
-  it("Audible - get private OPDS feeds", async () => {
+  it("AAX - get private OPDS feeds", async () => {
     const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeed);
     const data = {};
 
@@ -629,7 +623,7 @@ describe("Customer creation via Firebase Auth", () => {
   });
   let privateOPDSUrl;
   // eslint-disable-next-line no-undef
-  it("Audible - get private OPDS URL", async () => {
+  it("AAX - get private OPDS URL", async () => {
     const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeedURL);
     const data = {};
     const result = await wrapped({
@@ -644,8 +638,9 @@ describe("Customer creation via Firebase Auth", () => {
     privateOPDSUrl = result.url;
   });
 
+  let privateFeed;
   // eslint-disable-next-line no-undef
-  it("Audible - get private OPDS feed via URL", async () => {
+  it("AAX - get private OPDS feed via URL", async () => {
     const response = await chai
         .request(privateOPDSUrl)
         .get("");
@@ -653,64 +648,13 @@ describe("Customer creation via Firebase Auth", () => {
     expect(response).to.be.json;
     expect(response.body).to.have.property("metadata");
     expect(response.body.metadata).to.have.property("title", `${process.env.AAX_CONNECT_SOURCE} Import`);
+    privateFeed = response.body;
   });
 
   // Add item to the library
-
-  // Get the manifest
-
-
-  // eslint-disable-next-line no-undef
-  it(`uploads a scenes file to catalogue item`, async () => {
-    const bucket = getStorage(app).bucket();
-    const bucketPath = `Catalogue/${catalogueBook.id}/`;
-    console.log(bucketPath);
-    const bucketFilename = `scenes.json`;
-    console.log(`Bucket filename: ${bucketFilename}`);
-    const filePath = `${bucketPath}${bucketFilename}`;
-    const file = bucket.file(filePath);
-    try {
-      const stream = fs.createReadStream(`./test/bindings/scenes/transcript_ch1_scenes_images.json`);
-
-      await new Promise((resolve, reject) => {
-        stream.pipe(file.createWriteStream({}))
-            .on("error", (error) => {
-              console.error("Upload failed:", error);
-              reject(error);
-            })
-            .on("finish", () => {
-              console.log("File uploaded successfully");
-              resolve();
-            });
-      });
-    } catch (error) {
-      console.error("Failed to upload file:", error);
-    }
-  });
-
-  // eslint-disable-next-line no-undef
-  it(`test v1catalogueGetManifest`, async () => {
-    const visiblId = foundBook.metadata.visiblId;
-    const response = await chai
-        .request(APP_URL)
-        .get(`/v1/tmp/catalogue/${visiblId}`);
-
-    const result = response.body;
-    // console.log(result);
-    expect(response).to.have.status(200);
-    expect(response).to.be.json;
-
-
-    // Check for basic manifest structure
-    expect(result).to.have.property("@context");
-    expect(result).to.have.property("metadata");
-    expect(result.metadata).to.have.property("title", catalogueBook.title);
-    expect(result.metadata).to.have.property("visiblId", catalogueBook.id);
-  });
-
   let libraryItem;
   // eslint-disable-next-line no-undef
-  it(`test v1addItemToLibrary`, async () => {
+  it(`test v1addItemToLibrary - public, before scenes exist`, async () => {
     const wrapped = firebaseTest.wrap(v1addItemToLibrary);
 
     // Prepare the data for adding an item to the library
@@ -754,7 +698,7 @@ describe("Customer creation via Firebase Auth", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test v1getItemManifest`, async () => {
+  it(`test v1getItemManifest - public`, async () => {
     const wrapped = firebaseTest.wrap(v1getItemManifest);
 
     // Prepare the data for getting the item manifest
@@ -786,9 +730,135 @@ describe("Customer creation via Firebase Auth", () => {
       expect(error.message).to.include("Item not found in the user's library");
     }
   });
+  // Get the manifest
+  // Add item to the library
+  let libraryPrivateItem;
+  // eslint-disable-next-line no-undef
+  it(`test v1addItemToLibrary - private, before scenes exist`, async () => {
+    const wrapped = firebaseTest.wrap(v1addItemToLibrary);
+    console.log(privateFeed.publications);
+    const privateItemId = privateFeed.publications[0].metadata.visiblId;
+    // Prepare the data for adding an item to the library
+    const addData = {
+      catalogueId: privateItemId,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: addData,
+    });
+
+    console.log(result);
+    expect(result).to.have.property("id");
+    expect(result).to.have.property("uid");
+    expect(result).to.have.property("catalogueId");
+    expect(result).to.have.property("addedAt");
+
+    expect(result.uid).to.equal(userData.uid);
+    expect(result.catalogueId).to.equal(privateItemId);
+    expect(result.addedAt).to.exist;
+
+    libraryPrivateItem = result;
+
+    // Try to add the same item again, it should return the existing item
+    const duplicateResult = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: addData,
+    });
+
+    console.log("Duplicate add result:", duplicateResult);
+    expect(duplicateResult).to.deep.equal(result);
+    expect(duplicateResult.id).to.equal(libraryPrivateItem.id);
+    expect(duplicateResult.uid).to.equal(userData.uid);
+    expect(duplicateResult.catalogueId).to.equal(privateItemId);
+    expect(duplicateResult.addedAt).to.exist;
+  });
 
   // eslint-disable-next-line no-undef
-  it(`test v1 without a sceneId`, async () => {
+  it(`test v1getItemManifest - private`, async () => {
+    const wrapped = firebaseTest.wrap(v1getItemManifest);
+
+    // Prepare the data for getting the item manifest
+    const getManifestData = {
+      libraryId: libraryPrivateItem.id,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getManifestData,
+    });
+
+    console.log(result);
+    expect(result).to.exist;
+
+    // Try to get manifest for a non-existent item, it should throw an error
+    try {
+      await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data: {libraryId: "non-existent-id"},
+      });
+      // If we reach here, the test should fail
+      expect.fail("Should have thrown an error for non-existent item");
+    } catch (error) {
+      expect(error.message).to.include("Item not found in the user's library");
+    }
+  });
+
+
+  // eslint-disable-next-line no-undef
+  it(`uploads a scenes file to catalogue item`, async () => {
+    const bucket = getStorage(app).bucket();
+    const bucketPath = `Catalogue/Processed/${catalogueBook.sku}/${catalogueBook.sku}-scenes.json`;
+    const file = bucket.file(bucketPath);
+    try {
+      const stream = fs.createReadStream(`./test/bindings/scenes/${catalogueBook.sku}-scenes.json`);
+
+      await new Promise((resolve, reject) => {
+        stream.pipe(file.createWriteStream({}))
+            .on("error", (error) => {
+              console.error("Upload failed:", error);
+              reject(error);
+            })
+            .on("finish", () => {
+              console.log("File uploaded successfully");
+              resolve();
+            });
+      });
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+    }
+  });
+
+  // eslint-disable-next-line no-undef
+  it(`test v1catalogueGetManifest`, async () => {
+    const visiblId = foundBook.metadata.visiblId;
+    const response = await chai
+        .request(APP_URL)
+        .get(`/v1/tmp/catalogue/${visiblId}`);
+
+    const result = response.body;
+    // console.log(result);
+    expect(response).to.have.status(200);
+    expect(response).to.be.json;
+
+
+    // Check for basic manifest structure
+    expect(result).to.have.property("@context");
+    expect(result).to.have.property("metadata");
+    expect(result.metadata).to.have.property("title", catalogueBook.title);
+    expect(result.metadata).to.have.property("visiblId", catalogueBook.id);
+  });
+
+  // eslint-disable-next-line no-undef
+  it(`test getAi without a sceneId`, async () => {
     const wrapped = firebaseTest.wrap(v1getAi);
 
     // Prepare the data for getting AI content
@@ -823,7 +893,7 @@ describe("Customer creation via Firebase Auth", () => {
       // If we reach here, the test should fail
       expect.fail("Should have thrown an error for non-existent item");
     } catch (error) {
-      expect(error.message).to.include("Library item not found");
+      expect(error.message).to.include("Item not found in the user's library");
     }
   });
 
@@ -841,7 +911,7 @@ describe("Customer creation via Firebase Auth", () => {
     });
 
     expect(result).to.be.an("array");
-    expect(result).to.have.lengthOf(1);
+    expect(result).to.have.lengthOf(2);
     expect(result[0]).to.have.property("id");
     expect(result[0]).to.have.property("catalogueId");
     expect(result[0]).to.not.have.property("manifest");
@@ -1007,7 +1077,7 @@ describe("Customer creation via Firebase Auth", () => {
     });
 
     expect(result).to.be.an("array");
-    expect(result).to.have.lengthOf(1);
+    expect(result).to.have.lengthOf(2);
     expect(result[0]).to.have.property("id");
     expect(result[0]).to.have.property("catalogueId");
     expect(result[0]).to.have.property("manifest");
@@ -1035,27 +1105,13 @@ describe("Customer creation via Firebase Auth", () => {
   // eslint-disable-next-line no-undef
   it(`test v1deleteItemsFromLibrary`, async () => {
     const wrapped = firebaseTest.wrap(v1deleteItemsFromLibrary);
-
-    // First, add an item to the library
-    const addItemResult = await firebaseTest.wrap(v1addItemToLibrary)({
-      auth: {
-        uid: userData.uid,
-      },
-      data: {
-        catalogueId: "test-catalogue-id",
-      },
-    });
-
-    expect(addItemResult).to.have.property("id");
-    const itemId = addItemResult.id;
-
     // Now, delete the item
     const result = await wrapped({
       auth: {
         uid: userData.uid,
       },
       data: {
-        libraryIds: [itemId, libraryItem.id],
+        libraryIds: [libraryPrivateItem.id, libraryItem.id],
       },
     });
 
@@ -1064,7 +1120,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result).to.have.property("results");
     expect(result.results).to.have.property("success");
     expect(result.results).to.have.property("failed");
-    expect(result.results.success).to.be.an("array").that.includes(itemId);
+    expect(result.results.success).to.be.an("array").that.includes(libraryPrivateItem.id);
     expect(result.results.failed).to.be.an("array").that.is.empty;
     // console.log(result);
     // Verify the item is no longer in the library using v1getLibrary
@@ -1076,7 +1132,7 @@ describe("Customer creation via Firebase Auth", () => {
     });
 
     expect(libraryAfterDeletion).to.be.an("array");
-    expect(libraryAfterDeletion.find((item) => item.id === itemId)).to.be.undefined;
+    expect(libraryAfterDeletion.find((item) => item.id === libraryPrivateItem.id)).to.be.undefined;
   });
 
   // eslint-disable-next-line no-undef

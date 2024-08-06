@@ -141,7 +141,7 @@ async function catalogueBatchAddFirestore(items) {
  * @param {string} [visibility] - The visibility of the items to retrieve. Defaults to "public".
  * @return {Promise<Array<object>>} A promise that resolves to an array of all catalogue items.
  */
-async function catalogueGetFirestore(app, visibility = "public") {
+async function catalogueGetAllFirestore(app, visibility = "public") {
   const catalogueRef = getFirestore().collection("Catalogue");
   const snapshot = await catalogueRef.where("visibility", "==", visibility).get();
 
@@ -159,10 +159,20 @@ async function catalogueGetFirestore(app, visibility = "public") {
   return catalogueItems;
 }
 
+async function catalogueGetFirestore(app, id) {
+  const catalogueRef = getFirestore().collection("Catalogue").doc(id);
+  const snapshot = await catalogueRef.get();
+  const data = snapshot.data();
+  if (data) {
+    return {...data, id: snapshot.id};
+  }
+  return null;
+}
+
 async function getPrivateCatalogueItemsFirestore(uid) {
   const db = getFirestore();
-  const userAudibleSyncRef = db.collection("UserAudibleSync");
-  const snapshot = await userAudibleSyncRef.where("uid", "==", uid).get();
+  const userAAXSyncRef = db.collection("UserAAXSync");
+  const snapshot = await userAAXSyncRef.where("uid", "==", uid).get();
 
   if (snapshot.empty) {
     logger.debug(`No private catalogue items found for user ${uid}`);
@@ -330,7 +340,7 @@ function itemToOPDSManifest(item) {
 }
 
 
-async function populateCatalogueWithAudibleItems(uid, items) {
+async function populateCatalogueWithAAXItems(uid, items) {
   logger.debug("Populating catalogue with audible items");
   logger.debug("Items SKUs:", items.map((item) => item.sku).join(", "));
   items = await filterNewSKUItemsForCatalogue(items);
@@ -345,10 +355,11 @@ async function populateCatalogueWithAudibleItems(uid, items) {
 
 export {
   catalogueAddFirestore,
+  catalogueGetAllFirestore,
   catalogueGetFirestore,
   catalogueDeleteFirestore,
   catalogueUpdateFirestore,
-  populateCatalogueWithAudibleItems,
+  populateCatalogueWithAAXItems,
   catalogueGetItemFirestore,
   getPrivateCatalogueItemsFirestore,
 };

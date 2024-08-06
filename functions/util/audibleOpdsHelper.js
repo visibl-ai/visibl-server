@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars */
+
 /* eslint-disable require-jsdoc */
 import axios from "axios";
 import logger from "firebase-functions/logger";
@@ -15,14 +15,15 @@ import {
 } from "../storage/firestore/users.js";
 
 import {
-  getAudibleAuthByAudibleId,
-  storeAudibleAuthFirestore,
-  getAudibleAuthByUid,
-  storeAudibleItemsFirestore,
-  getAudibleItemsFirestore,
-  updateAudibleItemFirestore,
-  getAllAudibleAuthFirestore,
-} from "../storage/firestore.js";
+  aaxStoreAuthFirestore,
+  aaxGetAuthByAAXIdFirestore,
+  aaxGetAuthByUidFirestore,
+  aaxStoreItemsFirestore,
+  aaxUpdateItemFirestore,
+  aaxGetItemsFirestore,
+  aaxGetAllAuthFirestore,
+} from "../storage/firestore/aax.js";
+
 
 import {generateTranscriptions} from "./transcribe.js";
 
@@ -34,16 +35,16 @@ function formatFunctionsUrl(functionName) {
 }
 
 /**
- * Retrieves the Audible login URL for a given user and country code.
+ * Retrieves the AAX login URL for a given user and country code.
  *
  * @param {string} uid - The user ID.
  * @param {Object} data - The data object containing the country code.
- * @param {string} data.country_code - The country code for the Audible store.
+ * @param {string} data.country_code - The country code for the AAX store.
  * @param {Object} app - The Firebase app instance.
  * @return {Promise<Object>} A promise that resolves to the response data containing the login URL and related information.
  * @throws {Error} If there's an issue with the API request.
  */
-async function getAudibleLoginURL(uid, data, app) {
+async function getAAXLoginURL(uid, data, app) {
   const aaxAvailable = await getAAXAvailableFirestore(uid);
   logger.debug(`aaxAvailable: ${aaxAvailable.active} for ${uid}`);
   if (!aaxAvailable.active) {
@@ -65,8 +66,8 @@ async function getAudibleLoginURL(uid, data, app) {
 
 
 // eslint-disable-next-line require-jsdoc
-async function getAudibleAuth(uid, data, app) {
-  logger.info("getAudibleAuth", {data});
+async function getAAXAuth(uid, data, app) {
+  logger.info("getAAXAuth", {data});
   const response = await axios.post(formatFunctionsUrl("do_login"), {
     code_verifier: data.codeVerifier,
     response_url: data.responseUrl,
@@ -77,7 +78,7 @@ async function getAudibleAuth(uid, data, app) {
       "API-KEY": AUDIBLE_OPDS_API_KEY.value(),
     },
   });
-  logger.info("getAudibleAuth response", {response: response.data});
+  logger.info("getAAXAuth response", {response: response.data});
   const auth = response.data.auth;
   return auth;
 }
@@ -86,21 +87,21 @@ async function audiblePostAuthHook(uid, data, app) {
   // logger.debug(`audiblePostAuthHook: uid: ${uid}, data: ${JSON.stringify(data)}`);
   const auth = data.auth;
   const audibleUserId = auth.customer_info.user_id;
-  // 1. Check that no other user has already registered this Audible account
+  // 1. Check that no other user has already registered this AAX account
   // (no account sharing/piracy)
-  const existingAuth = await getAudibleAuthByAudibleId(audibleUserId);
+  const existingAuth = await aaxGetAuthByAAXIdFirestore(audibleUserId);
   if (existingAuth) {
-    logger.error(`Audible account already registered, ${audibleUserId}, ${existingAuth.uid}`);
-    throw new Error("Audible Account already in use by another user. Please have that user disconnect their account and try again.");
+    logger.error(`AAX account already registered, ${audibleUserId}, ${existingAuth.uid}`);
+    throw new Error("AAX Account already in use by another user. Please have that user disconnect their account and try again.");
   }
-  await storeAudibleAuthFirestore(uid, audibleUserId, auth);
+  await aaxStoreAuthFirestore(uid, audibleUserId, auth);
 
   // 2. Update the users audible items - this adds any new purchases
-  await updateUsersAudibleCatalogue(uid, auth, app);
+  await updateUsersAAXCatalogue(uid, auth, app);
 
   // 3. For any items that are not currently in the catalogue,
   // or not in the users Bucket, do it!.
-  const userItems = await getAudibleItemsFirestore(uid);
+  const userItems = await aaxGetItemsFirestore(uid);
   logger.info("userItems", {userItems});
   let itemsToProcess = userItems.filter((item) => item.m4bGenerated !== true);
   logger.info("M4B itemsToProcess", {itemsToProcess});
@@ -117,7 +118,7 @@ async function generateM4B(uid, auth, itemsToProcess) {
       if (ENVIRONMENT.value() === "development") {
         logger.info(`Skipping generation of m4b for item ${item.asin} in development environment.`);
         item.m4bGenerated = true;
-        await updateAudibleItemFirestore(item);
+        await aaxUpdateItemFirestore(item);
         return;
       }
       const response = await axios.post(formatFunctionsUrl("audible_download_aaxc"), {
@@ -126,7 +127,7 @@ async function generateM4B(uid, auth, itemsToProcess) {
         asin: item.asin,
         sku: item.sku,
         bucket: STORAGE_BUCKET_ID.value(),
-        path: `UserData/${uid}/Uploads/AudibleRaw/`,
+        path: `UserData/${uid}/Uploads/AAXRaw/`,
       }, {
         headers: {
           "API-KEY": AUDIBLE_OPDS_API_KEY.value(),
@@ -139,7 +140,7 @@ async function generateM4B(uid, auth, itemsToProcess) {
         // For example, convert it to M4B format
         // Then update the item status in Firestore
         item.m4bGenerated = true;
-        await updateAudibleItemFirestore(item);
+        await aaxUpdateItemFirestore(item);
       } else {
         logger.error(`Failed to download generated m4b for item ${item.asin}`, response.data);
       }
@@ -159,7 +160,7 @@ async function transcribe(app, uid, itemsToProcess) {
       item.metadata = transcription.metadata;
       item.splitAudio = transcription.splitAudio;
       item.transcriptionsGenerated = true;
-      await updateAudibleItemFirestore(item);
+      await aaxUpdateItemFirestore(item);
       await addSkuToCatalogue(uid, item.metadata, "private");
     } catch (error) {
       logger.error(`Error generating transcriptions for item ${item.asin}`, error);
@@ -167,8 +168,8 @@ async function transcribe(app, uid, itemsToProcess) {
   }));
 }
 
-async function updateUsersAudibleCatalogue(uid, app) {
-  const auth = await getAudibleAuthByUid(uid);
+async function updateUsersAAXCatalogue(uid, app) {
+  const auth = await aaxGetAuthByUidFirestore(uid);
   try {
     const response = await axios.post(formatFunctionsUrl("audible_get_library"), {
       auth: auth,
@@ -188,8 +189,8 @@ async function updateUsersAudibleCatalogue(uid, app) {
       }
       // Process the library data here
       // For example, you might want to store it in Firestore or perform other operations
-      logger.info(`Successfully retrieved Audible library for user ${uid}`);
-      await storeAudibleItemsFirestore(uid, library);
+      logger.info(`Successfully retrieved AAX library for user ${uid}`);
+      await aaxStoreItemsFirestore(uid, library);
       library = library.map((item) => ({
         type: "audiobook",
         title: item.title,
@@ -198,22 +199,22 @@ async function updateUsersAudibleCatalogue(uid, app) {
         sku: item.sku_lite,
         // feedTemplate: itemToOPDSFeed(item),
       }));
-      // const addedItems = await populateCatalogueWithAudibleItems(uid, library);
+      // const addedItems = await populateCatalogueWithAAXItems(uid, library);
       // logger.info(`Added ${addedItems.map((item) => item.sku).join(", ")} items to catalogue`);
       return;
     } else {
-      logger.error(`Failed to retrieve Audible library for user ${uid}`, response.data);
+      logger.error(`Failed to retrieve AAX library for user ${uid}`, response.data);
       return;
     }
   } catch (error) {
-    logger.error(`Error updating Audible catalogue for user ${uid}`, error);
+    logger.error(`Error updating AAX catalogue for user ${uid}`, error);
     return {success: false, error: error.message};
   }
 }
 
-async function refreshAudibleTokens(data) {
+async function refreshAAXTokens(data) {
   // TODO Add pagination.
-  const itemsToRefresh = await getAllAudibleAuthFirestore({from: data.from, to: data.to});
+  const itemsToRefresh = await aaxGetAllAuthFirestore({from: data.from, to: data.to});
   const auth = itemsToRefresh.results;
   logger.info(`Items to refresh ${auth.length}`);
 
@@ -232,19 +233,19 @@ async function refreshAudibleTokens(data) {
         const result = response.data;
         if (result.updated_auth) {
           const newExpiry = result.updated_auth.expires;
-          logger.info(`Refreshed Audible tokens for user ${item.uid} from ${originalExpiry} to ${newExpiry}`);
-          await storeAudibleAuthFirestore(item.uid, item.audibleUserId, result.updated_auth);
+          logger.info(`Refreshed AAX tokens for user ${item.uid} from ${originalExpiry} to ${newExpiry}`);
+          await aaxStoreAuthFirestore(item.uid, item.audibleUserId, result.updated_auth);
           return {uid: item.uid, status: "success", message: "Tokens refreshed successfully", originalExpiry, newExpiry};
         } else {
           logger.warn(`No updated auth received for user ${item.uid}`);
           return {uid: item.uid, status: "warning", message: "No updated auth received"};
         }
       } else {
-        logger.error(`Failed to refresh Audible tokens for user ${item.uid}`, response.data);
+        logger.error(`Failed to refresh AAX tokens for user ${item.uid}`, response.data);
         return {uid: item.uid, status: "error", message: "Failed to refresh tokens", error: response.data};
       }
     } catch (error) {
-      logger.error(`Error refreshing Audible tokens for user ${item.uid}`, error);
+      logger.error(`Error refreshing AAX tokens for user ${item.uid}`, error);
       return {uid: item.uid, status: "error", message: "Error refreshing tokens", error: error.message};
     }
   }));
@@ -270,10 +271,10 @@ async function disconnectAAXAuth(uid) {
 }
 
 export {
-  getAudibleLoginURL,
-  getAudibleAuth,
+  getAAXLoginURL,
+  getAAXAuth,
   audiblePostAuthHook,
-  refreshAudibleTokens,
+  refreshAAXTokens,
   submitAAXAuth,
   disconnectAAXAuth,
 };

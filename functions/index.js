@@ -19,18 +19,24 @@ import {
 import {
   getUser,
   getPipelineFirestore,
-  addItemToLibraryFirestore,
-  deleteItemFromLibraryFirestore,
-  getLibraryFirestore,
   getAiFirestore,
-  getLibraryScenesFirestore,
-  addLibraryItemScenesFirestore,
-  updateLibraryItemScenesFirestore,
 } from "./storage/firestore.js";
 
 import {
+  libraryAddItemFirestore,
+  libraryGetAllFirestore,
+  libraryDeleteItemFirestore,
+} from "./storage/firestore/library.js";
+
+import {
+  getLibraryScenesFirestore,
+  scenesLibraryItemFirestore,
+  scenesUpdateLibraryItemFirestore,
+} from "./storage/firestore/scenes.js";
+
+import {
   catalogueAddFirestore,
-  catalogueGetFirestore,
+  catalogueGetAllFirestore,
   catalogueDeleteFirestore,
   catalogueUpdateFirestore,
 } from "./storage/firestore/catalogue.js";
@@ -57,10 +63,10 @@ import {
 } from "./util/opds.js";
 
 import {
-  getAudibleLoginURL,
-  getAudibleAuth,
+  getAAXLoginURL,
+  getAAXAuth,
   audiblePostAuthHook,
-  refreshAudibleTokens,
+  refreshAAXTokens,
   submitAAXAuth,
   disconnectAAXAuth,
 } from "./util/audibleOpdsHelper.js";
@@ -145,7 +151,7 @@ export const getCurrentUser = onCall({region: "europe-west1"}, async (context) =
  */
 export const v1addItemToLibrary = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return addItemToLibraryFirestore(uid, data, app);
+  return libraryAddItemFirestore(uid, data, app);
 });
 
 /**
@@ -169,7 +175,7 @@ export const v1getItemManifest = onCall({region: "europe-west1"}, async (context
  */
 export const v1getLibrary = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return getLibraryFirestore(app, uid, data);
+  return libraryGetAllFirestore(app, uid, data);
 });
 
 /**
@@ -181,7 +187,7 @@ export const v1getLibrary = onCall({region: "europe-west1"}, async (context) => 
  */
 export const v1deleteItemsFromLibrary = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return deleteItemFromLibraryFirestore(uid, data, app);
+  return libraryDeleteItemFirestore(uid, data, app);
 });
 
 export const getPipeline = onCall({region: "europe-west1"}, async (context) => {
@@ -209,7 +215,7 @@ export const v1catalogueAdd = onRequest({region: "europe-west1"}, async (req, re
 
 export const v1catalogueGet = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return catalogueGetFirestore(app);
+  return catalogueGetAllFirestore(app);
 });
 
 export const v1catalogueGetOPDS = onRequest({region: "europe-west1"}, async (req, res) => {
@@ -254,23 +260,23 @@ export const v1getLibraryItemScenes = onCall({region: "europe-west1"}, async (co
 
 export const v1addLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await addLibraryItemScenesFirestore(uid, data, app);
+  return await scenesLibraryItemFirestore(uid, data, app);
 });
 
 export const v1updateLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await updateLibraryItemScenesFirestore(uid, data, app);
+  return await scenesUpdateLibraryItemFirestore(uid, data, app);
 });
 
 // Endpoints to use audible-opds-firebase
 export const v1getAAXLoginURL = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await getAudibleLoginURL(uid, data, app);
+  return await getAAXLoginURL(uid, data, app);
 });
 
 export const v1aaxConnect = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  const auth = await getAudibleAuth(uid, data, app);
+  const auth = await getAAXAuth(uid, data, app);
   const queue = getFunctions().taskQueue("aaxPostAuthHook");
   const targetUri = await getFunctionUrl("aaxPostAuthHook");
   logger.debug(`v1aaxGetAuth targetUri: ${targetUri} for ${uid}`);
@@ -307,9 +313,9 @@ export const v1disconnectAAX = onCall({region: "europe-west1"}, async (context) 
   return await disconnectAAXAuth(uid, data, app);
 });
 
-export const v1refreshAudibleTokens = onCall({region: "europe-west1"}, async (context) => {
+export const v1refreshAAXTokens = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await refreshAudibleTokens(data);
+  return await refreshAAXTokens(data);
 });
 
 export const v1generateTranscriptions = onCall({

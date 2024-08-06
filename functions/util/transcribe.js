@@ -13,7 +13,7 @@ import {uploadFileToBucket,
 } from "../storage/storage.js";
 import fs from "fs/promises";
 
-import {getAsinFromSkuFirestore} from "../storage/firestore.js";
+import {aaxAsinFromSkuFirestore} from "../storage/firestore/aax.js";
 
 const MAX_SIZE = process.env.MAX_SIZE || 24;
 const NUM_THREADS = process.env.NUM_THREADS || 32;
@@ -56,15 +56,20 @@ async function transcribeFilesInParallel(bookData, outputFiles) {
         return;
       },
   );
-  await Promise.all(promises);
-  return transcriptions;
+  if (ENVIRONMENT.value() === "development") {
+    logger.debug("***Skipping transcription in development mode***");
+    return transcriptions;
+  } else {
+    await Promise.all(promises);
+    return transcriptions;
+  }
 }
 
 function getMetadataPath(uid, sku) {
   if (uid === "admin") {
     return `Catalogue/Raw/${sku}.json`;
   } else {
-    return `UserData/${uid}/Uploads/AudibleRaw/${sku}.json`;
+    return `UserData/${uid}/Uploads/AAXRaw/${sku}.json`;
   }
 }
 
@@ -72,7 +77,7 @@ function getM4BPath(uid, sku) {
   if (uid === "admin") {
     return `Catalogue/Raw/${sku}.m4b`;
   } else {
-    return `UserData/${uid}/Uploads/AudibleRaw/${sku}.m4b`;
+    return `UserData/${uid}/Uploads/AAXRaw/${sku}.m4b`;
   }
 }
 
@@ -173,7 +178,7 @@ async function generateTranscriptions(uid, data, app) {
   //   }
   const sku = data.sku;
   logger.debug(`Processing FileName: ${sku} for ${uid}`);
-  const asin = await getAsinFromSkuFirestore(uid, sku);
+  const asin = await aaxAsinFromSkuFirestore(uid, sku);
   logger.debug(`Asin for SKU: ${sku} is ${asin}`);
   let ffmpegPath;
   logger.debug(`Downloading ffmpeg binary`);
