@@ -1,11 +1,26 @@
 rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
-    // Match any path that starts with the user's UID
-    match /{userId}/{allPaths=**} {
-      // Allow read and write if the userId segment of the path matches the authenticated user's UID
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Allow public read access to the Catalogue directory
+    match /Catalogue/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;  // Restrict writes to server-side only
+    }
+
+    // Existing rules for UserData
+    //match /UserData/{userId}/{allPaths=**} {
+    //  allow read, write: if request.auth != null && request.auth.uid == userId;
+    //}
+
+    // TODO: look into readium's ability to get data via firebase
+    match /UserData/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;  // Restrict writes to server-side only
+    }
+
+    // Default rule for other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

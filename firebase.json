@@ -7,7 +7,9 @@
         "node_modules",
         ".git",
         "firebase-debug.log",
-        "firebase-debug.*.log"
+        "firebase-debug.*.log",
+        "bin",
+        "test"
       ],
       "predeploy": [
         "npm --prefix \"$RESOURCE_DIR\" run lint"
@@ -31,5 +33,65 @@
   },
   "storage": {
     "rules": "storage.rules"
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/v1/admin/catalogue/add",
+        "function": "v1catalogueAdd",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/catalogue/update",
+        "function": "v1catalogueUpdate",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/catalogue/delete",
+        "function": "v1catalogueDelete",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/public/catalogue/opds",
+        "function": "v1catalogueGetOPDS",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/tmp/catalogue/**",
+        "function": "v1catalogueGetManifest",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/ai/generateSceneImages",
+        "function": "v1generateSceneImages",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/catalogue/process",
+        "function": "v1catalogueProcessRaw",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/aax/setAvailable",
+        "function": "v1AdminSetAAXAvailable",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/tmp/privateOPDS/**",
+        "function": "v1TMPgetPrivateOPDSFeed",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/tmp/privateManifest/*/*",
+        "function": "v1TMPgetPrivateManifest",
+        "region": "europe-west1"
+      }
+    ]
   }
 }

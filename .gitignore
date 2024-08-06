@@ -131,8 +131,14 @@ dist
 
 # Firebase
 .firebaserc
+.firebase/
 ui-debug.log
 firestore-debug.log
 
 # Test
-functions/test/bindings/m4b/
+functions/test/bindings/
+functions/.env.*
+
+# Mac OS
+.DS_Store
+
