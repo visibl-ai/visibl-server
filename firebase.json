@@ -86,6 +86,11 @@
         "source": "/v1/tmp/privateOPDS/**",
         "function": "v1TMPgetPrivateOPDSFeed",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/tmp/privateManifest/*/*",
+        "function": "v1TMPgetPrivateManifest",
+        "region": "europe-west1"
       }
     ]
   }

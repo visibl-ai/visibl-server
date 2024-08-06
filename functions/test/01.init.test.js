@@ -650,6 +650,16 @@ describe("Customer creation via Firebase Auth", () => {
     expect(response.body.metadata).to.have.property("title", `${process.env.AAX_CONNECT_SOURCE} Import`);
     privateFeed = response.body;
   });
+  // eslint-disable-next-line no-undef
+  it("AAX - get private OPDS manifest via URL", async () => {
+    const response = await chai
+        .request(privateFeed.publications[0].links[0].href)
+        .get("");
+    expect(response).to.have.status(200);
+    expect(response).to.be.json;
+    expect(response.body).to.have.property("metadata");
+    console.log(response.body.metadata);
+  });
 
   // Add item to the library
   let libraryItem;

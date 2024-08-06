@@ -368,6 +368,13 @@ export const v1TMPgetPrivateOPDSFeed = onRequest({region: "europe-west1"}, async
   res.status(200).send(await generatePrivateOPDS(uid, req.body, app));
 });
 
+export const v1TMPgetPrivateManifest = onRequest({region: "europe-west1"}, async (req, res) => {
+  const pathParts = req.path.split("/");
+  const uid = pathParts[pathParts.length - 2];
+  const catalogueId = pathParts[pathParts.length - 1];
+  res.status(200).send(await generateManifest(app, uid, catalogueId));
+});
+
 export const aaxPostAuthHook = onTaskDispatched(
     {
       retryConfig: {

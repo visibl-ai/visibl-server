@@ -21,6 +21,14 @@ import {
 
 import {AAX_CONNECT_SOURCE, ENVIRONMENT, HOSTING_DOMAIN} from "../config/config.js";
 
+function generateManifestUrl(visibility, uid, catalogueId) {
+  if (visibility === "public") {
+    return `${HOSTING_DOMAIN.value()}/v1/tmp/catalogue/${catalogueId}`;
+  } else {
+    return `${HOSTING_DOMAIN.value()}/v1/tmp/privateManifest/${uid}/${catalogueId}`;
+  }
+}
+
 async function generateOPDS(app, uid, catalogueItems, title) {
   console.log(catalogueItems);
   const opdsResponse = {
@@ -38,7 +46,7 @@ async function generateOPDS(app, uid, catalogueItems, title) {
       ],
       links: [
         {
-          href: `${HOSTING_DOMAIN.value()}/v1/tmp/catalogue/${item.id}`,
+          href: generateManifestUrl(item.visibility, uid, item.id),
           type: "application/audiobook+json",
           rel: "http://opds-spec.org/acquisition/buy",
         },
