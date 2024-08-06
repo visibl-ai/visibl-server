@@ -28,6 +28,7 @@ describe("Image Gen", () => {
     let scenes = JSON.parse(fs.readFileSync(scenesPath, "utf8"));
     const CHAPTER_TO_GENERATE = 1; // Assuming we're generating for the first chapter
     const catalogueId = "riw7PiKBeKZF70WUMoSw";
+    const sceneId = "1";
     // Load scenes data (assuming it's available)
     // const scenes = []; // You might need to load this from somewhere
     const totalScenes = scenes.length;
@@ -53,6 +54,7 @@ describe("Image Gen", () => {
               scenesToGenerate: scenesToGenerate,
               fullScenes: scenes,
               catalogueId: catalogueId,
+              sceneId: sceneId,
             })
             .end((err, res) => {
               // expect(err).to.be.null;

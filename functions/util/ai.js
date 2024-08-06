@@ -5,13 +5,19 @@ import {OPENAI_API_KEY} from "../config/config.js";
 import axios from "axios";
 import {
   uploadStreamAndGetPublicLink,
-  storeCatalogueScenes,
+  storeScenes,
 } from "../storage/storage.js";
 
 async function generateImages(req, app) {
   try {
     // Scenes to generate is a [5,6,7,8] . Maximum 5.
-    const {fullScenes, bookTitle, chapterNumber, imageTheme, scenesToGenerate, catalogueId} = req.body;
+    const {fullScenes,
+      bookTitle,
+      chapterNumber,
+      imageTheme,
+      scenesToGenerate,
+      catalogueId,
+      sceneId} = req.body;
     if (scenesToGenerate.length > 15) {
       throw new Error("Maximum 15 scenes per request");
     }
@@ -33,7 +39,7 @@ async function generateImages(req, app) {
         logger.info("fullScenes[sceneIndex].image = " + fullScenes[sceneIndex].image);
       }
     }
-    await storeCatalogueScenes(app, catalogueId, fullScenes);
+    await storeScenes(app, sceneId, chapterNumber, fullScenes);
     return fullScenes;
   } catch (error) {
     logger.error(error);

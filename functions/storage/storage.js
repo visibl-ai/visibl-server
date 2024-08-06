@@ -106,18 +106,6 @@ const uploadStreamAndGetPublicLink = async (app, stream, filename) => {
   });
 };
 
-/**
- * Stores scene data as a JSON file in the storage bucket
- * @param {Object} app - The Firebase app instance
- * @param {string} catalogueId - The catalogue's unique identifier
- * @param {Object} sceneData - The JSON data to be stored
- * @return {Promise<void>} A promise that resolves when the file is stored
- */
-async function storeCatalogueScenes(app, catalogueId, sceneData) {
-  const filename = `Catalogue/${catalogueId}/scenes.json`;
-  return storeJsonFile(app, filename, sceneData);
-}
-
 
 async function storeUserScenes(app, uid, libraryId, sceneId, sceneData) {
   const filename = `UserData/${uid}/Library/${libraryId}/Scenes/${sceneId}.json`;
@@ -157,15 +145,29 @@ async function storeJsonFile(app, filename, data) {
  * @param {string} sku - The catalogue's unique identifier
  * @return {Promise<Object>} A promise that resolves to the parsed JSON data
  */
-async function getCatalogueScenes(app, sku) {
+async function getCatalogueDefaultScene(app, sku) {
   const filename = `Catalogue/Processed/${sku}/${sku}-scenes.json`;
   return getJsonFile(app, filename);
 }
 
-async function getUserScenes(app, uid, libraryId, sceneId) {
-  const filename = `UserData/${uid}/Library/${libraryId}/Scenes/${sceneId}.json`;
+async function getScene(app, sceneId, chapter) {
+  const filename = `Scenes/${sceneId}/${chapter}-scenes.json`;
   return getJsonFile(app, filename);
 }
+
+/**
+ * Stores scene data as a JSON file in the storage bucket
+ * @param {Object} app - The Firebase app instance
+ * @param {string} sceneId - The scene's unique identifier
+ * @param {string} chapter - The chapter number
+ * @param {Object} sceneData - The JSON data to be stored
+ * @return {Promise<void>} A promise that resolves when the file is stored
+ */
+async function storeScenes(app, sceneId, chapter, sceneData) {
+  const filename = `Scenes/${sceneId}/${chapter}-scenes.json`;
+  return storeJsonFile(app, filename, sceneData);
+}
+
 
 /**
  * Retrieves a JSON file from the storage bucket and parses its contents
@@ -267,10 +269,10 @@ export {
   fileExists,
   deleteFile,
   uploadStreamAndGetPublicLink,
-  storeCatalogueScenes,
-  getCatalogueScenes,
+  storeScenes,
+  getCatalogueDefaultScene,
   storeUserScenes,
-  getUserScenes,
+  getScene,
   downloadFileFromBucket,
   uploadFileToBucket,
   getJsonFile,

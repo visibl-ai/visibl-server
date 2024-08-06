@@ -4,6 +4,16 @@ import {
   getFirestore,
   Timestamp} from "firebase-admin/firestore";
 
+import {logger} from "firebase-functions";
+
+import {
+  libraryGetFirestore,
+} from "./library.js";
+
+import {
+  catalogueGetFirestore,
+} from "./catalogue.js";
+
 async function getLibraryScenesFirestore(uid, data, app) {
   const db = getFirestore();
   const {libraryId} = data;
@@ -26,7 +36,29 @@ async function getLibraryScenesFirestore(uid, data, app) {
   return scenes;
 }
 
-async function scenesLibraryItemFirestore(uid, data, app) {
+async function getCatalogueScenesFirestore(uid, data, app) {
+  const db = getFirestore();
+  const {catalogueId} = data;
+  // Query the Scenes collection for items matching uid and libraryId
+  const scenesQuery = await db.collection("Scenes")
+      .where("uid", "==", uid)
+      .where("catalogueId", "==", catalogueId)
+      .get();
+
+  // If no scenes found, return an empty array
+  if (scenesQuery.empty) {
+    return [];
+  }
+
+  // Map the query results to an array of scene objects
+  const scenes = scenesQuery.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+  return scenes;
+}
+
+async function scenesCreateLibraryItemFirestore(uid, data, app) {
   const db = getFirestore();
   const {libraryId, prompt, userDefault} = data;
   // Check if prompt is undefined or an empty string
@@ -37,6 +69,11 @@ async function scenesLibraryItemFirestore(uid, data, app) {
   // Check if userDefault is undefined
   if (userDefault === undefined) {
     throw new Error("userDefault must be specified");
+  }
+
+  // Check if libraryId is undefined
+  if (libraryId === undefined) {
+    throw new Error("libraryId must be specified");
   }
 
   // Ensure userDefault is a boolean
@@ -60,11 +97,17 @@ async function scenesLibraryItemFirestore(uid, data, app) {
     await scenesUpdateUserLibraryDefaultFirestore(db, uid, scenesRef, libraryId);
   }
 
+  const {catalogueId: catalogueId} = await libraryGetFirestore(uid, libraryId);
+  logger.debug(`Creating scene for catalogueId: ${catalogueId}`);
+  const {sku: sku} = await catalogueGetFirestore(catalogueId);
+
   const newScene = {
     uid,
     libraryId,
     prompt,
     userDefault,
+    catalogueId,
+    sku,
     createdAt: Timestamp.now(),
   };
 
@@ -135,6 +178,7 @@ async function scenesUpdateUserLibraryDefaultFirestore(db, uid, scenesRef, libra
 
 export {
   getLibraryScenesFirestore,
-  scenesLibraryItemFirestore,
+  scenesCreateLibraryItemFirestore,
   scenesUpdateLibraryItemFirestore,
+  getCatalogueScenesFirestore,
 };

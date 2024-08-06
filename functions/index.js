@@ -30,7 +30,8 @@ import {
 
 import {
   getLibraryScenesFirestore,
-  scenesLibraryItemFirestore,
+  getCatalogueScenesFirestore,
+  scenesCreateLibraryItemFirestore,
   scenesUpdateLibraryItemFirestore,
 } from "./storage/firestore/scenes.js";
 
@@ -258,9 +259,15 @@ export const v1getLibraryItemScenes = onCall({region: "europe-west1"}, async (co
   return await getLibraryScenesFirestore(uid, data, app);
 });
 
+export const v1getCatalogueItemScenes = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await getCatalogueScenesFirestore(uid, data, app);
+});
+
+
 export const v1addLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await scenesLibraryItemFirestore(uid, data, app);
+  return await scenesCreateLibraryItemFirestore(uid, data, app);
 });
 
 export const v1updateLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
