@@ -5,23 +5,38 @@ import {OPENAI_API_KEY} from "../config/config.js";
 import axios from "axios";
 import {
   uploadStreamAndGetPublicLink,
+  getScene,
   storeScenes,
 } from "../storage/storage.js";
+
+import {
+  getSceneFirestore,
+} from "../storage/firestore/scenes.js";
+
+import {
+  dispatchTask,
+} from "./dispatch.js";
+
+
+const SCENES_PER_REQUEST = 15;
+const TIMEOUT = 60000;
+
 
 async function generateImages(req, app) {
   try {
     // Scenes to generate is a [5,6,7,8] . Maximum 5.
-    const {fullScenes,
-      bookTitle,
-      chapterNumber,
-      imageTheme,
+    const {
+      chapter,
       scenesToGenerate,
-      catalogueId,
       sceneId} = req.body;
-    if (scenesToGenerate.length > 15) {
-      throw new Error("Maximum 15 scenes per request");
+
+    if (scenesToGenerate.length > SCENES_PER_REQUEST) {
+      throw new Error(`Maximum ${SCENES_PER_REQUEST} scenes per request`);
     }
-    const scenes = fullScenes.filter((scene, index) => scenesToGenerate.includes(index));
+    const scene = await getSceneFirestore(app, sceneId);
+    const theme = scene.theme;
+    const fullScenes = await getScene(app, sceneId, chapter);
+    const scenes = fullScenes.filter((singleScene, index) => scenesToGenerate.includes(index));
     logger.debug("scenes.length = " + scenes.length);
     logger.info("scenes = " + JSON.stringify(scenes).substring(0, 100));
     if (!scenes) {
@@ -29,7 +44,13 @@ async function generateImages(req, app) {
     }
     // Now we save the scenes to the chapter.
     logger.info("===Starting DALL-E-3 image generation===");
-    const images = await dalle3(app, bookTitle, chapterNumber, scenes, imageTheme, catalogueId);
+    const images = await dalle3({
+      app,
+      chapter,
+      scenes,
+      theme,
+      sceneId,
+    });
     logger.info("===ENDING DALL-E-3 image generation===");
     for (const image of images) {
       const sceneIndex = fullScenes.findIndex((s) => s.scene_number === image.metadata.scene_number);
@@ -39,7 +60,7 @@ async function generateImages(req, app) {
         logger.info("fullScenes[sceneIndex].image = " + fullScenes[sceneIndex].image);
       }
     }
-    await storeScenes(app, sceneId, chapterNumber, fullScenes);
+    await storeScenes(app, sceneId, chapter, fullScenes);
     return fullScenes;
   } catch (error) {
     logger.error(error);
@@ -62,7 +83,10 @@ async function downloadImage(app, url, filename) {
   });
 }
 
-async function dalle3(app, bookTitle, chapterNumber, scenes, imageTheme, catalogueId) {
+async function dalle3(request) {
+  const {
+    app, chapter, scenes, theme, sceneId,
+  } = request;
   logger.debug(`scenes length = ${scenes.length}`);
   const openai = new OpenAI(OPENAI_API_KEY.value());
   const promises = scenes.map(async (scene) => {
@@ -81,7 +105,7 @@ async function dalle3(app, bookTitle, chapterNumber, scenes, imageTheme, catalog
       characters: scene.characters,
       locations: scene.locations,
       viewpoint: scene.viewpoint,
-      theme: imageTheme,
+      theme: theme,
     };
     dallE3Config.prompt = JSON.stringify(sceneDescription);
     logger.debug("image description = " + dallE3Config.prompt.substring(0, 250));
@@ -97,18 +121,73 @@ async function dalle3(app, bookTitle, chapterNumber, scenes, imageTheme, catalog
       logger.debug(`revised prompt = ${description}`);
       // const imagePath = `${imageDir}/${i + 1}.jpg`;
       const timestamp = Date.now();
-      const imageName = `Catalogue/${catalogueId}/ImageGen/${bookTitle}_ch${chapterNumber}_scene${scene.scene_number}_${timestamp}.jpg`;
+      const imageName = `Scenes/${sceneId}/${chapter}_scene${scene.scene_number}_${timestamp}.jpg`;
       // logger.debug("imageName = " + imageName);
       gcpURL = await downloadImage(app, imageUrl, imageName);
       // logger.debug("gcpURL = " + gcpURL);
     } catch (error) {
       logger.error("Error generating image: " + error);
     }
-    return {type: "image", url: gcpURL, description: description, metadata: {scene_number: scene.scene_number, chapterNumber: chapterNumber, bookTitle: bookTitle}};
+    return {
+      type: "image",
+      url: gcpURL,
+      description: description,
+      metadata: {
+        scene_number: scene.scene_number,
+        chapterNumber: chapter,
+        sceneId: sceneId},
+    };
   });
   return Promise.all(promises);
 }
 
+function getScenesToGenerate(lastSceneGenerated, totalScenes) {
+  const scenesToGenerate = [];
+  const i = lastSceneGenerated;
+  for (let j = i; j < i + SCENES_PER_REQUEST && j < totalScenes; j++) {
+    scenesToGenerate.push(j);
+  }
+  return scenesToGenerate;
+}
+
+// start at 0.
+async function imageGenRecursive(req, app) {
+  const {sceneId, lastSceneGenerated, totalScenes, chapter} = req.body;
+  const scenesToGenerate = getScenesToGenerate(lastSceneGenerated, totalScenes);
+  const startTime = Date.now();
+  await generateImages(
+      {
+        chapter: chapter,
+        scenesToGenerate: scenesToGenerate,
+        sceneId: sceneId,
+      },
+  );
+  const endTime = Date.now();
+  const elapsedTime = endTime - startTime;
+  const remainingTime = Math.max(TIMEOUT - elapsedTime, 0);
+  logger.debug(`Elapsed time: ${elapsedTime}ms, remaining time: ${remainingTime}ms`);
+  const remainingTimeSeconds = Math.ceil(remainingTime / 1000);
+  logger.debug(`imageGen complete for ${JSON.stringify(scenesToGenerate)} starting at ${lastSceneGenerated}.`);
+  let nextSceneToGenerate = lastSceneGenerated + SCENES_PER_REQUEST;
+  if (nextSceneToGenerate >= totalScenes) {
+    nextSceneToGenerate = totalScenes;
+  }
+  logger.debug(`Dispatching imageGenDispatcher with: delay ${remainingTimeSeconds}, lastSceneGenerated ${nextSceneToGenerate}, totalScenes ${totalScenes}, chapter ${chapter}`);
+  // Dispatch with delay of remainingTime
+  await imageDispatcher({
+    sceneId: sceneId,
+    lastSceneGenerated: nextSceneToGenerate,
+    totalScenes: totalScenes,
+    chapter: chapter,
+  }, remainingTimeSeconds);
+}
+
+async function imageDispatcher(request, delay) {
+  await dispatchTask("generateSceneImages", request, 60 * 5, delay);
+}
+
 export {
   generateImages,
+  imageGenRecursive,
+  imageDispatcher,
 };

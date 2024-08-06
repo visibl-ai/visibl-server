@@ -48,7 +48,10 @@ import {
   getAAXConnectStatusFirestore,
 } from "./storage/firestore/users.js";
 
-import {generateImages} from "./util/ai.js";
+import {
+  generateImages,
+  imageGenRecursive,
+} from "./util/ai.js";
 
 import {
   beforeUserCreated,
@@ -389,5 +392,13 @@ export const processM4B = onTaskDispatched(
     async (req) => {
       logger.debug(`processM4B: ${JSON.stringify(req.data)}`);
       return await processRawPublicItem(dataToBody(req), app);
+    },
+);
+
+export const generateSceneImages = onTaskDispatched(
+    largeDispatchInstance(),
+    async (req) => {
+      logger.debug(`generateSceneImages: ${JSON.stringify(req.data)}`);
+      return await imageGenRecursive(dataToBody(req), app);
     },
 );

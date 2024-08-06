@@ -61,13 +61,14 @@ function largeDispatchInstance() {
  * @param {string} functionName
  * @param {Object} data
  * @param {number} deadline
+ * @param {number} scheduleDelaySeconds
  */
-async function dispatchTask(functionName, data, deadline=60 * 5) {
+async function dispatchTask(functionName, data, deadline=60 * 5, scheduleDelaySeconds=1 ) {
   const queue = getFunctions().taskQueue(functionName);
   const targetUri = await getFunctionUrl(functionName);
   logger.debug(`Queuing ${functionName} with targetUri: ${targetUri}`);
   return queue.enqueue(data, {
-    scheduleDelaySeconds: 1,
+    scheduleDelaySeconds: scheduleDelaySeconds,
     dispatchDeadlineSeconds: deadline,
     uri: targetUri,
   });

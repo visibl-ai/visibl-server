@@ -14,6 +14,10 @@ import {
   catalogueGetFirestore,
 } from "./catalogue.js";
 
+import {
+  imageDispatcher,
+} from "../../util/ai.js";
+
 async function getLibraryScenesFirestore(uid, data, app) {
   const db = getFirestore();
   const {libraryId} = data;
@@ -112,10 +116,54 @@ async function scenesCreateLibraryItemFirestore(uid, data, app) {
   };
 
   const newSceneRef = await scenesRef.add(newScene);
+  logger.debug(`Created new scene for libraryId: ${libraryId} with id: ${newSceneRef.id}`);
+  // Dispatch long running task to generate scenes..
+  await imageDispatcher({
+    sceneId: newSceneRef.id,
+    lastSceneGenerated: 0,
+    totalScenes: 1,
+    chapter: 1,
+  });
   return {id: newSceneRef.id, ...newScene};
 }
 
 
+/**
+ * Updates the user default status for scenes in a user's library.
+ *
+ * This function is used to manage the default scene for a specific library item.
+ * When setting a scene as the default, it ensures that only one scene is marked
+ * as default for the given library item by updating all other scenes to non-default.
+ *
+ * @param {FirebaseFirestore.Firestore} db - The Firestore database instance.
+ * @param {string} uid - The user ID.
+ * @param {FirebaseFirestore.CollectionReference} scenesRef - Reference to the Scenes collection.
+ * @param {string} libraryId - The ID of the library item.
+ * @param {string} [sceneId] - Optional. The ID of the scene being set as default.
+ *                             If provided, this scene will be excluded from the update.
+ * @returns {Promise<void>} A promise that resolves when the update is complete.
+ */
+
+// Function explanation:
+// The scenesUpdateUserLibraryDefaultFirestore function is responsible for maintaining
+// the consistency of the default scene status within a user's library. It performs
+// the following tasks:
+//
+// 1. It queries the Firestore database for all scenes that belong to the specified
+//    user (uid) and library item (libraryId) that are currently marked as default.
+//
+// 2. It creates a batch write operation to efficiently update multiple documents
+//    in a single atomic transaction.
+//
+// 3. For each scene found in the query (except for the optionally specified sceneId),
+//    it updates the 'userDefault' field to false.
+//
+// 4. Finally, it commits the batch operation, applying all updates atomically.
+//
+// This function is typically called when a new scene is being set as the default
+// for a library item, ensuring that only one scene can be the default at any time.
+// The optional sceneId parameter allows the function to exclude a specific scene
+// from being updated, which is useful when that scene is being set as the new default.
 async function scenesUpdateLibraryItemFirestore(uid, data, app) {
   const db = getFirestore();
   const {libraryId, sceneId, userDefault} = data;
@@ -176,9 +224,19 @@ async function scenesUpdateUserLibraryDefaultFirestore(db, uid, scenesRef, libra
   await batch.commit();
 }
 
+async function getSceneFirestore(sceneId) {
+  const db = getFirestore();
+  const scene = await db.collection("Scenes").doc(sceneId).get();
+  return {
+    id: scene.id,
+    ...scene.data(),
+  };
+}
+
 export {
   getLibraryScenesFirestore,
   scenesCreateLibraryItemFirestore,
   scenesUpdateLibraryItemFirestore,
   getCatalogueScenesFirestore,
+  getSceneFirestore,
 };
