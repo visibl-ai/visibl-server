@@ -4,7 +4,7 @@
 import {initializeApp} from "firebase-admin/app";
 import {onTaskDispatched} from "firebase-functions/v2/tasks";
 import {getFunctions} from "firebase-admin/functions";
-import {GoogleAuth} from "google-auth-library";
+
 const app = initializeApp();
 import {onRequest, onCall} from "firebase-functions/v2/https";
 // import {onObjectFinalized} from "firebase-functions/v2/storage";
@@ -81,6 +81,13 @@ import {
 import {
   generateTranscriptions,
 } from "./util/transcribe.js";
+
+import {
+  getFunctionUrl,
+  dataToBody,
+  largeDispatchInstance,
+  dispatchTask,
+} from "./util/dispatch.js";
 
 // import {onInit} from "firebase-functions/v2/core";
 // let openaiKey;
@@ -284,14 +291,7 @@ export const v1getAAXLoginURL = onCall({region: "europe-west1"}, async (context)
 export const v1aaxConnect = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   const auth = await getAAXAuth(uid, data, app);
-  const queue = getFunctions().taskQueue("aaxPostAuthHook");
-  const targetUri = await getFunctionUrl("aaxPostAuthHook");
-  logger.debug(`v1aaxGetAuth targetUri: ${targetUri} for ${uid}`);
-  const task = queue.enqueue({uid: uid, auth: auth}, {
-    scheduleDelaySeconds: 1,
-    dispatchDeadlineSeconds: 60 * 5, // 5 minutes
-    uri: targetUri,
-  });
+  await dispatchTask("aaxPostAuthHook", {uid: uid, auth: auth});
   return auth;
 });
 
@@ -339,15 +339,7 @@ export const v1catalogueProcessRaw = onRequest({
   region: "europe-west1",
 }, async (req, res) => {
   await validateOnRequestAdmin(req);
-  const queue = getFunctions().taskQueue("processM4B");
-  const targetUri = await getFunctionUrl("processM4B");
-  logger.debug(`v1catalogueProcessRaw targetUri: ${targetUri} for ${req.body}`);
-  const task = queue.enqueue({sku: req.body.sku}, {
-    scheduleDelaySeconds: 1,
-    dispatchDeadlineSeconds: 60 * 5, // 5 minutes
-    uri: targetUri,
-  });
-  res.status(200).send(task);
+  res.status(200).send(await dispatchTask("processM4B", {sku: req.body.sku}));
 });
 
 export const v1getAAXAvailable = onCall({region: "europe-west1"}, async (context) => {
@@ -383,68 +375,19 @@ export const v1TMPgetPrivateManifest = onRequest({region: "europe-west1"}, async
 });
 
 export const aaxPostAuthHook = onTaskDispatched(
-    {
-      retryConfig: {
-        maxAttempts: 1,
-        minBackoffSeconds: 1,
-      },
-      rateLimits: {
-        maxConcurrentDispatches: 1,
-      },
-      region: "us-central1",
-      memory: "32GiB",
-      timeoutSeconds: 540,
-    },
+    largeDispatchInstance(),
     async (req) => {
       // logger.debug(`aaxPostAuthHook: ${JSON.stringify(req.data)}`);
-      const body = req.data;
+      // const body = req.data;
+      const {body: body} = dataToBody(req);
       return await audiblePostAuthHook(body.uid, {auth: body.auth}, app);
     },
 );
 
 export const processM4B = onTaskDispatched(
-    {
-      retryConfig: {
-        maxAttempts: 1,
-        minBackoffSeconds: 1,
-      },
-      rateLimits: {
-        maxConcurrentDispatches: 1,
-      },
-      region: "us-central1", // Tasks only work here for some reason!
-      memory: "32GiB",
-      timeoutSeconds: 540,
-    },
+    largeDispatchInstance(),
     async (req) => {
       logger.debug(`processM4B: ${JSON.stringify(req.data)}`);
-      return await processRawPublicItem({body: req.data}, app);
+      return await processRawPublicItem(dataToBody(req), app);
     },
 );
-
-
-let auth;
-/**
- * Get the URL of a given v2 cloud function.
- *
- * @param {string} name the function's name
- * @param {string} location the function's location
- * @return {Promise<string>} The URL of the function
- */
-async function getFunctionUrl(name, location="us-central1") {
-  if (!auth) {
-    auth = new GoogleAuth({
-      scopes: "https://www.googleapis.com/auth/cloud-platform",
-    });
-  }
-  const projectId = await auth.getProjectId();
-  const url = "https://cloudfunctions.googleapis.com/v2/" +
-    `projects/${projectId}/locations/${location}/functions/${name}`;
-
-  const client = await auth.getClient();
-  const res = await client.request({url});
-  const uri = res.data?.serviceConfig?.uri;
-  if (!uri) {
-    throw new Error(`Unable to retreive uri for function at ${url}`);
-  }
-  return uri;
-}
