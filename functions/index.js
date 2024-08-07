@@ -29,7 +29,7 @@ import {
 } from "./storage/firestore/library.js";
 
 import {
-  getLibraryScenesFirestore,
+  getGlobalScenesFirestore,
   getCatalogueScenesFirestore,
   scenesCreateLibraryItemFirestore,
   scenesUpdateLibraryItemFirestore,
@@ -264,9 +264,9 @@ export const v1getAi = onCall({region: "europe-west1"}, async (context) => {
   return await getAiFirestore(uid, data, app);
 });
 
-export const v1getLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
+export const v1getLibraryScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await getLibraryScenesFirestore(uid, data, app);
+  return await getGlobalScenesFirestore(uid, data, app);
 });
 
 export const v1getCatalogueItemScenes = onCall({region: "europe-west1"}, async (context) => {

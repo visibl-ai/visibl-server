@@ -168,6 +168,7 @@ async function imageGenRecursive(req, app) {
   logger.debug(`imageGenRecursive`);
   logger.debug(JSON.stringify(req.body));
   const {sceneId, lastSceneGenerated, totalScenes, chapter} = req.body;
+  await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, false, Date.now());
   const scenesToGenerate = getScenesToGenerate(lastSceneGenerated, totalScenes);
   const startTime = Date.now();
   await generateImages(
@@ -184,11 +185,12 @@ async function imageGenRecursive(req, app) {
   const remainingTimeSeconds = Math.ceil(remainingTime / 1000);
   logger.debug(`imageGen complete for ${JSON.stringify(scenesToGenerate)} starting at ${lastSceneGenerated}.`);
   const nextSceneToGenerate = scenesToGenerate.pop() + 1;
-  if (nextSceneToGenerate > totalScenes) {
+  if (nextSceneToGenerate >= totalScenes) {
     logger.debug(`No more scenes to generate for ${sceneId} chapter ${chapter}`);
-    await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, true);
+    await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, true, Date.now());
     return;
   } else {
+    await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, false, Date.now());
     logger.debug(`Dispatching imageGenDispatcher with: delay ${remainingTimeSeconds}, lastSceneGenerated ${nextSceneToGenerate}, totalScenes ${totalScenes}, chapter ${chapter}`);
     // Dispatch with delay of remainingTime
     await imageDispatcher({

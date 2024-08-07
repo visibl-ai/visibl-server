@@ -47,6 +47,47 @@ async function getLibraryScenesFirestore(uid, data, app) {
   return scenes;
 }
 
+async function getGlobalScenesFirestore(uid, data, app) {
+  const db = getFirestore();
+  const {libraryId, sceneId} = data;
+  // return a single scene.
+  if (sceneId) {
+    const scene = await db.collection("Scenes").doc(sceneId).get();
+    return {
+      id: scene.id,
+      ...scene.data(),
+    };
+  }
+  // Get Catalogue info from library item
+  const libraryItem = await libraryGetFirestore(uid, libraryId);
+  const {catalogueId} = libraryItem;
+  // Query the Scenes collection for items matching uid and libraryId
+  const scenesQuery = await db.collection("Scenes")
+      .where("catalogueId", "==", catalogueId)
+      .get();
+  // Map the query results to an array of scene objects
+  let scenes = scenesQuery.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data(),
+  }));
+  // Filter out duplicate scenes with empty prompts, keeping only one
+  const uniqueScenes = scenes.reduce((acc, scene) => {
+    if (scene.prompt === "") {
+      if (!acc.hasEmptyPrompt) {
+        acc.hasEmptyPrompt = true;
+        acc.result.push(scene);
+      }
+    } else {
+      acc.result.push(scene);
+    }
+    return acc;
+  }, {hasEmptyPrompt: false, result: []}).result;
+
+  // Replace the original scenes array with the filtered one
+  scenes = uniqueScenes;
+  return scenes;
+}
+
 async function getCatalogueScenesFirestore(uid, data, app) {
   const db = getFirestore();
   const {catalogueId} = data;
@@ -251,7 +292,7 @@ async function getSceneFirestore(sceneId) {
   };
 }
 
-async function sceneUpdateChapterGeneratedFirestore(sceneId, chapter, generated) {
+async function sceneUpdateChapterGeneratedFirestore(sceneId, chapter, generated, updatedAt) {
   const db = getFirestore();
   const sceneRef = db.collection("Scenes").doc(sceneId);
 
@@ -264,7 +305,10 @@ async function sceneUpdateChapterGeneratedFirestore(sceneId, chapter, generated)
   if (!data.chapters) {
     data.chapters = {};
   }
-  data.chapters[chapter] = generated;
+  data.chapters[chapter] = {
+    imagesGenerated: generated,
+    updatedAt,
+  };
 
   await sceneRef.update({chapters: data.chapters});
 
@@ -278,6 +322,7 @@ async function sceneUpdateChapterGeneratedFirestore(sceneId, chapter, generated)
 
 export {
   getLibraryScenesFirestore,
+  getGlobalScenesFirestore,
   scenesCreateLibraryItemFirestore,
   scenesUpdateLibraryItemFirestore,
   getCatalogueScenesFirestore,
