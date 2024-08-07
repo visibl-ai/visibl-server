@@ -11,6 +11,7 @@ import {
 
 import {
   getSceneFirestore,
+  sceneUpdateChapterGeneratedFirestore,
 } from "../storage/firestore/scenes.js";
 
 import {
@@ -28,15 +29,23 @@ async function generateImages(req, app) {
     const {
       chapter,
       scenesToGenerate,
-      sceneId} = req.body;
+      sceneId} = req;
 
     if (scenesToGenerate.length > SCENES_PER_REQUEST) {
       throw new Error(`Maximum ${SCENES_PER_REQUEST} scenes per request`);
     }
-    const scene = await getSceneFirestore(app, sceneId);
-    const theme = scene.theme;
-    const fullScenes = await getScene(app, sceneId, chapter);
-    const scenes = fullScenes.filter((singleScene, index) => scenesToGenerate.includes(index));
+    if (sceneId === undefined) {
+      throw new Error("generateImages: sceneId is required");
+    }
+    const scene = await getSceneFirestore(sceneId);
+    const theme = scene.prompt;
+    const fullScenes = await getScene(app, sceneId);
+    if (!fullScenes[chapter]) {
+      logger.warn(`Chapter ${chapter} not found in scenes. Build the graph and try again!`);
+      return fullScenes;
+    }
+    const chapterScenes = fullScenes[chapter];
+    const scenes = chapterScenes.filter((singleScene, index) => scenesToGenerate.includes(index));
     logger.debug("scenes.length = " + scenes.length);
     logger.info("scenes = " + JSON.stringify(scenes).substring(0, 100));
     if (!scenes) {
@@ -53,14 +62,16 @@ async function generateImages(req, app) {
     });
     logger.info("===ENDING DALL-E-3 image generation===");
     for (const image of images) {
-      const sceneIndex = fullScenes.findIndex((s) => s.scene_number === image.metadata.scene_number);
+      const sceneIndex = chapterScenes.findIndex((s) => s.scene_number === image.metadata.scene_number);
       logger.debug("sceneIndex, sceneNumber = " + sceneIndex + ", " + image.metadata.scene_number);
       if (sceneIndex !== -1) {
-        fullScenes[sceneIndex].image = image.url;
-        logger.info("fullScenes[sceneIndex].image = " + fullScenes[sceneIndex].image);
+        chapterScenes[sceneIndex].image = image.url;
+        chapterScenes[sceneIndex].prompt = image.description;
+        logger.info("chapterScenes[sceneIndex].image = " + chapterScenes[sceneIndex].image);
       }
     }
-    await storeScenes(app, sceneId, chapter, fullScenes);
+    fullScenes[chapter] = chapterScenes;
+    await storeScenes(app, sceneId, fullScenes);
     return fullScenes;
   } catch (error) {
     logger.error(error);
@@ -105,8 +116,10 @@ async function dalle3(request) {
       characters: scene.characters,
       locations: scene.locations,
       viewpoint: scene.viewpoint,
-      theme: theme,
     };
+    if (theme !== "") {
+      sceneDescription.theme = `Image theme must be ${theme}`;
+    }
     dallE3Config.prompt = JSON.stringify(sceneDescription);
     logger.debug("image description = " + dallE3Config.prompt.substring(0, 250));
     let gcpURL = "";
@@ -152,6 +165,8 @@ function getScenesToGenerate(lastSceneGenerated, totalScenes) {
 
 // start at 0.
 async function imageGenRecursive(req, app) {
+  logger.debug(`imageGenRecursive`);
+  logger.debug(JSON.stringify(req.body));
   const {sceneId, lastSceneGenerated, totalScenes, chapter} = req.body;
   const scenesToGenerate = getScenesToGenerate(lastSceneGenerated, totalScenes);
   const startTime = Date.now();
@@ -168,18 +183,21 @@ async function imageGenRecursive(req, app) {
   logger.debug(`Elapsed time: ${elapsedTime}ms, remaining time: ${remainingTime}ms`);
   const remainingTimeSeconds = Math.ceil(remainingTime / 1000);
   logger.debug(`imageGen complete for ${JSON.stringify(scenesToGenerate)} starting at ${lastSceneGenerated}.`);
-  let nextSceneToGenerate = lastSceneGenerated + SCENES_PER_REQUEST;
-  if (nextSceneToGenerate >= totalScenes) {
-    nextSceneToGenerate = totalScenes;
+  const nextSceneToGenerate = scenesToGenerate.pop() + 1;
+  if (nextSceneToGenerate > totalScenes) {
+    logger.debug(`No more scenes to generate for ${sceneId} chapter ${chapter}`);
+    await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, true);
+    return;
+  } else {
+    logger.debug(`Dispatching imageGenDispatcher with: delay ${remainingTimeSeconds}, lastSceneGenerated ${nextSceneToGenerate}, totalScenes ${totalScenes}, chapter ${chapter}`);
+    // Dispatch with delay of remainingTime
+    await imageDispatcher({
+      sceneId: sceneId,
+      lastSceneGenerated: nextSceneToGenerate,
+      totalScenes: totalScenes,
+      chapter: chapter,
+    }, remainingTimeSeconds);
   }
-  logger.debug(`Dispatching imageGenDispatcher with: delay ${remainingTimeSeconds}, lastSceneGenerated ${nextSceneToGenerate}, totalScenes ${totalScenes}, chapter ${chapter}`);
-  // Dispatch with delay of remainingTime
-  await imageDispatcher({
-    sceneId: sceneId,
-    lastSceneGenerated: nextSceneToGenerate,
-    totalScenes: totalScenes,
-    chapter: chapter,
-  }, remainingTimeSeconds);
 }
 
 async function imageDispatcher(request, delay) {

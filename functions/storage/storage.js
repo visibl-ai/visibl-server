@@ -106,12 +106,6 @@ const uploadStreamAndGetPublicLink = async (app, stream, filename) => {
   });
 };
 
-
-async function storeUserScenes(app, uid, libraryId, sceneId, sceneData) {
-  const filename = `UserData/${uid}/Library/${libraryId}/Scenes/${sceneId}.json`;
-  return storeJsonFile(app, filename, sceneData);
-}
-
 /**
  * Stores JSON data as a file in the storage bucket
  * @param {Object} app - The Firebase app instance
@@ -146,12 +140,16 @@ async function storeJsonFile(app, filename, data) {
  * @return {Promise<Object>} A promise that resolves to the parsed JSON data
  */
 async function getCatalogueDefaultScene(app, sku) {
-  const filename = `Catalogue/Processed/${sku}/${sku}-scenes.json`;
+  const filename = getDefaultSceneFilename(sku);
   return getJsonFile(app, filename);
 }
 
-async function getScene(app, sceneId, chapter) {
-  const filename = `Scenes/${sceneId}/${chapter}-scenes.json`;
+function getDefaultSceneFilename(sku) {
+  return `Catalogue/Processed/${sku}/${sku}-scenes.json`;
+}
+
+async function getScene(app, sceneId) {
+  const filename = `Scenes/${sceneId}/scenes.json`;
   return getJsonFile(app, filename);
 }
 
@@ -159,12 +157,14 @@ async function getScene(app, sceneId, chapter) {
  * Stores scene data as a JSON file in the storage bucket
  * @param {Object} app - The Firebase app instance
  * @param {string} sceneId - The scene's unique identifier
- * @param {string} chapter - The chapter number
  * @param {Object} sceneData - The JSON data to be stored
  * @return {Promise<void>} A promise that resolves when the file is stored
  */
-async function storeScenes(app, sceneId, chapter, sceneData) {
-  const filename = `Scenes/${sceneId}/${chapter}-scenes.json`;
+async function storeScenes(app, sceneId, sceneData) {
+  if (sceneId === undefined) {
+    throw new Error("storeScenes: sceneId is required");
+  }
+  const filename = `Scenes/${sceneId}/scenes.json`;
   return storeJsonFile(app, filename, sceneData);
 }
 
@@ -271,7 +271,6 @@ export {
   uploadStreamAndGetPublicLink,
   storeScenes,
   getCatalogueDefaultScene,
-  storeUserScenes,
   getScene,
   downloadFileFromBucket,
   uploadFileToBucket,
@@ -279,4 +278,5 @@ export {
   uploadJsonToBucket,
   copyFile,
   getPublicUrl,
+  getDefaultSceneFilename,
 };

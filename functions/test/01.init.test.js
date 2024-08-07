@@ -885,12 +885,13 @@ describe("Customer creation via Firebase Auth", () => {
 
     // console.log(result);
     expect(result).to.exist;
-    expect(result).to.be.an("array");
-    expect(result[0]).to.have.property("scene_number");
-    expect(result[0]).to.have.property("description");
-    expect(result[0]).to.have.property("characters");
-    expect(result[0]).to.have.property("locations");
-    expect(result[0]).to.have.property("viewpoint");
+    expect(result).to.be.an("object");
+    expect(result["3"]).to.be.an("array");
+    expect(result["3"][0]).to.have.property("scene_number");
+    expect(result["3"][0]).to.have.property("description");
+    expect(result["3"][0]).to.have.property("characters");
+    expect(result["3"][0]).to.have.property("locations");
+    expect(result["3"][0]).to.have.property("viewpoint");
 
     // Try to get AI content for a non-existent item, it should throw an error
     try {
@@ -982,6 +983,7 @@ describe("Customer creation via Firebase Auth", () => {
         libraryId: libraryItem.id,
         prompt: "Miyazaki",
         userDefault: true,
+        chapter: 3,
       },
     });
     console.log(result);
@@ -989,6 +991,24 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result).to.have.property("prompt", "Miyazaki");
     expect(result).to.have.property("userDefault", true);
     addedScene = result;
+  });
+
+  // Manually call the dispatched function.
+  // eslint-disable-next-line no-undef
+  it(`test generateSceneImages taskQueue`, async () => {
+    const sceneId = addedScene.id;
+    const lastSceneGenerated = 0;
+    const totalScenes = 6;
+    const chapter = 3;
+    const response = await chai
+        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+        .post("/generateSceneImages")
+        .set("Content-Type", "application/json")
+        .send({
+          data:
+          {sceneId, lastSceneGenerated, totalScenes, chapter},
+        });
+    expect(response).to.have.status(204);
   });
 
   // eslint-disable-next-line no-undef

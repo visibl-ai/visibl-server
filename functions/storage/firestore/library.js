@@ -13,11 +13,6 @@ import {
 } from "./catalogue.js";
 
 import {
-  storeUserScenes,
-  getCatalogueDefaultScene,
-} from "../storage.js";
-
-import {
   scenesCreateLibraryItemFirestore,
 } from "./scenes.js";
 
@@ -95,11 +90,6 @@ async function libraryAddItemFirestore(uid, data, app) {
     prompt: "",
     userDefault: true,
   }, app);
-  try {
-    await storeUserScenes(app, uid, addedDoc.id, sceneData.id, await getCatalogueDefaultScene(app, sku));
-  } catch (error) {
-    logger.error(`Error storing user scenes for library item ${sku}. Likely not ready yet.`, error);
-  }
 
   return {
     id: addedDoc.id,

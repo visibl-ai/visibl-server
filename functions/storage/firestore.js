@@ -7,6 +7,7 @@ import {
   storeScenes,
   getScene,
   fileExists,
+  getDefaultSceneFilename,
 } from "./storage.js";
 import {logger} from "firebase-functions/v2";
 import {libraryGetFirestore} from "./firestore/library.js";
@@ -235,11 +236,11 @@ async function getUserLibraryScene(app, uid, libraryId, sceneId, chapter) {
     if (!exists) {
       logger.warn(`Default scene ${sceneToFetch} not found in Firestore, will try to copy now.`);
       logger.debug(`Checking for catalogue scenes for ${sku}`);
-      const defaultExist = await fileExists(app, `Catalogue/Processed/${sku}/${sku}-scenes.json`);
+      const defaultExist = await fileExists(app, getDefaultSceneFilename(sku));
       logger.debug(`Catalogue scenes for ${sku} exist: ${defaultExist}`);
       if (defaultExist) {
         logger.debug(`Copying default catalogue scenes for ${sku}`);
-        await storeScenes(app, sceneId, chapter, await getCatalogueDefaultScene(app, sku));
+        await storeScenes(app, sceneToFetch, await getCatalogueDefaultScene(app, sku));
       } else {
         logger.warn(`Default scene ${sceneToFetch} not found in Firestore, and catalogue scenes not found.`);
         return {error: "Scenes not found - likely still being generatred"};
@@ -248,7 +249,7 @@ async function getUserLibraryScene(app, uid, libraryId, sceneId, chapter) {
       logger.debug(`we should not see this log message.`);
     }
   }
-  return await getScene(app, sceneId, chapter);
+  return await getScene(app, sceneToFetch);
 }
 
 export {

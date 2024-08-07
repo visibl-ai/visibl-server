@@ -64,14 +64,19 @@ function largeDispatchInstance() {
  * @param {number} scheduleDelaySeconds
  */
 async function dispatchTask(functionName, data, deadline=60 * 5, scheduleDelaySeconds=1 ) {
-  const queue = getFunctions().taskQueue(functionName);
-  const targetUri = await getFunctionUrl(functionName);
-  logger.debug(`Queuing ${functionName} with targetUri: ${targetUri}`);
-  return queue.enqueue(data, {
-    scheduleDelaySeconds: scheduleDelaySeconds,
-    dispatchDeadlineSeconds: deadline,
-    uri: targetUri,
-  });
+  try {
+    const queue = getFunctions().taskQueue(functionName);
+    const targetUri = await getFunctionUrl(functionName);
+    logger.debug(`Queuing ${functionName} with targetUri: ${targetUri}`);
+    return queue.enqueue(data, {
+      scheduleDelaySeconds: scheduleDelaySeconds,
+      dispatchDeadlineSeconds: deadline,
+      uri: targetUri,
+    });
+  } catch (error) {
+    logger.error(`Error dispatching task ${functionName}: ${error}`);
+    return;
+  }
 }
 
 export {

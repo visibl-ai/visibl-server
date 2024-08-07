@@ -18,6 +18,13 @@ import {
   imageDispatcher,
 } from "../../util/ai.js";
 
+import {
+  getCatalogueDefaultScene,
+  storeScenes,
+  fileExists,
+  getDefaultSceneFilename,
+} from "../storage.js";
+
 async function getLibraryScenesFirestore(uid, data, app) {
   const db = getFirestore();
   const {libraryId} = data;
@@ -65,6 +72,10 @@ async function getCatalogueScenesFirestore(uid, data, app) {
 async function scenesCreateLibraryItemFirestore(uid, data, app) {
   const db = getFirestore();
   const {libraryId, prompt, userDefault} = data;
+  let {chapter} = data;
+  if (chapter === undefined) {
+    chapter = 0;
+  }
   // Check if prompt is undefined or an empty string
   if (prompt === undefined) {
     throw new Error("Prompt cannot be undefined");
@@ -118,12 +129,19 @@ async function scenesCreateLibraryItemFirestore(uid, data, app) {
   const newSceneRef = await scenesRef.add(newScene);
   logger.debug(`Created new scene for libraryId: ${libraryId} with id: ${newSceneRef.id}`);
   // Dispatch long running task to generate scenes..
-  await imageDispatcher({
-    sceneId: newSceneRef.id,
-    lastSceneGenerated: 0,
-    totalScenes: 1,
-    chapter: 1,
-  });
+  const defaultExist = await fileExists(app, getDefaultSceneFilename(sku));
+  if (defaultExist) {
+    const defaultScenes = await getCatalogueDefaultScene(app, sku);
+    await storeScenes(app, newSceneRef.id, defaultScenes);
+    await imageDispatcher({
+      sceneId: newSceneRef.id,
+      lastSceneGenerated: 0,
+      totalScenes: defaultScenes[chapter].length,
+      chapter: chapter,
+    });
+  } else {
+    logger.debug(`No default scenes found for sku: ${sku}, skipping for now...`);
+  }
   return {id: newSceneRef.id, ...newScene};
 }
 
@@ -233,10 +251,36 @@ async function getSceneFirestore(sceneId) {
   };
 }
 
+async function sceneUpdateChapterGeneratedFirestore(sceneId, chapter, generated) {
+  const db = getFirestore();
+  const sceneRef = db.collection("Scenes").doc(sceneId);
+
+  const scene = await sceneRef.get();
+  if (!scene.exists) {
+    throw new Error("Scene not found");
+  }
+
+  const data = scene.data();
+  if (!data.chapters) {
+    data.chapters = {};
+  }
+  data.chapters[chapter] = generated;
+
+  await sceneRef.update({chapters: data.chapters});
+
+  // Return the updated data
+  return {
+    id: scene.id,
+    ...data,
+    chapters: data.chapters, // Ensure we return the updated chapters
+  };
+}
+
 export {
   getLibraryScenesFirestore,
   scenesCreateLibraryItemFirestore,
   scenesUpdateLibraryItemFirestore,
   getCatalogueScenesFirestore,
   getSceneFirestore,
+  sceneUpdateChapterGeneratedFirestore,
 };
