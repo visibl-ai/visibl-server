@@ -1094,6 +1094,93 @@ describe("Customer creation via Firebase Auth", () => {
   });
 
   // eslint-disable-next-line no-undef
+  it(`test getAi without a sceneId`, async () => {
+    const wrapped = firebaseTest.wrap(v1getAi);
+
+    // Prepare the data for getting AI content
+    const getAiData = {
+      libraryId: libraryItem.id,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getAiData,
+    });
+
+    // console.log(result);
+    expect(result).to.exist;
+    expect(result).to.be.an("object");
+    expect(result["3"]).to.be.an("array");
+    expect(result["3"][0]).to.have.property("scene_number");
+    expect(result["3"][0]).to.have.property("description");
+    expect(result["3"][0]).to.have.property("characters");
+    expect(result["3"][0]).to.have.property("locations");
+    expect(result["3"][0]).to.have.property("viewpoint");
+  });
+
+  // eslint-disable-next-line no-undef
+  let defaultChapterScene;
+  it(`test getAi without a sceneId and a chapter`, async () => {
+    const wrapped = firebaseTest.wrap(v1getAi);
+
+    // Prepare the data for getting AI content
+    const getAiData = {
+      libraryId: libraryItem.id,
+      chapter: 3,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getAiData,
+    });
+
+    // console.log(result);
+    expect(result).to.exist;
+    expect(result).to.be.an("array");
+    expect(result[0]).to.have.property("scene_number");
+    expect(result[0]).to.have.property("description");
+    expect(result[0]).to.have.property("characters");
+    expect(result[0]).to.have.property("locations");
+    expect(result[0]).to.have.property("viewpoint");
+    defaultChapterScene = result[0];
+  });
+
+  // eslint-disable-next-line no-undef
+  it(`test getAi with a sceneId and a chapter`, async () => {
+    const wrapped = firebaseTest.wrap(v1getAi);
+
+    // Prepare the data for getting AI content
+    const getAiData = {
+      libraryId: libraryItem.id,
+      chapter: 3,
+      sceneId: addedScene.id,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getAiData,
+    });
+
+    // console.log(result);
+    expect(result).to.exist;
+    expect(result).to.be.an("array");
+    console.log(result[0]);
+    expect(result[0]).to.have.property("scene_number");
+    expect(result[0]).to.have.property("description");
+    expect(result[0]).to.have.property("characters");
+    expect(result[0]).to.have.property("locations");
+    expect(result[0]).to.have.property("viewpoint");
+    expect(result[0].image).to.not.equal(defaultChapterScene.image);
+  });
+
+
+  // eslint-disable-next-line no-undef
   it(`test v1getLibrary with includeManifest=true`, async () => {
     const wrapped = firebaseTest.wrap(v1getLibrary);
 

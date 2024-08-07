@@ -8,6 +8,7 @@ import {
   getScene,
   fileExists,
   getDefaultSceneFilename,
+  getSceneFilename,
 } from "./storage.js";
 import {logger} from "firebase-functions/v2";
 import {libraryGetFirestore} from "./firestore/library.js";
@@ -153,7 +154,11 @@ async function getAiFirestore(uid, data, app) {
 
   // Here you would typically process the catalogueManifest and generate AI content
   // For now, we'll return a placeholder response
-  return scenes;
+  if (chapter) {
+    return scenes[chapter];
+  } else {
+    return scenes;
+  }
 }
 
 // async function createLibraryScenesFirestore(uid, data, app) {
@@ -199,7 +204,7 @@ async function getAiFirestore(uid, data, app) {
 //   return {id: newSceneRef.id, ...newScene};
 // }
 
-async function getUserLibraryScene(app, uid, libraryId, sceneId, chapter) {
+async function getUserLibraryScene(app, uid, libraryId, sceneId) {
   const db = getFirestore();
   let sceneToFetch;
   // We're told what scene to get.
@@ -231,7 +236,7 @@ async function getUserLibraryScene(app, uid, libraryId, sceneId, chapter) {
     const libraryData = await libraryGetFirestore(uid, libraryId);
     const sku = libraryData.sku;
     // Check if the default scene exists.
-    const exists = await fileExists(app, `Scenes/${sceneToFetch}/${chapter}-scenes.json`);
+    const exists = await fileExists(app, getSceneFilename(sceneToFetch));
     logger.debug(`Default scene ${sceneToFetch} exists: ${exists} ${typeof exists}`);
     if (!exists) {
       logger.warn(`Default scene ${sceneToFetch} not found in Firestore, will try to copy now.`);

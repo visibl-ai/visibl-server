@@ -148,8 +148,12 @@ function getDefaultSceneFilename(sku) {
   return `Catalogue/Processed/${sku}/${sku}-scenes.json`;
 }
 
+function getSceneFilename(sceneId) {
+  return `Scenes/${sceneId}/scenes.json`;
+}
+
 async function getScene(app, sceneId) {
-  const filename = `Scenes/${sceneId}/scenes.json`;
+  const filename = getSceneFilename(sceneId);
   return getJsonFile(app, filename);
 }
 
@@ -279,4 +283,5 @@ export {
   copyFile,
   getPublicUrl,
   getDefaultSceneFilename,
+  getSceneFilename,
 };
