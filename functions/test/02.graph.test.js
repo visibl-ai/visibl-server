@@ -38,8 +38,13 @@ process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 const APP_URL = `http://127.0.0.1:5002`;
 
-const GENERATE_CHARACTERS = false;
+const GENERATE_CHARACTERS = true;
 const GENERATE_LOCATIONS = true;
+
+const SYM_PATH = "./test/bindings/graph/";
+const GRAPH_PATH = fs.realpathSync(SYM_PATH);
+console.log(GRAPH_PATH);
+
 
 // eslint-disable-next-line no-undef
 describe("Graph tests", () => {
@@ -74,6 +79,10 @@ describe("Graph tests", () => {
         console.error(`Failed to upload file ${fileName}:`, error);
       }
     }
+    // Ensure the directory exists
+    if (!fs.existsSync(GRAPH_PATH)) {
+      fs.mkdirSync(GRAPH_PATH, {recursive: true});
+    }
   });
   if (GENERATE_CHARACTERS) {
   // eslint-disable-next-line no-undef
@@ -94,6 +103,8 @@ describe("Graph tests", () => {
       expect(response).to.have.status(200);
       const result = response.body;
       console.log(result);
+      const path = `${GRAPH_PATH}${process.env.SKU3}-characters-graph.json`;
+      fs.writeFileSync(path, JSON.stringify(result, null, 2));
     });
   }
   if (GENERATE_LOCATIONS) {
@@ -112,6 +123,8 @@ describe("Graph tests", () => {
       expect(response).to.have.status(200);
       const result = response.body;
       console.log(result);
+      const path = `${GRAPH_PATH}${process.env.SKU3}-locations-graph.json`;
+      fs.writeFileSync(path, JSON.stringify(result, null, 2));
     });
   }
 });
