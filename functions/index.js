@@ -94,6 +94,7 @@ import {
 
 import {
   graphCharacters,
+  graphLocations,
 } from "./ai/graph.js";
 
 /**
@@ -378,6 +379,11 @@ export const v1TMPgetPrivateManifest = onRequest({region: "europe-west1"}, async
 export const v1AdminGraphCharacters = onRequest({region: "europe-west1"}, async (req, res) => {
   await validateOnRequestAdmin(req);
   res.status(200).send(await graphCharacters(app, req));
+});
+
+export const v1AdminGraphLocations = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await graphLocations(app, req));
 });
 
 // Dispatch Tasks.

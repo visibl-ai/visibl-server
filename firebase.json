@@ -96,6 +96,11 @@
         "source": "/v1/admin/graph/characters",
         "function": "v1AdminGraphCharacters",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/graph/locations",
+        "function": "v1AdminGraphLocations",
+        "region": "europe-west1"
       }
     ]
   }

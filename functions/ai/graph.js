@@ -37,6 +37,20 @@ async function graphCharacters(app, req) {
   return characterList;
 }
 
+async function graphLocations(app, req) {
+  const {uid, sku, visiblity} = req.body;
+  // 1. load transcriptions.
+  const transcriptions = await getTranscriptions(app, uid, sku, visiblity);
+  // 2. consolidate transcriptions into single string.
+  const fullText = consolidateTranscriptions(transcriptions);
+  // 3. send to gemini.
+  const locationList = await geminiRequest("getLocations", fullText);
+  // 4. store graph.
+  await storeGraph(app, uid, sku, visiblity, locationList, "locations");
+  return locationList;
+}
+
 export {
   graphCharacters,
+  graphLocations,
 };

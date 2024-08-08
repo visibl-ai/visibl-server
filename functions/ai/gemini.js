@@ -46,17 +46,37 @@ async function geminiRequest(prompt, message, temp = 0.1, history = []) {
     safetySettings: safetySettings,
     history: history,
   });
+  logger.debug(`Sending message to Gemini.`);
   const result = await chatSession.sendMessage(message);
-  logger.debug(result.response.text());
-  if (generationConfig?.responseMimeType === "application/json") {
-    try {
-      return JSON.parse(result.response.text());
-    } catch (e) {
-      logger.error(e);
-      return result.response.text();
-    }
-  } else {
+  logger.debug(`Gemini response received.`);
+
+  try {
+    logger.debug(result.response.text());
+  } catch (error) {
+    logger.error("Error logging Gemini response text:", error);
+    return {error: "Gemini response text not available.",
+      response: result.response,
+    };
+  }
+  try {
+    return geminiTextToJSON(result.response.text());
+  } catch (e) {
+    logger.error("Error trying to parse result to JSON.");
     return result.response.text();
+  }
+}
+
+function geminiTextToJSON(text) {
+  try {
+    text = text.replace(/\n/g, "");
+    text = text.replace(/`/g, "");
+    if (text.startsWith("json")) {
+      text = text.slice(4);
+    }
+    return JSON.parse(text);
+  } catch (e) {
+    logger.error("Error trying to parse result to JSON.");
+    return text;
   }
 }
 
