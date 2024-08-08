@@ -266,6 +266,26 @@ async function getPublicUrl(app, path) {
   return downloadUrl;
 }
 
+async function getTranscriptions(app, uid, sku, visiblity) {
+  let filename;
+  if (uid === "admin") {
+    filename = `Catalogue/Processed/${sku}/${sku}-transcriptions.json`;
+  } else {
+    filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-transcriptions.json`;
+  }
+  return await getJsonFile(app, filename);
+}
+
+async function storeGraph(app, uid, sku, visiblity, characterList, type) {
+  let filename;
+  if (uid === "admin") {
+    filename = `Catalogue/Processed/${sku}/${sku}-${type}-graph.json`;
+  } else {
+    filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-${type}-graph.json`;
+  }
+  return await storeJsonFile(app, filename, characterList);
+}
+
 
 export {
   createUserFolder,
@@ -284,4 +304,6 @@ export {
   getPublicUrl,
   getDefaultSceneFilename,
   getSceneFilename,
+  getTranscriptions,
+  storeGraph,
 };

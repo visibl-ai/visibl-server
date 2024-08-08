@@ -26,6 +26,7 @@ sleep 10
 echo "running tests"
 cd functions
 mocha test/01.init.test.js --timeout 99999999999 --bail --reporter spec || TEST_FAILED=true
+mocha test/02.graph.test.js --timeout 99999999999 --bail --reporter spec || TEST_FAILED=true
 
 # Stop the logs stream
 kill $LOGS_PID

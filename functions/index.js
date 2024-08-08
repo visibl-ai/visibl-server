@@ -92,12 +92,9 @@ import {
   dispatchTask,
 } from "./util/dispatch.js";
 
-// import {onInit} from "firebase-functions/v2/core";
-// let openaiKey;
-// onInit(() => {
-//   openaiKey = OPENAI_API_KEY.value();
-//   console.log(openaiKey);
-// });
+import {
+  graphCharacters,
+} from "./ai/graph.js";
 
 /**
  * Cloud Function triggered before a new user is created.
@@ -377,6 +374,13 @@ export const v1TMPgetPrivateManifest = onRequest({region: "europe-west1"}, async
   const catalogueId = pathParts[pathParts.length - 1];
   res.status(200).send(await generateManifest(app, uid, catalogueId));
 });
+
+export const v1AdminGraphCharacters = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await graphCharacters(app, req));
+});
+
+// Dispatch Tasks.
 
 export const aaxPostAuthHook = onTaskDispatched(
     largeDispatchInstance(),
