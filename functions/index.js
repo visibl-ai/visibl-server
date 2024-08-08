@@ -256,7 +256,8 @@ export const v1catalogueUpdate = onRequest({region: "europe-west1"}, async (req,
 // /v1/ai/generateImages
 export const v1generateSceneImages = onRequest({region: "europe-west1", cors: true}, async (req, res) => {
   await validateOnRequestAdmin(req);
-  res.status(200).send(await generateImages(req, app));
+  await dispatchTask("generateSceneImages", req.body, 60 * 5, 1);
+  res.status(200).send({dispatched: true});
 });
 
 export const v1getAi = onCall({region: "europe-west1"}, async (context) => {

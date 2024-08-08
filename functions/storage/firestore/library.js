@@ -51,7 +51,7 @@ async function libraryAddItemFirestore(uid, data, app) {
   if (!data.catalogueId) {
     throw new Error("Catalogue ID is required");
   }
-
+  logger.debug(`Request to add item ${data.catalogueId} to library for user ${uid}`);
   const db = getFirestore();
   const libraryRef = db.collection("Library");
 
