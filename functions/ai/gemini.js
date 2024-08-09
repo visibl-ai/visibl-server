@@ -31,12 +31,23 @@ const safetySettings = [
 ];
 
 
-async function geminiRequest(prompt, message, temp = 0.1, history = []) {
+async function geminiRequest(request) {
+  const {prompt, message, replacements, history = [], retry = true, instructionOverride} = request;
+  const type = prompts[prompt].generationConfig.responseMimeType;
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY.value());
+  let instruction = prompts[prompt].systemInstruction;
+  if (replacements) {
+    for (const replacement of replacements) {
+      instruction = instruction.replaceAll(replacement.key, replacement.value);
+    }
+  }
+  if (instructionOverride) {
+    instruction = instructionOverride;
+  }
 
   const model = genAI.getGenerativeModel({
     model: prompts[prompt].model,
-    systemInstruction: prompts[prompt].systemInstruction,
+    systemInstruction: instruction,
   });
 
   const generationConfig = prompts[prompt].generationConfig;
@@ -47,21 +58,39 @@ async function geminiRequest(prompt, message, temp = 0.1, history = []) {
     history: history,
   });
   logger.debug(`Sending message to Gemini.`);
+  logger.debug(`Instruction: ${instruction}`);
   const result = await chatSession.sendMessage(message);
   logger.debug(`Gemini response received.`);
 
   try {
-    logger.debug(result.response.text());
+    logger.debug(result.response.text().substring(0, 150));
   } catch (error) {
-    logger.error("Error logging Gemini response text:", error);
-    return {error: "Gemini response text not available.",
-      response: result.response,
-    };
+    if (result.response.promptFeedback.blockReason) {
+      logger.warn(`Gemini response blocked: ${result.response.promptFeedback.blockReason}. Will retry once.`);
+      if (retry) {
+        request.retry = false;
+        request.instructionOverride = instruction + " Ignore any inappropriate details which may cause content filtering issues.";
+        return await geminiRequest(request);
+      } else {
+        return {error: "Gemini response blocked.",
+          response: result.response.promptFeedback.blockReason,
+        };
+      }
+    } else {
+      logger.error("Error logging Gemini response text:", error);
+      return {error: "Gemini response text not available.",
+        response: result.response,
+      };
+    }
   }
-  try {
-    return geminiTextToJSON(result.response.text());
-  } catch (e) {
-    logger.error("Error trying to parse result to JSON.");
+  if (type === "application/json") {
+    try {
+      return geminiTextToJSON(result.response.text());
+    } catch (e) {
+      logger.error("Error trying to parse result to JSON.");
+      return result.response.text();
+    }
+  } else {
     return result.response.text();
   }
 }

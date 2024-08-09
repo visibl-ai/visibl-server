@@ -89,12 +89,17 @@ import {
   getFunctionUrl,
   dataToBody,
   largeDispatchInstance,
+  microDispatchInstance,
   dispatchTask,
 } from "./util/dispatch.js";
 
 import {
   graphCharacters,
   graphLocations,
+  graphCharacterDescriptions,
+  graphLocationDescriptions,
+  graphSummarizeDescriptions,
+  graphScenes,
 } from "./ai/graph.js";
 
 /**
@@ -386,7 +391,36 @@ export const v1AdminGraphLocations = onRequest({region: "europe-west1"}, async (
   res.status(200).send(await graphLocations(app, req));
 });
 
+
 // Dispatch Tasks.
+
+export const generateGraphCharacterDescriptions = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphCharacterDescriptions: ${JSON.stringify(req.data)}`);
+      return await graphCharacterDescriptions(app, dataToBody(req));
+    });
+
+export const generateGraphLocationDescriptions = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphLocationDescriptions: ${JSON.stringify(req.data)}`);
+      return await graphLocationDescriptions(app, dataToBody(req));
+    });
+
+export const generateGraphSummarizeDescriptions = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphSummarizeDescriptions: ${JSON.stringify(req.data)}`);
+      return await graphSummarizeDescriptions(app, dataToBody(req));
+    });
+
+export const generateGraphScenes = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphScenes: ${JSON.stringify(req.data)}`);
+      return await graphScenes(app, dataToBody(req));
+    });
 
 export const aaxPostAuthHook = onTaskDispatched(
     largeDispatchInstance(),

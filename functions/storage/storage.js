@@ -286,6 +286,15 @@ async function storeGraph(app, uid, sku, visiblity, characterList, type) {
   return await storeJsonFile(app, filename, characterList);
 }
 
+async function getGraph(app, uid, sku, visiblity, type) {
+  let filename;
+  if (uid === "admin") {
+    filename = `Catalogue/Processed/${sku}/${sku}-${type}-graph.json`;
+  } else {
+    filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-${type}-graph.json`;
+  }
+  return await getJsonFile(app, filename);
+}
 
 export {
   createUserFolder,
@@ -306,4 +315,5 @@ export {
   getSceneFilename,
   getTranscriptions,
   storeGraph,
+  getGraph,
 };

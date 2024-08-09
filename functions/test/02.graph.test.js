@@ -38,8 +38,12 @@ process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 const APP_URL = `http://127.0.0.1:5002`;
 
-const GENERATE_CHARACTERS = true;
-const GENERATE_LOCATIONS = true;
+const GENERATE_CHARACTERS = false;
+const GENERATE_LOCATIONS = false;
+const GENERATE_CHARACTER_DESCRIPTIONS = false;
+const GENERATE_LOCATION_DESCRIPTIONS = false;
+const SUMMARIZE_DESCRIPTIONS = false;
+const GENERATE_SCENES = true;
 
 const SYM_PATH = "./test/bindings/graph/";
 const GRAPH_PATH = fs.realpathSync(SYM_PATH);
@@ -51,10 +55,16 @@ describe("Graph tests", () => {
   // eslint-disable-next-line no-undef
   it(`Upload transcripts`, async () => {
     const fileList = [
-      `${process.env.SKU3}-transcriptions.json`,
+      `${process.env.PUBLIC_SKU1}-transcriptions.json`,
+      `${process.env.PUBLIC_SKU1}-characters-graph.json`,
+      `${process.env.PUBLIC_SKU1}-locations-graph.json`,
+      `${process.env.PUBLIC_SKU1}-characterDescriptions-graph.json`,
+      `${process.env.PUBLIC_SKU1}-locationDescriptions-graph.json`,
+      `${process.env.PUBLIC_SKU1}-characterSummaries-graph.json`,
+      `${process.env.PUBLIC_SKU1}-locationSummaries-graph.json`,
     ];
     const bucket = getStorage(app).bucket();
-    const bucketPath = `Catalogue/Processed/${process.env.SKU3}/`;
+    const bucketPath = `Catalogue/Processed/${process.env.PUBLIC_SKU1}/`;
     console.log(bucketPath);
 
     for (const fileName of fileList) {
@@ -62,7 +72,7 @@ describe("Graph tests", () => {
       const filePath = `${bucketPath}${fileName}`;
       const file = bucket.file(filePath);
       try {
-        const stream = fs.createReadStream(`./test/bindings/transcriptions/${fileName}`);
+        const stream = fs.createReadStream(`./test/bindings/graph/${fileName}`);
 
         await new Promise((resolve, reject) => {
           stream.pipe(file.createWriteStream({}))
@@ -90,20 +100,18 @@ describe("Graph tests", () => {
     // Prepare the update data
       const data = {
         uid: "admin",
-        sku: process.env.SKU3,
+        sku: process.env.PUBLIC_SKU1,
         visiblity: "public",
       };
 
-      const response = await chai
-          .request(APP_URL)
+      const response = await chai.request(APP_URL)
           .post("/v1/admin/graph/characters")
           .set("API-KEY", process.env.ADMIN_API_KEY)
           .send(data);
-
       expect(response).to.have.status(200);
       const result = response.body;
       console.log(result);
-      const path = `${GRAPH_PATH}${process.env.SKU3}-characters-graph.json`;
+      const path = `${GRAPH_PATH}${process.env.PUBLIC_SKU1}-characters-graph.json`;
       fs.writeFileSync(path, JSON.stringify(result, null, 2));
     });
   }
@@ -112,7 +120,7 @@ describe("Graph tests", () => {
     it(`test graphLocations`, async () => {
       const data = {
         uid: "admin",
-        sku: process.env.SKU3,
+        sku: process.env.PUBLIC_SKU1,
         visiblity: "public",
       };
       const response = await chai
@@ -123,8 +131,79 @@ describe("Graph tests", () => {
       expect(response).to.have.status(200);
       const result = response.body;
       console.log(result);
-      const path = `${GRAPH_PATH}${process.env.SKU3}-locations-graph.json`;
+      const path = `${GRAPH_PATH}${process.env.PUBLIC_SKU1}-locations-graph.json`;
       fs.writeFileSync(path, JSON.stringify(result, null, 2));
+    });
+  }
+  if (GENERATE_CHARACTER_DESCRIPTIONS) {
+    // eslint-disable-next-line no-undef
+    it(`test graphCharacterDescriptions`, async () => {
+      // Prepare the update data
+      const data = {
+        uid: "admin",
+        sku: process.env.PUBLIC_SKU1,
+        visiblity: "public",
+      };
+      const response = await chai
+          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .post("/generateGraphCharacterDescriptions")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+    });
+  }
+  if (GENERATE_LOCATION_DESCRIPTIONS) {
+    // eslint-disable-next-line no-undef
+    it(`test graphLocationDescriptions`, async () => {
+      // Prepare the update data
+      const data = {
+        uid: "admin",
+        sku: process.env.PUBLIC_SKU1,
+        visiblity: "public",
+      };
+      const response = await chai
+          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .post("/generateGraphLocationDescriptions")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+    });
+  }
+  if (SUMMARIZE_DESCRIPTIONS) {
+    // eslint-disable-next-line no-undef
+    it(`test graphSummarizeDescriptions`, async () => {
+      // Prepare the update data
+      const data = {
+        uid: "admin",
+        sku: process.env.PUBLIC_SKU1,
+        visiblity: "public",
+      };
+      const response = await chai
+          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .post("/generateGraphSummarizeDescriptions")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+    });
+  }
+  if (GENERATE_SCENES) {
+    // eslint-disable-next-line no-undef
+    it(`test generateGraphScenes`, async () => {
+      for (let chapter = 0; chapter <= 32; chapter++) {
+        // Prepare the update data
+        const data = {
+          uid: "admin",
+          sku: process.env.PUBLIC_SKU1,
+          visiblity: "public",
+          chapter: chapter,
+        };
+        const response = await chai
+            .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+            .post("/generateGraphScenes")
+            .set("Content-Type", "application/json")
+            .send({data: data}); // nest object as this is a dispatch.
+        expect(response).to.have.status(204);
+      }
     });
   }
 });

@@ -53,7 +53,25 @@ function largeDispatchInstance() {
     },
     region: "us-central1",
     memory: "32GiB",
-    timeoutSeconds: 540,
+    timeoutSeconds: 3600,
+  };
+}
+
+/**
+ * @return {Object} An object with a 'body' property containing the request data.
+ */
+function microDispatchInstance() {
+  return {
+    retryConfig: {
+      maxAttempts: 1,
+      minBackoffSeconds: 1,
+    },
+    rateLimits: {
+      maxConcurrentDispatches: 1,
+    },
+    region: "us-central1",
+    memory: "128MiB",
+    timeoutSeconds: 3600,
   };
 }
 
@@ -83,5 +101,6 @@ export {
   getFunctionUrl,
   dataToBody,
   largeDispatchInstance,
+  microDispatchInstance,
   dispatchTask,
 };
