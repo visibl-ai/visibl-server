@@ -62,6 +62,7 @@ describe("Graph tests", () => {
       `${process.env.PUBLIC_SKU1}-locationDescriptions-graph.json`,
       `${process.env.PUBLIC_SKU1}-characterSummaries-graph.json`,
       `${process.env.PUBLIC_SKU1}-locationSummaries-graph.json`,
+      `${process.env.PUBLIC_SKU1}-scenes-graph.json`,
     ];
     const bucket = getStorage(app).bucket();
     const bucketPath = `Catalogue/Processed/${process.env.PUBLIC_SKU1}/`;
@@ -189,7 +190,7 @@ describe("Graph tests", () => {
   if (GENERATE_SCENES) {
     // eslint-disable-next-line no-undef
     it(`test generateGraphScenes`, async () => {
-      for (let chapter = 0; chapter <= 32; chapter++) {
+      for (let chapter = 0; chapter < 32; chapter++) {
         // Prepare the update data
         const data = {
           uid: "admin",

@@ -21,10 +21,13 @@ if (TEST) {
 
 describe("Image Gen", () => {
   it("should generate images for the chapter", async () => {
-    const sceneId = "NZjdActtkyARblfDU00l";
+    const fullScenes = JSON.parse(fs.readFileSync(`./test/bindings/graph/scenes.json`, "utf8"));
+    const sceneId = "QNJ6gH07N1mFqxrjuo4l";
     const lastSceneGenerated = 0;
-    const totalScenes = 101;
-    const chapter = 4;
+    const chapter = 3;
+    const chapterKey = `${chapter}`;
+    const totalScenes = fullScenes[chapterKey].length;
+    console.log("totalScenes = " + totalScenes);
     chai
         .request(APP_URL)
         .post("")// /v1/admin/ai/generateSceneImages")
