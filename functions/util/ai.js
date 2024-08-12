@@ -112,10 +112,11 @@ async function dalle3(request) {
     };
       // dallE3Config.prompt = imageTheme + ' ' + scene.description;
     const sceneDescription = {
-      description: scene.description,
-      characters: scene.characters,
-      locations: scene.locations,
-      viewpoint: scene.viewpoint,
+      "description": scene.description,
+      "characters": scene.characters,
+      "locations": scene.locations,
+      "viewpoint": scene.viewpoint,
+      "aspect_ratio": "Vertical Aspect Ratio",
     };
     if (theme !== "") {
       sceneDescription.theme = `Image theme must be ${theme}`;

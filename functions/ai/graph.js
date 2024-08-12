@@ -68,7 +68,7 @@ async function graphCharacterDescriptions(app, req) {
   for (const character of characters.characters) {
     logger.debug(`Getting character description for ${character}`);
     const description = await geminiRequest({
-      "prompt": "getCharacterDescription",
+      "prompt": "getCharacterDescription2", // "getCharacterDescription",
       "message": fullText,
       "replacements": [
         {
@@ -181,7 +181,7 @@ async function graphScenes(app, req) {
       Object.entries(locationDescription).map(([key, value]) => [key.toLowerCase(), value]),
   );
   // Loop
-  const SLICE_SIZE = 15;
+  const SLICE_SIZE = 25;
   // const promises = [];
 
   const prompt = "transcribe_film_director_prompt";
@@ -249,9 +249,12 @@ async function graphScenes(app, req) {
     return scene;
   });
 
-  // Fix some stupid naming of time and add EndTime.
+  // Set the start time of the first scene to when the chapter starts.
+  if (descriptive_scenes.length > 0) {
+    descriptive_scenes[0].startTime = CHAPTER_FULL[0].startTime;
+  }
   descriptive_scenes.forEach((scene, i) => {
-    if (i < descriptive_scenes.length - 1) {
+    if (i < (descriptive_scenes.length - 1)) {
       scene.endTime = descriptive_scenes[i + 1].startTime;
     } else {
       console.log("last scene");

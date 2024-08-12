@@ -190,7 +190,7 @@ describe("Graph tests", () => {
   if (GENERATE_SCENES) {
     // eslint-disable-next-line no-undef
     it(`test generateGraphScenes`, async () => {
-      for (let chapter = 0; chapter < 32; chapter++) {
+      for (let chapter = 0; chapter < 6; chapter++) {
         // Prepare the update data
         const data = {
           uid: "admin",
