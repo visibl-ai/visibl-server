@@ -59,18 +59,18 @@ async function outpaint(app, request) {
 }
 
 const outpaintWideAndTall = async (app, request) => {
-  const {inputPath, outputPath, pixels=384} = request;
-  logger.debug(`Outpainting image ${inputPath} to ${outputPath}`);
+  const {inputPath, outputPathWithoutExtension, pixels=384} = request;
+  logger.debug(`Outpainting image ${inputPath} to ${outputPathWithoutExtension}`);
   const tallPromise = outpaint(app, {
     inputPath,
-    outputPath: outputPath.replace(".jpg", ".9.16.jpg"),
+    outputPath: `${outputPathWithoutExtension}.9.16.jpg`,
     up: pixels,
     down: pixels,
   });
 
   const widePromise = outpaint(app, {
     inputPath,
-    outputPath: outputPath.replace(".jpg", ".16.9.jpg"),
+    outputPath: `${outputPathWithoutExtension}.16.9.jpg`,
     left: pixels,
     right: pixels,
   });
@@ -78,8 +78,8 @@ const outpaintWideAndTall = async (app, request) => {
   const [upDownResult, leftRightResult] = await Promise.all([tallPromise, widePromise]);
 
   return {
-    upDown: upDownResult,
-    leftRight: leftRightResult,
+    tall: upDownResult,
+    wide: leftRightResult,
   };
 };
 

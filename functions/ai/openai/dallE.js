@@ -18,6 +18,10 @@ import {
   dispatchTask,
 } from "../../util/dispatch.js";
 
+import {
+  outpaintWideAndTall,
+} from "../stability/stability.js";
+
 
 const SCENES_PER_REQUEST = 15;
 const TIMEOUT = 60000;
@@ -65,7 +69,10 @@ async function generateImages(req, app) {
       const sceneIndex = chapterScenes.findIndex((s) => s.scene_number === image.metadata.scene_number);
       logger.debug("sceneIndex, sceneNumber = " + sceneIndex + ", " + image.metadata.scene_number);
       if (sceneIndex !== -1) {
-        chapterScenes[sceneIndex].image = image.url;
+        chapterScenes[sceneIndex].image = image.tall;
+        chapterScenes[sceneIndex].square = image.square;
+        chapterScenes[sceneIndex].wide = image.wide;
+        chapterScenes[sceneIndex].tall = image.tall;
         chapterScenes[sceneIndex].prompt = image.description;
         logger.info("chapterScenes[sceneIndex].image = " + chapterScenes[sceneIndex].image);
       }
@@ -96,7 +103,7 @@ async function downloadImage(app, url, filename) {
 
 async function dalle3(request) {
   const {
-    app, chapter, scenes, theme, sceneId,
+    app, chapter, scenes, theme, sceneId, retry = true,
   } = request;
   logger.debug(`scenes length = ${scenes.length}`);
   const openai = new OpenAI(OPENAI_API_KEY.value());
@@ -105,7 +112,7 @@ async function dalle3(request) {
     const dallE3Config = {
       model: "dall-e-3",
       quality: "hd",
-      size: "1024x1792",
+      size: "1024x1024",
       style: "vivid",
       n: 1,
       response_format: "url",
@@ -116,7 +123,7 @@ async function dalle3(request) {
       "characters": scene.characters,
       "locations": scene.locations,
       "viewpoint": scene.viewpoint,
-      "aspect_ratio": "Vertical Aspect Ratio",
+      // "aspect_ratio": "Vertical Aspect Ratio",
     };
     if (theme !== "") {
       sceneDescription.theme = `Image theme must be ${theme}`;
@@ -124,6 +131,7 @@ async function dalle3(request) {
     dallE3Config.prompt = JSON.stringify(sceneDescription);
     logger.debug("image description = " + dallE3Config.prompt.substring(0, 250));
     let gcpURL = "";
+    let outpaintResult = {};
     let imageResponse;
     let description = "";
     try {
@@ -132,19 +140,36 @@ async function dalle3(request) {
       logger.debug("imageUrl = " + imageUrl);// .substring(0, 100));
       // logger.debug(`imageResponse = ${JSON.stringify(imageResponse.data[0], null, 2)}`)
       description = imageResponse.data[0].revised_prompt;
-      logger.debug(`revised prompt = ${description}`);
+      logger.debug(`revised prompt = ${description.substring(0, 150)}${description.length > 150 ? "..." : ""}`);
       // const imagePath = `${imageDir}/${i + 1}.jpg`;
       const timestamp = Date.now();
-      const imageName = `Scenes/${sceneId}/${chapter}_scene${scene.scene_number}_${timestamp}.jpg`;
+      const imagePath = `Scenes/${sceneId}/${chapter}_scene${scene.scene_number}_${timestamp}`;
+      const squareImagePath = `${imagePath}.4.3.jpg`;
       // logger.debug("imageName = " + imageName);
-      gcpURL = await downloadImage(app, imageUrl, imageName);
+      gcpURL = await downloadImage(app, imageUrl, squareImagePath);
+
+      logger.debug(`Outpainting ${squareImagePath} with Stability.`);
+      outpaintResult = await outpaintWideAndTall(app, {
+        inputPath: squareImagePath,
+        outputPathWithoutExtension: imagePath,
+      });
+
       // logger.debug("gcpURL = " + gcpURL);
     } catch (error) {
       logger.error("Error generating image: " + error);
+      if (retry) {
+        logger.warn(`Going to retry image generation for ${scene.scene_number} in ${chapter} for ${sceneId} ${JSON.stringify(sceneDescription)}`);
+        return await dalle3({
+          app, chapter, scenes, theme, sceneId, retry: false,
+        });
+      }
     }
     return {
       type: "image",
-      url: gcpURL,
+      url: outpaintResult.tall,
+      square: gcpURL,
+      wide: outpaintResult.wide,
+      tall: outpaintResult.tall,
       description: description,
       metadata: {
         scene_number: scene.scene_number,

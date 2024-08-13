@@ -76,7 +76,7 @@ describe("Graph tests", () => {
   it("should generate images for the chapter", async () => {
     const data = {
       inputPath: `${bucketPath}jardethe.png`,
-      outputPath: `${bucketPath}jardethe.jpg`,
+      outputPathWithoutExtension: `${bucketPath}jardethe`,
     };
 
     const response = await chai.request(APP_URL)

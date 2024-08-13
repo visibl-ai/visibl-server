@@ -821,7 +821,7 @@ describe("Full functional tests of visibl api", () => {
     const bucketPath = `Catalogue/Processed/${catalogueBook.sku}/${catalogueBook.sku}-scenes.json`;
     const file = bucket.file(bucketPath);
     try {
-      const stream = fs.createReadStream(`./test/bindings/scenes/${catalogueBook.sku}-scenes.json`);
+      const stream = fs.createReadStream(`./test/bindings/graph/${catalogueBook.sku}-scenes-graph.json`);
 
       await new Promise((resolve, reject) => {
         stream.pipe(file.createWriteStream({}))
@@ -1006,6 +1006,7 @@ describe("Full functional tests of visibl api", () => {
         });
     expect(response).to.have.status(204);
   });
+
   // eslint-disable-next-line no-undef
   it(`test v1getLibraryScenes with a single scene`, async () => {
     const wrapped = firebaseTest.wrap(v1getLibraryScenes);
