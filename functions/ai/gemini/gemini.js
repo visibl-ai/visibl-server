@@ -9,7 +9,7 @@ import logger from "firebase-functions/logger";
 
 import prompts from "./geminiPrompts.js";
 
-import {GEMINI_API_KEY} from "../config/config.js";
+import {GEMINI_API_KEY} from "../../config/config.js";
 
 const safetySettings = [
   {
