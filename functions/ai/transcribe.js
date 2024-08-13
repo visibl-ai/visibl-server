@@ -41,6 +41,7 @@ async function transcribeFilesInParallel(bookData, outputFiles) {
   outputFiles.forEach((outputFile, index) => {
     bookData.chapters[index].outputFile = outputFile;
   });
+  const prompt = `The transcript is an audiobook version of ${bookData.title} by ${bookData.author}.`;
   const promises = Object.entries(bookData.chapters).map(
       async ([chapterIndex, chapter]) => {
         const {startTime, endTime} = chapter;
@@ -50,6 +51,7 @@ async function transcribeFilesInParallel(bookData, outputFiles) {
         const transcription = await whisper.whisper(
             chapter.outputFile,
             startTime,
+            prompt,
         );
         logger.debug(`Chapter ${chapterIndex} transcription complete.`);
         transcriptions[chapterIndex] = transcription;
