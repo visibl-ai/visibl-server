@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 import logger from "firebase-functions/logger";
 import nerFunctions from "./ner.js";
-import csv from "./csv.js";
+import csv from "../csv.js";
 import _ from "lodash";
 
 const DEFAULT_CHUNK_SIZE = 20;

@@ -82,6 +82,16 @@ async function deleteFile(app, uid, path, filename) {
   return file.delete();
 }
 
+const getFileStream = async (app, path) => {
+  const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
+  const file = bucket.file(path);
+  const [exists] = await file.exists();
+  if (!exists) {
+    throw new Error(`File ${path} does not exist`);
+  }
+  return file.createReadStream();
+};
+
 const uploadStreamAndGetPublicLink = async (app, stream, filename) => {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(filename);
@@ -302,6 +312,7 @@ export {
   fileExists,
   deleteFile,
   uploadStreamAndGetPublicLink,
+  getFileStream,
   storeScenes,
   getCatalogueDefaultScene,
   getScene,

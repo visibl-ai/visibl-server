@@ -1,16 +1,9 @@
 
 /* eslint-disable no-unused-vars */
-
 /* eslint-disable max-len */
 import admin from "firebase-admin";
 import logger from "firebase-functions/logger";
 import dotenv from "dotenv";
-// import * as chai from "chai";
-// // import {expect} from "chai";
-// import chaiHttp from "chai-http";
-// import {request} from "chai-http";
-// chai.use(chaiHttp);
-// const expect = chai.expect;
 
 import chai from "chai";
 import chaiHttp from "chai-http";
@@ -50,7 +43,6 @@ import {
   v1addLibraryItemScenes,
   v1updateLibraryItemScenes,
   v1aaxConnect,
-  // v1TMPaudiblePostAuthHook,
   v1refreshAAXTokens,
   v1generateTranscriptions,
   v1getPrivateOPDSFeed,
@@ -829,7 +821,7 @@ describe("Full functional tests of visibl api", () => {
     const bucketPath = `Catalogue/Processed/${catalogueBook.sku}/${catalogueBook.sku}-scenes.json`;
     const file = bucket.file(bucketPath);
     try {
-      const stream = fs.createReadStream(`./test/bindings/scenes/${catalogueBook.sku}-scenes.json`);
+      const stream = fs.createReadStream(`./test/bindings/graph/${catalogueBook.sku}-scenes-graph.json`);
 
       await new Promise((resolve, reject) => {
         stream.pipe(file.createWriteStream({}))
@@ -998,6 +990,22 @@ describe("Full functional tests of visibl api", () => {
 
 
   // Manually call the dispatched function.
+  // eslint-disable-next-line no-undef
+  it(`test generateSceneImages with a rejected image taskQueue`, async () => {
+    const sceneId = addedScene.id;
+    const lastSceneGenerated = 0;
+    const totalScenes = 1;
+    const chapter = 0;
+    const response = await chai
+        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+        .post("/generateSceneImages")
+        .set("Content-Type", "application/json")
+        .send({
+          data:
+            {sceneId, lastSceneGenerated, totalScenes, chapter},
+        });
+    expect(response).to.have.status(204);
+  });
   // eslint-disable-next-line no-undef
   it(`test generateSceneImages taskQueue`, async () => {
     const sceneId = addedScene.id;

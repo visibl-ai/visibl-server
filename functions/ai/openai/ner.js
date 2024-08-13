@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import prompts from "./prompts.js";
 import logger from "firebase-functions/logger";
 import tokenHelper from "./tokens.js";
-import {OPENAI_API_KEY} from "../config/config.js";
+import {OPENAI_API_KEY} from "../../config/config.js";
 
 
 const DEFAULT_TEMP = 0.1;

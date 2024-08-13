@@ -1,22 +1,26 @@
 /* eslint-disable require-jsdoc */
 import {logger} from "firebase-functions/v2";
 import OpenAI from "openai";
-import {OPENAI_API_KEY} from "../config/config.js";
+import {OPENAI_API_KEY} from "../../config/config.js";
 import axios from "axios";
 import {
   uploadStreamAndGetPublicLink,
   getScene,
   storeScenes,
-} from "../storage/storage.js";
+} from "../../storage/storage.js";
 
 import {
   getSceneFirestore,
   sceneUpdateChapterGeneratedFirestore,
-} from "../storage/firestore/scenes.js";
+} from "../../storage/firestore/scenes.js";
 
 import {
   dispatchTask,
-} from "./dispatch.js";
+} from "../../util/dispatch.js";
+
+import {
+  outpaintWideAndTall,
+} from "../stability/stability.js";
 
 
 const SCENES_PER_REQUEST = 15;
@@ -39,12 +43,12 @@ async function generateImages(req, app) {
     }
     const scene = await getSceneFirestore(sceneId);
     const theme = scene.prompt;
-    const fullScenes = await getScene(app, sceneId);
+    let fullScenes = await getScene(app, sceneId);
     if (!fullScenes[chapter]) {
       logger.warn(`Chapter ${chapter} not found in scenes. Build the graph and try again!`);
       return fullScenes;
     }
-    const chapterScenes = fullScenes[chapter];
+    let chapterScenes = fullScenes[chapter];
     const scenes = chapterScenes.filter((singleScene, index) => scenesToGenerate.includes(index));
     logger.debug("scenes.length = " + scenes.length);
     logger.info("scenes = " + JSON.stringify(scenes).substring(0, 100));
@@ -61,17 +65,25 @@ async function generateImages(req, app) {
       sceneId,
     });
     logger.info("===ENDING DALL-E-3 image generation===");
+    logger.debug(`Reloading scenes before editing.`);
+    fullScenes = await getScene(app, sceneId);
+    chapterScenes = fullScenes[chapter];
     for (const image of images) {
       const sceneIndex = chapterScenes.findIndex((s) => s.scene_number === image.metadata.scene_number);
       logger.debug("sceneIndex, sceneNumber = " + sceneIndex + ", " + image.metadata.scene_number);
       if (sceneIndex !== -1) {
-        chapterScenes[sceneIndex].image = image.url;
+        chapterScenes[sceneIndex].image = image.tall;
+        chapterScenes[sceneIndex].square = image.square;
+        chapterScenes[sceneIndex].wide = image.wide;
+        chapterScenes[sceneIndex].tall = image.tall;
         chapterScenes[sceneIndex].prompt = image.description;
         logger.info("chapterScenes[sceneIndex].image = " + chapterScenes[sceneIndex].image);
       }
     }
+
     fullScenes[chapter] = chapterScenes;
     await storeScenes(app, sceneId, fullScenes);
+    logger.debug(`Stored updated scenes.`);
     return fullScenes;
   } catch (error) {
     logger.error(error);
@@ -94,64 +106,90 @@ async function downloadImage(app, url, filename) {
   });
 }
 
+async function singleGeneration(request) {
+  const {
+    app, chapter, scene, theme, sceneId, retry, openai,
+  } = request;
+  // DALL-E-3 Configs
+  const dallE3Config = {
+    model: "dall-e-3",
+    quality: "hd",
+    size: "1024x1024",
+    style: "vivid",
+    n: 1,
+    response_format: "url",
+  };
+  // dallE3Config.prompt = imageTheme + ' ' + scene.description;
+  const sceneDescription = {
+    "description": scene.description,
+    "characters": scene.characters,
+    "locations": scene.locations,
+    "viewpoint": scene.viewpoint,
+    // "aspect_ratio": "Vertical Aspect Ratio",
+  };
+  if (theme !== "") {
+    sceneDescription.theme = `Image theme must be ${theme}`;
+  }
+  dallE3Config.prompt = JSON.stringify(sceneDescription);
+  logger.debug("image description = " + dallE3Config.prompt.substring(0, 250));
+  let gcpURL = "";
+  let outpaintResult = {};
+  let imageResponse;
+  let description = "";
+  try {
+    imageResponse = await openai.images.generate(dallE3Config);
+    const imageUrl = imageResponse.data[0].url;
+    logger.debug("imageUrl = " + imageUrl);// .substring(0, 100));
+    // logger.debug(`imageResponse = ${JSON.stringify(imageResponse.data[0], null, 2)}`)
+    description = imageResponse.data[0].revised_prompt;
+    logger.debug(`revised prompt = ${description.substring(0, 150)}${description.length > 150 ? "..." : ""}`);
+    // const imagePath = `${imageDir}/${i + 1}.jpg`;
+    const timestamp = Date.now();
+    const imagePath = `Scenes/${sceneId}/${chapter}_scene${scene.scene_number}_${timestamp}`;
+    const squareImagePath = `${imagePath}.4.3.jpg`;
+    // logger.debug("imageName = " + imageName);
+    gcpURL = await downloadImage(app, imageUrl, squareImagePath);
+
+    logger.debug(`Outpainting ${squareImagePath} with Stability.`);
+    outpaintResult = await outpaintWideAndTall(app, {
+      inputPath: squareImagePath,
+      outputPathWithoutExtension: imagePath,
+    });
+
+    // logger.debug("gcpURL = " + gcpURL);
+  } catch (error) {
+    logger.error(`Error generating image: ${scene.scene_number} ${chapter} ${sceneId} ${JSON.stringify(sceneDescription)} ${error.toString()}`);
+    if (retry) {
+      logger.warn(`Going to retry image generation for scene ${scene.scene_number} in chapter ${chapter} for scene ${sceneId}`);
+      request.retry = false;
+      return await singleGeneration(request);
+    } else {
+      logger.warn(`Not retrying image generation for scene ${scene.scene_number} in chapter ${chapter} for scene ${sceneId}, returning default object.`);
+    }
+  }
+  return {
+    type: "image",
+    url: outpaintResult.tall,
+    square: gcpURL,
+    wide: outpaintResult.wide,
+    tall: outpaintResult.tall,
+    description: description,
+    metadata: {
+      scene_number: scene.scene_number,
+      chapterNumber: chapter,
+      sceneId: sceneId},
+  };
+}
+
 async function dalle3(request) {
   const {
-    app, chapter, scenes, theme, sceneId,
+    app, chapter, scenes, theme, sceneId, retry = true,
   } = request;
-  logger.debug(`scenes length = ${scenes.length}`);
   const openai = new OpenAI(OPENAI_API_KEY.value());
-  const promises = scenes.map(async (scene) => {
-    // DALL-E-3 Configs
-    const dallE3Config = {
-      model: "dall-e-3",
-      quality: "hd",
-      size: "1024x1792",
-      style: "vivid",
-      n: 1,
-      response_format: "url",
-    };
-      // dallE3Config.prompt = imageTheme + ' ' + scene.description;
-    const sceneDescription = {
-      "description": scene.description,
-      "characters": scene.characters,
-      "locations": scene.locations,
-      "viewpoint": scene.viewpoint,
-      "aspect_ratio": "Vertical Aspect Ratio",
-    };
-    if (theme !== "") {
-      sceneDescription.theme = `Image theme must be ${theme}`;
-    }
-    dallE3Config.prompt = JSON.stringify(sceneDescription);
-    logger.debug("image description = " + dallE3Config.prompt.substring(0, 250));
-    let gcpURL = "";
-    let imageResponse;
-    let description = "";
-    try {
-      imageResponse = await openai.images.generate(dallE3Config);
-      const imageUrl = imageResponse.data[0].url;
-      logger.debug("imageUrl = " + imageUrl);// .substring(0, 100));
-      // logger.debug(`imageResponse = ${JSON.stringify(imageResponse.data[0], null, 2)}`)
-      description = imageResponse.data[0].revised_prompt;
-      logger.debug(`revised prompt = ${description}`);
-      // const imagePath = `${imageDir}/${i + 1}.jpg`;
-      const timestamp = Date.now();
-      const imageName = `Scenes/${sceneId}/${chapter}_scene${scene.scene_number}_${timestamp}.jpg`;
-      // logger.debug("imageName = " + imageName);
-      gcpURL = await downloadImage(app, imageUrl, imageName);
-      // logger.debug("gcpURL = " + gcpURL);
-    } catch (error) {
-      logger.error("Error generating image: " + error);
-    }
-    return {
-      type: "image",
-      url: gcpURL,
-      description: description,
-      metadata: {
-        scene_number: scene.scene_number,
-        chapterNumber: chapter,
-        sceneId: sceneId},
-    };
-  });
+  logger.debug(`scenes length = ${scenes.length}`);
+  const promises = scenes.map(async (scene) => singleGeneration({
+    app, chapter, scene, theme, sceneId, retry, openai,
+  }));
   return Promise.all(promises);
 }
 

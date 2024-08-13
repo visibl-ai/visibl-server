@@ -5,6 +5,9 @@ import {initializeApp} from "firebase-admin/app";
 import {onTaskDispatched} from "firebase-functions/v2/tasks";
 import {getFunctions} from "firebase-admin/functions";
 
+// Possible way to deconstruct index.js into muliple files while maintaining
+// app context:
+// https://github.com/jspsych/datapipe/blob/6240d63c423850e2c5bd2ae691e3a2f3457b171c/functions/index.js
 const app = initializeApp();
 import {onRequest, onCall} from "firebase-functions/v2/https";
 // import {onObjectFinalized} from "firebase-functions/v2/storage";
@@ -51,7 +54,7 @@ import {
 import {
   generateImages,
   imageGenRecursive,
-} from "./util/ai.js";
+} from "./ai/openai/dallE.js";
 
 import {
   beforeUserCreated,
@@ -83,7 +86,7 @@ import {
 
 import {
   generateTranscriptions,
-} from "./util/transcribe.js";
+} from "./ai/transcribe.js";
 
 import {
   getFunctionUrl,
@@ -101,6 +104,10 @@ import {
   graphSummarizeDescriptions,
   graphScenes,
 } from "./ai/graph.js";
+
+import {
+  outpaintWideAndTall,
+} from "./ai/stability/stability.js";
 
 /**
  * Cloud Function triggered before a new user is created.
@@ -391,6 +398,10 @@ export const v1AdminGraphLocations = onRequest({region: "europe-west1"}, async (
   res.status(200).send(await graphLocations(app, req));
 });
 
+export const v1AdminOutpaintImage = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await outpaintWideAndTall(app, req.body));
+});
 
 // Dispatch Tasks.
 

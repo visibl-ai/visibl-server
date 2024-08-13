@@ -9,11 +9,11 @@ import {
 
 import {
   geminiRequest,
-} from "./gemini.js";
+} from "./gemini/gemini.js";
 
 import logger from "firebase-functions/logger";
-import novel from "./novel.js";
-import nerFunctions from "./ner.js";
+import novel from "./openai/novel.js";
+import nerFunctions from "./openai/ner.js";
 import csv from "./csv.js";
 
 const WAIT_TIME = 20;
