@@ -13,12 +13,7 @@ import {
 } from "./catalogue.js";
 
 import {
-  storeUserScenes,
-  getCatalogueScenes,
-} from "../storage.js";
-
-import {
-  scenesLibraryItemFirestore,
+  scenesCreateLibraryItemFirestore,
 } from "./scenes.js";
 
 import {generateManifest} from "../../util/opds.js";
@@ -56,7 +51,7 @@ async function libraryAddItemFirestore(uid, data, app) {
   if (!data.catalogueId) {
     throw new Error("Catalogue ID is required");
   }
-
+  logger.debug(`Request to add item ${data.catalogueId} to library for user ${uid}`);
   const db = getFirestore();
   const libraryRef = db.collection("Library");
 
@@ -75,7 +70,7 @@ async function libraryAddItemFirestore(uid, data, app) {
   }
 
   // get the catalogue item SKU
-  const catalogueItem = await catalogueGetFirestore(app, data.catalogueId);
+  const catalogueItem = await catalogueGetFirestore(data.catalogueId);
   const sku = catalogueItem.sku;
 
   // Add the new item to the Library
@@ -90,16 +85,11 @@ async function libraryAddItemFirestore(uid, data, app) {
   const addedDoc = await docRef.get();
 
   // Create a new scene for the library item
-  const sceneData = await scenesLibraryItemFirestore(uid, {
+  const sceneData = await scenesCreateLibraryItemFirestore(uid, {
     libraryId: addedDoc.id,
     prompt: "",
     userDefault: true,
   }, app);
-  try {
-    await storeUserScenes(app, uid, addedDoc.id, sceneData.id, await getCatalogueScenes(app, sku));
-  } catch (error) {
-    logger.error(`Error storing user scenes for library item ${sku}. Likely not ready yet.`, error);
-  }
 
   return {
     id: addedDoc.id,

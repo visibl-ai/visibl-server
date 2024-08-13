@@ -19,14 +19,16 @@ if (TEST) {
   APP_URL = `https://v1generatesceneimages-4f33egefga-ew.a.run.app`;
 }
 
+const SCENE_TO_GENERATE = 7;
+
 describe("Image Gen", () => {
   it("should generate images for the chapter", async () => {
     const fullScenes = JSON.parse(fs.readFileSync(`./test/bindings/graph/scenes.json`, "utf8"));
-    const sceneId = "QNJ6gH07N1mFqxrjuo4l";
-    const lastSceneGenerated = 0;
+    const sceneId = "NZjdActtkyARblfDU00l"; // "QNJ6gH07N1mFqxrjuo4l";
+    const lastSceneGenerated = SCENE_TO_GENERATE;
     const chapter = 3;
     const chapterKey = `${chapter}`;
-    const totalScenes = fullScenes[chapterKey].length;
+    const totalScenes = lastSceneGenerated + 1;
     console.log("totalScenes = " + totalScenes);
     chai
         .request(APP_URL)

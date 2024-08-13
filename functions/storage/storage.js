@@ -107,24 +107,6 @@ const uploadStreamAndGetPublicLink = async (app, stream, filename) => {
 };
 
 /**
- * Stores scene data as a JSON file in the storage bucket
- * @param {Object} app - The Firebase app instance
- * @param {string} catalogueId - The catalogue's unique identifier
- * @param {Object} sceneData - The JSON data to be stored
- * @return {Promise<void>} A promise that resolves when the file is stored
- */
-async function storeCatalogueScenes(app, catalogueId, sceneData) {
-  const filename = `Catalogue/${catalogueId}/scenes.json`;
-  return storeJsonFile(app, filename, sceneData);
-}
-
-
-async function storeUserScenes(app, uid, libraryId, sceneId, sceneData) {
-  const filename = `UserData/${uid}/Library/${libraryId}/Scenes/${sceneId}.json`;
-  return storeJsonFile(app, filename, sceneData);
-}
-
-/**
  * Stores JSON data as a file in the storage bucket
  * @param {Object} app - The Firebase app instance
  * @param {string} filename - The name of the file to be stored
@@ -157,15 +139,39 @@ async function storeJsonFile(app, filename, data) {
  * @param {string} sku - The catalogue's unique identifier
  * @return {Promise<Object>} A promise that resolves to the parsed JSON data
  */
-async function getCatalogueScenes(app, sku) {
-  const filename = `Catalogue/Processed/${sku}/${sku}-scenes.json`;
+async function getCatalogueDefaultScene(app, sku) {
+  const filename = getDefaultSceneFilename(sku);
   return getJsonFile(app, filename);
 }
 
-async function getUserScenes(app, uid, libraryId, sceneId) {
-  const filename = `UserData/${uid}/Library/${libraryId}/Scenes/${sceneId}.json`;
+function getDefaultSceneFilename(sku) {
+  return `Catalogue/Processed/${sku}/${sku}-scenes.json`;
+}
+
+function getSceneFilename(sceneId) {
+  return `Scenes/${sceneId}/scenes.json`;
+}
+
+async function getScene(app, sceneId) {
+  const filename = getSceneFilename(sceneId);
   return getJsonFile(app, filename);
 }
+
+/**
+ * Stores scene data as a JSON file in the storage bucket
+ * @param {Object} app - The Firebase app instance
+ * @param {string} sceneId - The scene's unique identifier
+ * @param {Object} sceneData - The JSON data to be stored
+ * @return {Promise<void>} A promise that resolves when the file is stored
+ */
+async function storeScenes(app, sceneId, sceneData) {
+  if (sceneId === undefined) {
+    throw new Error("storeScenes: sceneId is required");
+  }
+  const filename = `Scenes/${sceneId}/scenes.json`;
+  return storeJsonFile(app, filename, sceneData);
+}
+
 
 /**
  * Retrieves a JSON file from the storage bucket and parses its contents
@@ -260,6 +266,35 @@ async function getPublicUrl(app, path) {
   return downloadUrl;
 }
 
+async function getTranscriptions(app, uid, sku, visiblity) {
+  let filename;
+  if (uid === "admin") {
+    filename = `Catalogue/Processed/${sku}/${sku}-transcriptions.json`;
+  } else {
+    filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-transcriptions.json`;
+  }
+  return await getJsonFile(app, filename);
+}
+
+async function storeGraph(app, uid, sku, visiblity, characterList, type) {
+  let filename;
+  if (uid === "admin") {
+    filename = `Catalogue/Processed/${sku}/${sku}-${type}-graph.json`;
+  } else {
+    filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-${type}-graph.json`;
+  }
+  return await storeJsonFile(app, filename, characterList);
+}
+
+async function getGraph(app, uid, sku, visiblity, type) {
+  let filename;
+  if (uid === "admin") {
+    filename = `Catalogue/Processed/${sku}/${sku}-${type}-graph.json`;
+  } else {
+    filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-${type}-graph.json`;
+  }
+  return await getJsonFile(app, filename);
+}
 
 export {
   createUserFolder,
@@ -267,14 +302,18 @@ export {
   fileExists,
   deleteFile,
   uploadStreamAndGetPublicLink,
-  storeCatalogueScenes,
-  getCatalogueScenes,
-  storeUserScenes,
-  getUserScenes,
+  storeScenes,
+  getCatalogueDefaultScene,
+  getScene,
   downloadFileFromBucket,
   uploadFileToBucket,
   getJsonFile,
   uploadJsonToBucket,
   copyFile,
   getPublicUrl,
+  getDefaultSceneFilename,
+  getSceneFilename,
+  getTranscriptions,
+  storeGraph,
+  getGraph,
 };

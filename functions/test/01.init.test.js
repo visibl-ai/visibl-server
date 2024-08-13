@@ -46,7 +46,7 @@ import {
   v1getItemManifest,
   v1catalogueGet,
   v1getAi,
-  v1getLibraryItemScenes,
+  v1getLibraryScenes,
   v1addLibraryItemScenes,
   v1updateLibraryItemScenes,
   v1aaxConnect,
@@ -81,7 +81,7 @@ const auth = getAuth();
 const TEST_USER_EMAIL = `john.${Date.now()}@example.com`;
 
 // eslint-disable-next-line no-undef
-describe("Customer creation via Firebase Auth", () => {
+describe("Full functional tests of visibl api", () => {
   let userData;
   // eslint-disable-next-line no-undef
   it("creates a new user and checks Firestore for the user data", async () => {
@@ -885,12 +885,13 @@ describe("Customer creation via Firebase Auth", () => {
 
     // console.log(result);
     expect(result).to.exist;
-    expect(result).to.be.an("array");
-    expect(result[0]).to.have.property("scene_number");
-    expect(result[0]).to.have.property("description");
-    expect(result[0]).to.have.property("characters");
-    expect(result[0]).to.have.property("locations");
-    expect(result[0]).to.have.property("viewpoint");
+    expect(result).to.be.an("object");
+    expect(result["3"]).to.be.an("array");
+    expect(result["3"][0]).to.have.property("scene_number");
+    expect(result["3"][0]).to.have.property("description");
+    expect(result["3"][0]).to.have.property("characters");
+    expect(result["3"][0]).to.have.property("locations");
+    expect(result["3"][0]).to.have.property("viewpoint");
 
     // Try to get AI content for a non-existent item, it should throw an error
     try {
@@ -929,8 +930,8 @@ describe("Customer creation via Firebase Auth", () => {
   });
   let originalScene;
   // eslint-disable-next-line no-undef
-  it(`test v1getLibraryItemScenes`, async () => {
-    const wrapped = firebaseTest.wrap(v1getLibraryItemScenes);
+  it(`test v1getLibraryScenes`, async () => {
+    const wrapped = firebaseTest.wrap(v1getLibraryScenes);
 
     const result = await wrapped({
       auth: {
@@ -959,15 +960,18 @@ describe("Customer creation via Firebase Auth", () => {
     expect(defaultScene).to.exist;
     originalScene = defaultScene;
     // Test with a non-existent library item
-    const nonExistentResult = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data: {
-        libraryId: "non-existent-id",
-      },
-    });
-    expect(nonExistentResult).to.be.an("array").that.is.empty;
+    try {
+      const nonExistentResult = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data: {
+          libraryId: "non-existent-id",
+        },
+      });
+    } catch (error) {
+      expect(error.message).to.include("Item not found in the user's library");
+    }
   });
 
   let addedScene;
@@ -982,6 +986,7 @@ describe("Customer creation via Firebase Auth", () => {
         libraryId: libraryItem.id,
         prompt: "Miyazaki",
         userDefault: true,
+        chapter: 3,
       },
     });
     console.log(result);
@@ -991,9 +996,50 @@ describe("Customer creation via Firebase Auth", () => {
     addedScene = result;
   });
 
+
+  // Manually call the dispatched function.
   // eslint-disable-next-line no-undef
-  it(`test v1getLibraryItemScenes after adding a new scene`, async () => {
-    const wrapped = firebaseTest.wrap(v1getLibraryItemScenes);
+  it(`test generateSceneImages taskQueue`, async () => {
+    const sceneId = addedScene.id;
+    const lastSceneGenerated = 0;
+    const totalScenes = 6;
+    const chapter = 3;
+    const response = await chai
+        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+        .post("/generateSceneImages")
+        .set("Content-Type", "application/json")
+        .send({
+          data:
+          {sceneId, lastSceneGenerated, totalScenes, chapter},
+        });
+    expect(response).to.have.status(204);
+  });
+  // eslint-disable-next-line no-undef
+  it(`test v1getLibraryScenes with a single scene`, async () => {
+    const wrapped = firebaseTest.wrap(v1getLibraryScenes);
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id,
+        sceneId: addedScene.id,
+      },
+    });
+    console.log(result);
+    expect(result).to.be.an("object");
+    expect(result).to.have.property("id");
+    expect(result).to.have.property("uid").that.equals(userData.uid);
+    expect(result).to.have.property("libraryId").that.equals(libraryItem.id);
+    expect(result).to.have.property("prompt");
+    expect(result).to.have.property("userDefault").that.is.a("boolean");
+    expect(result).to.have.property("createdAt");
+  });
+
+  // eslint-disable-next-line no-undef
+  it(`test v1getLibraryScenes after adding a new scene`, async () => {
+    const wrapped = firebaseTest.wrap(v1getLibraryScenes);
     const result = await wrapped({
       auth: {
         uid: userData.uid,
@@ -1043,7 +1089,7 @@ describe("Customer creation via Firebase Auth", () => {
     expect(result).to.have.property("userDefault", true);
 
     // Now get the scenes again to verify the changes
-    const getScenes = firebaseTest.wrap(v1getLibraryItemScenes);
+    const getScenes = firebaseTest.wrap(v1getLibraryScenes);
     const scenesResult = await getScenes({
       auth: {
         uid: userData.uid,
@@ -1072,6 +1118,94 @@ describe("Customer creation via Firebase Auth", () => {
     expect(defaultScenes.length).to.equal(1);
     expect(defaultScenes[0].id).to.equal(originalScene.id);
   });
+
+  // eslint-disable-next-line no-undef
+  it(`test getAi without a sceneId`, async () => {
+    const wrapped = firebaseTest.wrap(v1getAi);
+
+    // Prepare the data for getting AI content
+    const getAiData = {
+      libraryId: libraryItem.id,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getAiData,
+    });
+
+    // console.log(result);
+    expect(result).to.exist;
+    expect(result).to.be.an("object");
+    expect(result["3"]).to.be.an("array");
+    expect(result["3"][0]).to.have.property("scene_number");
+    expect(result["3"][0]).to.have.property("description");
+    expect(result["3"][0]).to.have.property("characters");
+    expect(result["3"][0]).to.have.property("locations");
+    expect(result["3"][0]).to.have.property("viewpoint");
+  });
+
+
+  let defaultChapterScene;
+  // eslint-disable-next-line no-undef
+  it(`test getAi without a sceneId and a chapter`, async () => {
+    const wrapped = firebaseTest.wrap(v1getAi);
+
+    // Prepare the data for getting AI content
+    const getAiData = {
+      libraryId: libraryItem.id,
+      chapter: 3,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getAiData,
+    });
+
+    // console.log(result);
+    expect(result).to.exist;
+    expect(result).to.be.an("array");
+    expect(result[0]).to.have.property("scene_number");
+    expect(result[0]).to.have.property("description");
+    expect(result[0]).to.have.property("characters");
+    expect(result[0]).to.have.property("locations");
+    expect(result[0]).to.have.property("viewpoint");
+    defaultChapterScene = result[0];
+  });
+
+  // eslint-disable-next-line no-undef
+  it(`test getAi with a sceneId and a chapter`, async () => {
+    const wrapped = firebaseTest.wrap(v1getAi);
+
+    // Prepare the data for getting AI content
+    const getAiData = {
+      libraryId: libraryItem.id,
+      chapter: 3,
+      sceneId: addedScene.id,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getAiData,
+    });
+
+    // console.log(result);
+    expect(result).to.exist;
+    expect(result).to.be.an("array");
+    console.log(result[0]);
+    expect(result[0]).to.have.property("scene_number");
+    expect(result[0]).to.have.property("description");
+    expect(result[0]).to.have.property("characters");
+    expect(result[0]).to.have.property("locations");
+    expect(result[0]).to.have.property("viewpoint");
+    expect(result[0].image).to.not.equal(defaultChapterScene.image);
+  });
+
 
   // eslint-disable-next-line no-undef
   it(`test v1getLibrary with includeManifest=true`, async () => {
@@ -1147,20 +1281,21 @@ describe("Customer creation via Firebase Auth", () => {
 
   // eslint-disable-next-line no-undef
   it(`test no scenes for deleted book`, async () => {
-    const wrapped = firebaseTest.wrap(v1getLibraryItemScenes);
+    const wrapped = firebaseTest.wrap(v1getLibraryScenes);
 
     // Try to get scenes for the deleted book
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data: {
-        libraryId: libraryItem.id, // Using the itemId from the previous test
-      },
-    });
-
-    // Check that the result is an empty array
-    expect(result).to.be.an("array").that.is.empty;
+    try {
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data: {
+          libraryId: libraryItem.id, // Using the itemId from the previous test
+        },
+      });
+    } catch (error) {
+      expect(error.message).to.include("Item not found in the user's library");
+    }
 
     // Verify that the scenes collection is empty for this book
     const db = getFirestore();

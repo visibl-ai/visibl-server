@@ -159,7 +159,7 @@ async function catalogueGetAllFirestore(app, visibility = "public") {
   return catalogueItems;
 }
 
-async function catalogueGetFirestore(app, id) {
+async function catalogueGetFirestore(id) {
   const catalogueRef = getFirestore().collection("Catalogue").doc(id);
   const snapshot = await catalogueRef.get();
   const data = snapshot.data();

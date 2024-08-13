@@ -4,7 +4,7 @@
 import {initializeApp} from "firebase-admin/app";
 import {onTaskDispatched} from "firebase-functions/v2/tasks";
 import {getFunctions} from "firebase-admin/functions";
-import {GoogleAuth} from "google-auth-library";
+
 const app = initializeApp();
 import {onRequest, onCall} from "firebase-functions/v2/https";
 // import {onObjectFinalized} from "firebase-functions/v2/storage";
@@ -29,8 +29,9 @@ import {
 } from "./storage/firestore/library.js";
 
 import {
-  getLibraryScenesFirestore,
-  scenesLibraryItemFirestore,
+  getGlobalScenesFirestore,
+  getCatalogueScenesFirestore,
+  scenesCreateLibraryItemFirestore,
   scenesUpdateLibraryItemFirestore,
 } from "./storage/firestore/scenes.js";
 
@@ -47,7 +48,10 @@ import {
   getAAXConnectStatusFirestore,
 } from "./storage/firestore/users.js";
 
-import {generateImages} from "./util/ai.js";
+import {
+  generateImages,
+  imageGenRecursive,
+} from "./util/ai.js";
 
 import {
   beforeUserCreated,
@@ -81,12 +85,22 @@ import {
   generateTranscriptions,
 } from "./util/transcribe.js";
 
-// import {onInit} from "firebase-functions/v2/core";
-// let openaiKey;
-// onInit(() => {
-//   openaiKey = OPENAI_API_KEY.value();
-//   console.log(openaiKey);
-// });
+import {
+  getFunctionUrl,
+  dataToBody,
+  largeDispatchInstance,
+  microDispatchInstance,
+  dispatchTask,
+} from "./util/dispatch.js";
+
+import {
+  graphCharacters,
+  graphLocations,
+  graphCharacterDescriptions,
+  graphLocationDescriptions,
+  graphSummarizeDescriptions,
+  graphScenes,
+} from "./ai/graph.js";
 
 /**
  * Cloud Function triggered before a new user is created.
@@ -245,7 +259,8 @@ export const v1catalogueUpdate = onRequest({region: "europe-west1"}, async (req,
 // /v1/ai/generateImages
 export const v1generateSceneImages = onRequest({region: "europe-west1", cors: true}, async (req, res) => {
   await validateOnRequestAdmin(req);
-  res.status(200).send(await generateImages(req, app));
+  await dispatchTask("generateSceneImages", req.body, 60 * 5, 1);
+  res.status(200).send({dispatched: true});
 });
 
 export const v1getAi = onCall({region: "europe-west1"}, async (context) => {
@@ -253,14 +268,20 @@ export const v1getAi = onCall({region: "europe-west1"}, async (context) => {
   return await getAiFirestore(uid, data, app);
 });
 
-export const v1getLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
+export const v1getLibraryScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await getLibraryScenesFirestore(uid, data, app);
+  return await getGlobalScenesFirestore(uid, data, app);
 });
+
+export const v1getCatalogueItemScenes = onCall({region: "europe-west1"}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await getCatalogueScenesFirestore(uid, data, app);
+});
+
 
 export const v1addLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await scenesLibraryItemFirestore(uid, data, app);
+  return await scenesCreateLibraryItemFirestore(uid, data, app);
 });
 
 export const v1updateLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
@@ -277,14 +298,7 @@ export const v1getAAXLoginURL = onCall({region: "europe-west1"}, async (context)
 export const v1aaxConnect = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   const auth = await getAAXAuth(uid, data, app);
-  const queue = getFunctions().taskQueue("aaxPostAuthHook");
-  const targetUri = await getFunctionUrl("aaxPostAuthHook");
-  logger.debug(`v1aaxGetAuth targetUri: ${targetUri} for ${uid}`);
-  const task = queue.enqueue({uid: uid, auth: auth}, {
-    scheduleDelaySeconds: 1,
-    dispatchDeadlineSeconds: 60 * 5, // 5 minutes
-    uri: targetUri,
-  });
+  await dispatchTask("aaxPostAuthHook", {uid: uid, auth: auth});
   return auth;
 });
 
@@ -332,15 +346,7 @@ export const v1catalogueProcessRaw = onRequest({
   region: "europe-west1",
 }, async (req, res) => {
   await validateOnRequestAdmin(req);
-  const queue = getFunctions().taskQueue("processM4B");
-  const targetUri = await getFunctionUrl("processM4B");
-  logger.debug(`v1catalogueProcessRaw targetUri: ${targetUri} for ${req.body}`);
-  const task = queue.enqueue({sku: req.body.sku}, {
-    scheduleDelaySeconds: 1,
-    dispatchDeadlineSeconds: 60 * 5, // 5 minutes
-    uri: targetUri,
-  });
-  res.status(200).send(task);
+  res.status(200).send(await dispatchTask("processM4B", {sku: req.body.sku}));
 });
 
 export const v1getAAXAvailable = onCall({region: "europe-west1"}, async (context) => {
@@ -375,69 +381,69 @@ export const v1TMPgetPrivateManifest = onRequest({region: "europe-west1"}, async
   res.status(200).send(await generateManifest(app, uid, catalogueId));
 });
 
+export const v1AdminGraphCharacters = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await graphCharacters(app, req));
+});
+
+export const v1AdminGraphLocations = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await graphLocations(app, req));
+});
+
+
+// Dispatch Tasks.
+
+export const generateGraphCharacterDescriptions = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphCharacterDescriptions: ${JSON.stringify(req.data)}`);
+      return await graphCharacterDescriptions(app, dataToBody(req));
+    });
+
+export const generateGraphLocationDescriptions = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphLocationDescriptions: ${JSON.stringify(req.data)}`);
+      return await graphLocationDescriptions(app, dataToBody(req));
+    });
+
+export const generateGraphSummarizeDescriptions = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphSummarizeDescriptions: ${JSON.stringify(req.data)}`);
+      return await graphSummarizeDescriptions(app, dataToBody(req));
+    });
+
+export const generateGraphScenes = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphScenes: ${JSON.stringify(req.data)}`);
+      return await graphScenes(app, dataToBody(req));
+    });
+
 export const aaxPostAuthHook = onTaskDispatched(
-    {
-      retryConfig: {
-        maxAttempts: 1,
-        minBackoffSeconds: 1,
-      },
-      rateLimits: {
-        maxConcurrentDispatches: 1,
-      },
-      region: "us-central1",
-      memory: "32GiB",
-      timeoutSeconds: 540,
-    },
+    largeDispatchInstance(),
     async (req) => {
       // logger.debug(`aaxPostAuthHook: ${JSON.stringify(req.data)}`);
-      const body = req.data;
+      // const body = req.data;
+      const {body: body} = dataToBody(req);
       return await audiblePostAuthHook(body.uid, {auth: body.auth}, app);
     },
 );
 
 export const processM4B = onTaskDispatched(
-    {
-      retryConfig: {
-        maxAttempts: 1,
-        minBackoffSeconds: 1,
-      },
-      rateLimits: {
-        maxConcurrentDispatches: 1,
-      },
-      region: "us-central1", // Tasks only work here for some reason!
-      memory: "32GiB",
-      timeoutSeconds: 540,
-    },
+    largeDispatchInstance(),
     async (req) => {
       logger.debug(`processM4B: ${JSON.stringify(req.data)}`);
-      return await processRawPublicItem({body: req.data}, app);
+      return await processRawPublicItem(dataToBody(req), app);
     },
 );
 
-
-let auth;
-/**
- * Get the URL of a given v2 cloud function.
- *
- * @param {string} name the function's name
- * @param {string} location the function's location
- * @return {Promise<string>} The URL of the function
- */
-async function getFunctionUrl(name, location="us-central1") {
-  if (!auth) {
-    auth = new GoogleAuth({
-      scopes: "https://www.googleapis.com/auth/cloud-platform",
-    });
-  }
-  const projectId = await auth.getProjectId();
-  const url = "https://cloudfunctions.googleapis.com/v2/" +
-    `projects/${projectId}/locations/${location}/functions/${name}`;
-
-  const client = await auth.getClient();
-  const res = await client.request({url});
-  const uri = res.data?.serviceConfig?.uri;
-  if (!uri) {
-    throw new Error(`Unable to retreive uri for function at ${url}`);
-  }
-  return uri;
-}
+export const generateSceneImages = onTaskDispatched(
+    largeDispatchInstance(),
+    async (req) => {
+      logger.debug(`generateSceneImages: ${JSON.stringify(req.data)}`);
+      return await imageGenRecursive(dataToBody(req), app);
+    },
+);
