@@ -10,6 +10,7 @@ const AUDIBLE_OPDS_FIREBASE_URL = defineString("AUDIBLE_OPDS_FIREBASE_URL");
 const HOSTING_DOMAIN = defineString("HOSTING_DOMAIN");
 const AAX_CONNECT_SOURCE = defineString("AAX_CONNECT_SOURCE");
 const GEMINI_API_KEY = defineString("GEMINI_API_KEY");
+const STABILITY_API_KEY = defineString("STABILITY_API_KEY");
 
 
 // SECRETS - warning: https://firebase.google.com/docs/functions/config-env?gen=2nd#node.js_6
@@ -27,5 +28,6 @@ export {
   HOSTING_DOMAIN,
   AAX_CONNECT_SOURCE,
   GEMINI_API_KEY,
+  STABILITY_API_KEY,
 };
 

@@ -1,16 +1,9 @@
 
 /* eslint-disable no-unused-vars */
-
 /* eslint-disable max-len */
 import admin from "firebase-admin";
 import logger from "firebase-functions/logger";
 import dotenv from "dotenv";
-// import * as chai from "chai";
-// // import {expect} from "chai";
-// import chaiHttp from "chai-http";
-// import {request} from "chai-http";
-// chai.use(chaiHttp);
-// const expect = chai.expect;
 
 import chai from "chai";
 import chaiHttp from "chai-http";
@@ -50,7 +43,6 @@ import {
   v1addLibraryItemScenes,
   v1updateLibraryItemScenes,
   v1aaxConnect,
-  // v1TMPaudiblePostAuthHook,
   v1refreshAAXTokens,
   v1generateTranscriptions,
   v1getPrivateOPDSFeed,
