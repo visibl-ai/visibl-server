@@ -86,7 +86,9 @@ const getFileStream = async (app, path) => {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(path);
   const [exists] = await file.exists();
-  logger.debug(`getFileStream: File ${path} exists: ${exists}`);
+  if (!exists) {
+    throw new Error(`File ${path} does not exist`);
+  }
   return file.createReadStream();
 };
 

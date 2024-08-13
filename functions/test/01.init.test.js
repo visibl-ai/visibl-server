@@ -991,6 +991,22 @@ describe("Full functional tests of visibl api", () => {
 
   // Manually call the dispatched function.
   // eslint-disable-next-line no-undef
+  it(`test generateSceneImages with a rejected image taskQueue`, async () => {
+    const sceneId = addedScene.id;
+    const lastSceneGenerated = 0;
+    const totalScenes = 1;
+    const chapter = 0;
+    const response = await chai
+        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+        .post("/generateSceneImages")
+        .set("Content-Type", "application/json")
+        .send({
+          data:
+            {sceneId, lastSceneGenerated, totalScenes, chapter},
+        });
+    expect(response).to.have.status(204);
+  });
+  // eslint-disable-next-line no-undef
   it(`test generateSceneImages taskQueue`, async () => {
     const sceneId = addedScene.id;
     const lastSceneGenerated = 0;
@@ -1006,7 +1022,6 @@ describe("Full functional tests of visibl api", () => {
         });
     expect(response).to.have.status(204);
   });
-
   // eslint-disable-next-line no-undef
   it(`test v1getLibraryScenes with a single scene`, async () => {
     const wrapped = firebaseTest.wrap(v1getLibraryScenes);
