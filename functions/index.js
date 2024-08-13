@@ -51,7 +51,7 @@ import {
 import {
   generateImages,
   imageGenRecursive,
-} from "./util/ai.js";
+} from "./ai/openai/dallE.js";
 
 import {
   beforeUserCreated,
@@ -83,7 +83,7 @@ import {
 
 import {
   generateTranscriptions,
-} from "./util/transcribe.js";
+} from "./ai/transcribe.js";
 
 import {
   getFunctionUrl,

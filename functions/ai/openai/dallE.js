@@ -1,22 +1,22 @@
 /* eslint-disable require-jsdoc */
 import {logger} from "firebase-functions/v2";
 import OpenAI from "openai";
-import {OPENAI_API_KEY} from "../config/config.js";
+import {OPENAI_API_KEY} from "../../config/config.js";
 import axios from "axios";
 import {
   uploadStreamAndGetPublicLink,
   getScene,
   storeScenes,
-} from "../storage/storage.js";
+} from "../../storage/storage.js";
 
 import {
   getSceneFirestore,
   sceneUpdateChapterGeneratedFirestore,
-} from "../storage/firestore/scenes.js";
+} from "../../storage/firestore/scenes.js";
 
 import {
   dispatchTask,
-} from "./dispatch.js";
+} from "../../util/dispatch.js";
 
 
 const SCENES_PER_REQUEST = 15;

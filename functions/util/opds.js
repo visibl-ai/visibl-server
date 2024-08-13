@@ -1,7 +1,7 @@
 /* eslint-disable require-jsdoc */
 import ISO6391 from "iso-639-1";
 import {getJsonFile} from "../storage/storage.js";
-import {generateTranscriptions} from "./transcribe.js";
+import {generateTranscriptions} from "../ai/transcribe.js";
 import logger from "firebase-functions/logger";
 import {
   copyFile,

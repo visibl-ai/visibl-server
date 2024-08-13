@@ -25,7 +25,7 @@ import {
 } from "../storage/firestore/aax.js";
 
 
-import {generateTranscriptions} from "./transcribe.js";
+import {generateTranscriptions} from "../ai/transcribe.js";
 
 import {addSkuToCatalogue} from "./opds.js";
 

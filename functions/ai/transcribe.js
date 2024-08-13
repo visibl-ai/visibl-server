@@ -2,8 +2,8 @@
 // import {promisify} from "util";
 // import {exec as execCb} from "child_process";
 // const exec = promisify(execCb);
-import ffmpegTools from "./ffmpeg.js";
-import whisper from "./whisper.js";
+import ffmpegTools from "../util/ffmpeg.js";
+import whisper from "./openai/whisper.js";
 import {logger} from "firebase-functions/v2";
 import {ENVIRONMENT} from "../config/config.js";
 import {uploadFileToBucket,
