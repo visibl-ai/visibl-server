@@ -307,6 +307,24 @@ describe("Full functional tests of visibl api", () => {
     expect(foundBook.metadata.visiblId).to.equal(catalogueBook.id);
     console.log(foundBook);
   });
+
+  const GENERATE_TRANSCRIPTIONS = true;
+  if (GENERATE_TRANSCRIPTIONS) {
+    // eslint-disable-next-line no-undef
+    it(`generates transcriptions for the book`, async () => {
+      const wrapped = firebaseTest.wrap(v1generateTranscriptions);
+      const result = await wrapped({
+        auth: {
+          uid: "admin",
+        },
+        data: {
+          sku: process.env.PUBLIC_SKU1,
+        },
+      });
+      console.log(result);
+    });
+  }
+
   // eslint-disable-next-line no-undef
   it("AAX - checks if audible connect is available for user (default true)", async () => {
     const wrapped = firebaseTest.wrap(v1getAAXAvailable);
@@ -574,24 +592,6 @@ describe("Full functional tests of visibl api", () => {
       expect(detail).to.have.property("message").that.is.a("string");
     });
   });
-
-
-  const GENERATE_TRANSCRIPTIONS = false;
-  if (GENERATE_TRANSCRIPTIONS) {
-    // eslint-disable-next-line no-undef
-    it(`generates transcriptions for the two books`, async () => {
-      const wrapped = firebaseTest.wrap(v1generateTranscriptions);
-      const result = await wrapped({
-        auth: {
-          uid: userData.uid,
-        },
-        data: {
-          sku: process.env.SKU1,
-        },
-      });
-      console.log(result);
-    });
-  }
 
   // Get an OPDS feed for the users private items
   // eslint-disable-next-line no-undef

@@ -537,16 +537,16 @@ Respond only with JSON.
 
   character_image_summarize_prompt: `
   You are CharacterInterpreterGPT.
-  You are being given text with the description of a character. Your goal is to summarize this description by removing any non-physical traits. Remove descriptions of items the character might be holding, focus on what they look like and are wearing. Be sure to include age, gender and race if it is provided or can be inferred.
+  You are being given text with the description of a character. Your goal is to summarize this description by removing any non-physical traits. Remove descriptions of items the character might be holding, focus on what they look like and are wearing. Be sure to include age, gender, clothing and race if it is provided or can be inferred.
   The description will be used to generate a visual image using Dall-E 3, so it's crucial to include only the physical characteristics. 
-  Respond in point form, do not include any gap words or explanations of your reasoning.
+  Respond in point form, do not include any gap words or explanations of your reasoning. Do not leave out any detail.
   `,
 
   location_image_summarize_prompt: `
   You are LocationInterpreterGPT.
   You are being given text with the description of a location. Your goal is to summarize this description by removing any non-physical traits. Remove descriptions any characters might inside the location.
   The description will be used to generate a visual image using Dall-E 3, so it's crucial to include only the physical characteristics. 
-  Respond in point form, do not include any gap words or explanations of your reasoning.
+  Respond in point form, do not include any gap words or explanations of your reasoning. Do not leave out any detail.
   `,
 
   location_image_prompt: `

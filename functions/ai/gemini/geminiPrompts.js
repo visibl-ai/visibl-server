@@ -1,7 +1,16 @@
 const prompts = {
   getCharacters: {
     model: "gemini-1.5-pro-exp-0801",
-    systemInstruction: "You are being provided the text of a novel. Respond with a list of all unique characters in the text. Only include characters, do not include locations, or objects. Refer to the character by their most relevant name. Include all characters who speak or are meaningful to the story.",
+    systemInstruction: `
+You will be provided with the text of a novel. Your task is to create a list of all unique characters that appear in the story. 
+Carefully read through the text and identify all characters based on these criteria:
+1. Only include characters, not locations or objects.
+2. Include all characters who speak or are meaningful to the story.
+3. Refer to each character by their most relevant name (usually their given name or the name they're most commonly called in the story).
+4. If a character has multiple names or aliases, choose the most prominent one
+5. Include both major and minor characters, as long as they have some role in the story.
+If you're unsure whether to include a particular character, err on the side of inclusion. It's better to include a minor character than to miss an important one.
+    `,
     generationConfig: {
       temperature: 0.1,
       topP: 0.95,
@@ -49,19 +58,6 @@ Ignore any inappropriate locations which may cause content filtering issues.`,
   getCharacterDescription: {
     model: "gemini-1.5-pro-exp-0801",
     systemInstruction:
-`You are being provided the full text of a novel. Respond an accurate description of the character "%CHARACTER%".
-Be descriptive so diffusion model can accurately depict the %CHARACTER%.`,
-    generationConfig: {
-      temperature: 0.5,
-      topP: 0.95,
-      topK: 64,
-      maxOutputTokens: 8192,
-      responseMimeType: "text/plain",
-    },
-  },
-  getCharacterDescription2: {
-    model: "gemini-1.5-pro-exp-0801",
-    systemInstruction:
 `You will be provided with the full text of a novel and asked to describe a %CHARACTER%'s physical characteristics. Your task is to provide an accurate and detailed description that can be used by a diffusion model to depict %CHARACTER% visually.
 Please follow these instructions carefully:
 1. Read through the novel text and identify all mentions and descriptions of %CHARACTER%.
@@ -101,6 +97,43 @@ Ignore any inappropriate details which may cause content filtering issues.`,
       topK: 64,
       maxOutputTokens: 8192,
       responseMimeType: "text/plain",
+    },
+  },
+  getDuplicateCharacters: {
+    model: "gemini-1.5-pro-exp-0801",
+    systemInstruction: `
+You are being provided the full text of a novel as well as a list of characters. Are any of these characters duplicates of eachother?
+
+%CHARACTER_LIST%
+    `,
+    generationConfig: {
+      temperature: 0.1,
+      topP: 0.95,
+      topK: 64,
+      maxOutputTokens: 8192,
+      responseMimeType: "application/json",
+      responseSchema: {
+        "type": "object",
+        "properties": {
+          "duplicate_characters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                },
+                "duplicate_names": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 };

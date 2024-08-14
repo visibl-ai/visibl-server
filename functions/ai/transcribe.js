@@ -13,8 +13,6 @@ import {uploadFileToBucket,
 } from "../storage/storage.js";
 import fs from "fs/promises";
 
-import {aaxAsinFromSkuFirestore} from "../storage/firestore/aax.js";
-
 const MAX_SIZE = process.env.MAX_SIZE || 24;
 const NUM_THREADS = process.env.NUM_THREADS || 32;
 
@@ -46,7 +44,7 @@ async function transcribeFilesInParallel(bookData, outputFiles) {
       async ([chapterIndex, chapter]) => {
         const {startTime, endTime} = chapter;
         logger.debug(
-            `Transcribing chapter ${chapterIndex} from ${startTime} to ${endTime}`,
+            `Transcribing chapter ${chapterIndex} from ${startTime} to ${endTime} with prompt ${prompt}`,
         );
         const transcription = await whisper.whisper(
             chapter.outputFile,
@@ -60,6 +58,7 @@ async function transcribeFilesInParallel(bookData, outputFiles) {
   );
   if (ENVIRONMENT.value() === "development") {
     logger.debug("***Skipping transcription in development mode***");
+    await Promise.all(promises);
     return transcriptions;
   } else {
     await Promise.all(promises);
@@ -180,8 +179,6 @@ async function generateTranscriptions(uid, data, app) {
   //   }
   const sku = data.sku;
   logger.debug(`Processing FileName: ${sku} for ${uid}`);
-  const asin = await aaxAsinFromSkuFirestore(uid, sku);
-  logger.debug(`Asin for SKU: ${sku} is ${asin}`);
   let ffmpegPath;
   logger.debug(`Downloading ffmpeg binary`);
   ffmpegPath = await downloadFffmpegBinary(app);
