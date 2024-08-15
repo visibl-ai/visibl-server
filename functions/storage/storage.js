@@ -4,14 +4,15 @@ import {logger} from "firebase-functions/v2";
 import {STORAGE_BUCKET_ID} from "../config/config.js";
 import fs from "fs/promises";
 import path from "path";
+import app from "../firebase.js";
 // Get a reference to the default storage bucket
 
 /**
  * Creates a folder in the default Firestore bucket with the name based on the UID
- * @param {Object} app - The Firebase app instance
+ * @param {Object} app2 - The Firebase app instance
  * @param {string} uid - The user's unique identifier
  */
-async function createUserFolder(app, uid) {
+async function createUserFolder(app2, uid) {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const folderPath = `UserData/${uid}/`; // Folder path in the bucket
   const file = bucket.file(folderPath + ".placeholder"); // Create a placeholder file to establish the folder
@@ -32,10 +33,10 @@ async function createUserFolder(app, uid) {
 
 /**
  * Creates a folder in the default Firestore bucket with the name based on the catalogueId
- * @param {Object} app - The Firebase app instance
+ * @param {Object} app2 - The Firebase app instance
  * @param {string} catalogueId - The unique identifier for the catalogue
  */
-async function createCatalogueFolder(app, catalogueId) {
+async function createCatalogueFolder(app2, catalogueId) {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const folderPath = `Catalogue/${catalogueId}/`;
   const file = bucket.file(folderPath + ".placeholder");
@@ -57,11 +58,11 @@ async function createCatalogueFolder(app, catalogueId) {
 
 /**
  * Checks if a file exists in storage given the UID, path an filename
- * @param {Object} app - The Firebase app instance
+ * @param {Object} app2 - The Firebase app instance
  * @param {string} path - The path to the file in the bucket
  * @param {string} filename - The name of the file
  */
-async function fileExists(app, path) {
+async function fileExists(app2, path) {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(path);
   const [exists] = await file.exists();
@@ -70,19 +71,19 @@ async function fileExists(app, path) {
 
 /**
  * Deletes a file from the storage bucket
- * @param {Object} app - The Firebase app instance
+ * @param {Object} app2 - The Firebase app instance
  * @param {string} uid - The user's unique identifier
  * @param {string} path - The path to the file in the bucket
  * @param {string} filename - The name of the file
  */
-async function deleteFile(app, uid, path, filename) {
+async function deleteFile(app2, uid, path, filename) {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const filePath = `UserData/${uid}/${path}${filename}`;
   const file = bucket.file(filePath);
   return file.delete();
 }
 
-const getFileStream = async (app, path) => {
+const getFileStream = async (app2, path) => {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(path);
   const [exists] = await file.exists();
@@ -92,7 +93,7 @@ const getFileStream = async (app, path) => {
   return file.createReadStream();
 };
 
-const uploadStreamAndGetPublicLink = async (app, stream, filename) => {
+const uploadStreamAndGetPublicLink = async (app2, stream, filename) => {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(filename);
   const blobStream = file.createWriteStream();
@@ -118,12 +119,12 @@ const uploadStreamAndGetPublicLink = async (app, stream, filename) => {
 
 /**
  * Stores JSON data as a file in the storage bucket
- * @param {Object} app - The Firebase app instance
+ * @param {Object} app2 - The Firebase app instance
  * @param {string} filename - The name of the file to be stored
  * @param {Object} data - The JSON data to be stored
  * @return {Promise<void>} A promise that resolves when the file is stored
  */
-async function storeJsonFile(app, filename, data) {
+async function storeJsonFile(app2, filename, data) {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(filename);
 
@@ -145,13 +146,13 @@ async function storeJsonFile(app, filename, data) {
 
 /**
  * Retrieves scene data as a JSON file from the storage bucket
- * @param {Object} app - The Firebase app instance
+ * @param {Object} app2 - The Firebase app instance
  * @param {string} sku - The catalogue's unique identifier
  * @return {Promise<Object>} A promise that resolves to the parsed JSON data
  */
-async function getCatalogueDefaultScene(app, sku) {
+async function getCatalogueDefaultScene(app2, sku) {
   const filename = getDefaultSceneFilename(sku);
-  return getJsonFile(app, filename);
+  return getJsonFile(app2, filename);
 }
 
 function getDefaultSceneFilename(sku) {
@@ -162,36 +163,36 @@ function getSceneFilename(sceneId) {
   return `Scenes/${sceneId}/scenes.json`;
 }
 
-async function getScene(app, sceneId) {
+async function getScene(app2, sceneId) {
   const filename = getSceneFilename(sceneId);
-  return getJsonFile(app, filename);
+  return getJsonFile(app2, filename);
 }
 
 /**
  * Stores scene data as a JSON file in the storage bucket
- * @param {Object} app - The Firebase app instance
+ * @param {Object} app2 - The Firebase app instance
  * @param {string} sceneId - The scene's unique identifier
  * @param {Object} sceneData - The JSON data to be stored
  * @return {Promise<void>} A promise that resolves when the file is stored
  */
-async function storeScenes(app, sceneId, sceneData) {
+async function storeScenes(app2, sceneId, sceneData) {
   if (sceneId === undefined) {
     throw new Error("storeScenes: sceneId is required");
   }
   const filename = `Scenes/${sceneId}/scenes.json`;
-  return storeJsonFile(app, filename, sceneData);
+  return storeJsonFile(app2, filename, sceneData);
 }
 
 
 /**
  * Retrieves a JSON file from the storage bucket and parses its contents
  *
- * @param {Object} app - The Firebase app instance
+ * @param {Object} app2 - The Firebase app instance
  * @param {string} filename - The name of the file to retrieve
  * @return {Promise<Object>} A promise that resolves to the parsed JSON data
  * @throws {Error} If there's an error downloading or parsing the file
  */
-async function getJsonFile(app, filename) {
+async function getJsonFile(app2, filename) {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(filename);
 
@@ -213,7 +214,7 @@ async function getJsonFile(app, filename) {
   });
 }
 
-async function downloadFileFromBucket(app, bucketPath, localPath) {
+async function downloadFileFromBucket(app2, bucketPath, localPath) {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(bucketPath);
 
@@ -225,7 +226,7 @@ async function downloadFileFromBucket(app, bucketPath, localPath) {
   return await file.download({destination: localPath});
 }
 
-async function uploadFileToBucket(app, localPath, bucketPath) {
+async function uploadFileToBucket(app2, localPath, bucketPath) {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
 
   try {
@@ -241,7 +242,7 @@ async function uploadFileToBucket(app, localPath, bucketPath) {
   }
 }
 
-async function uploadJsonToBucket(app, json, bucketPath) {
+async function uploadJsonToBucket(app2, json, bucketPath) {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(bucketPath);
   const jsonString = JSON.stringify(json);
@@ -260,7 +261,7 @@ async function uploadJsonToBucket(app, json, bucketPath) {
   }
 }
 
-async function copyFile(app, sourcePath, destinationPath) {
+async function copyFile(app2, sourcePath, destinationPath) {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const sourceFile = bucket.file(sourcePath);
   const destinationFile = bucket.file(destinationPath);
@@ -268,7 +269,7 @@ async function copyFile(app, sourcePath, destinationPath) {
   return destinationFile;
 }
 
-async function getPublicUrl(app, path) {
+async function getPublicUrl(app2, path) {
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(path);
 
@@ -276,34 +277,34 @@ async function getPublicUrl(app, path) {
   return downloadUrl;
 }
 
-async function getTranscriptions(app, uid, sku, visiblity) {
+async function getTranscriptions(app2, uid, sku, visiblity) {
   let filename;
   if (uid === "admin") {
     filename = `Catalogue/Processed/${sku}/${sku}-transcriptions.json`;
   } else {
     filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-transcriptions.json`;
   }
-  return await getJsonFile(app, filename);
+  return await getJsonFile(app2, filename);
 }
 
-async function storeGraph(app, uid, sku, visiblity, characterList, type) {
+async function storeGraph(app2, uid, sku, visiblity, characterList, type) {
   let filename;
   if (uid === "admin") {
     filename = `Catalogue/Processed/${sku}/${sku}-${type}-graph.json`;
   } else {
     filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-${type}-graph.json`;
   }
-  return await storeJsonFile(app, filename, characterList);
+  return await storeJsonFile(app2, filename, characterList);
 }
 
-async function getGraph(app, uid, sku, visiblity, type) {
+async function getGraph(app2, uid, sku, visiblity, type) {
   let filename;
   if (uid === "admin") {
     filename = `Catalogue/Processed/${sku}/${sku}-${type}-graph.json`;
   } else {
     filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-${type}-graph.json`;
   }
-  return await getJsonFile(app, filename);
+  return await getJsonFile(app2, filename);
 }
 
 export {
