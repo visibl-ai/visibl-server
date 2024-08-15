@@ -125,8 +125,13 @@ async function storeJsonFile(params) {
   const {filename, data} = params;
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
   const file = bucket.file(filename);
-
-  const jsonString = JSON.stringify(data, null, 2);
+  let jsonString;
+  try {
+    jsonString = JSON.stringify(data, null, 2);
+  } catch (error) {
+    logger.error(`Error parsing JSON for ${filename}`);
+    jsonString = data;
+  }
   const buffer = Buffer.from(jsonString);
   return new Promise((resolve, reject) => {
     file.save(buffer, {

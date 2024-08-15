@@ -879,15 +879,14 @@ Scenes object:
 
 ---Example End---
 
-Respond only with JSON
-
 List of Characters:
 %CHARACTER_LIST%
 List of Locations:
 %LOCATIONS_LIST%
 
-Respond only with JSON.
+
 Create at least %NUM_SCENES% scenes. You must generate all scenes, do not stop until complete.
+Respond only with JSON.
   `,
 };
 export default prompts;

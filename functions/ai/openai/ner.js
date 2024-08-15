@@ -62,7 +62,8 @@ function parseJsonFromOpenAIResponse(completion, raw) {
   } catch (error) {
     logger.error(`Non JSON response received. Try again.`);
     logger.error(completion?.choices[0]?.message?.content);
-    throw new Error("Non JSON response received. Try again.");
+    // throw new Error("Non JSON response received. Try again.");
+    return completion.choices[0].message.content;
   }
   logger.debug(`OpenAI tokens used: ${completion.usage.total_tokens} remaining tokens: ${raw.headers.get("x-ratelimit-remaining-tokens")}`);
   return response;
@@ -214,7 +215,12 @@ const nerFunctions = {
       },
       {role: "user", content: csvText},
     ];
-    return await defaultCompletion({messages, temperature: 1, model: "chatgpt-4o-latest", outputTokens: 16384});
+    return await defaultCompletion({
+      messages,
+      temperature: 1,
+      model: "gpt-4o-2024-08-06", // "chatgpt-4o-latest",
+      maxTokens: 16384,
+      format: "json_object"});
   },
 
   singleRequest: async (prompt, paramsList, text, temp=DEFAULT_TEMP) => {
