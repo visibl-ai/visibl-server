@@ -38,12 +38,12 @@ process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 const APP_URL = `http://127.0.0.1:5002`;
 
-const GENERATE_CHARACTERS = false;
+const GENERATE_CHARACTERS = true;
+const GENERATE_LOCATIONS = true;
 const CHARACTERS_DEDUP = false;
 const LOCATIONS_DEDUP = false;
 const CHARACTERS_TIMELINE = false;
 const LOCATIONS_TIMELINE = false;
-const GENERATE_LOCATIONS = false;
 const GENERATE_CHARACTER_DESCRIPTIONS = false;
 const GENERATE_LOCATION_DESCRIPTIONS = false;
 const SUMMARIZE_DESCRIPTIONS = false;
@@ -109,15 +109,12 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
 
-      const response = await chai.request(APP_URL)
-          .post("/v1/admin/graph/characters")
-          .set("API-KEY", process.env.ADMIN_API_KEY)
-          .send(data);
-      expect(response).to.have.status(200);
-      const result = response.body;
-      console.log(result);
-      const path = `${GRAPH_PATH}${process.env.PUBLIC_SKU1}-characters-graph.json`;
-      fs.writeFileSync(path, JSON.stringify(result, null, 2));
+      const response = await chai
+          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .post("/generateGraphCharacters")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
     });
   }
   if (GENERATE_LOCATIONS) {
@@ -129,15 +126,11 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(APP_URL)
-          .post("/v1/admin/graph/locations")
-          .set("API-KEY", process.env.ADMIN_API_KEY)
-          .send(data);
-      expect(response).to.have.status(200);
-      const result = response.body;
-      console.log(result);
-      const path = `${GRAPH_PATH}${process.env.PUBLIC_SKU1}-locations-graph.json`;
-      fs.writeFileSync(path, JSON.stringify(result, null, 2));
+          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .post("/generateGraphLocations")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
     });
   }
   if (GENERATE_CHARACTER_DESCRIPTIONS) {

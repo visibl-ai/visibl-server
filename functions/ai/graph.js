@@ -18,7 +18,8 @@ import csv from "./csv.js";
 
 const WAIT_TIME = 20;
 
-function consolidateTranscriptions(transcriptions) {
+function consolidateTranscriptions(params) {
+  const {transcriptions} = params;
   let consolidatedText = "";
   for (const key in transcriptions) {
     if (Object.prototype.hasOwnProperty.call(transcriptions, key)) {
@@ -31,13 +32,28 @@ function consolidateTranscriptions(transcriptions) {
   return consolidatedText.trim();
 }
 
+// eslint-disable-next-line no-unused-vars
+function lowerCaseObjectKeys(params) {
+  const {object} = params;
+  return Object.fromEntries(
+      Object.entries(object).map(([key, value]) => [
+        key.toLowerCase(),
+      typeof value === "object" ? lowerCaseObjectKeys({object: value}) : value,
+      ]),
+  );
+}
 
-async function graphCharacters(req) {
-  const {uid, sku, visiblity} = req.body;
+function lowerCaseArrayStrings(params) {
+  const {array} = params;
+  return array.map((item) => item.toLowerCase());
+}
+
+async function graphCharacters(params) {
+  const {uid, sku, visiblity} = params;
   // 1. load transcriptions.
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   // 2. consolidate transcriptions into single string.
-  const fullText = consolidateTranscriptions(transcriptions);
+  const fullText = consolidateTranscriptions({transcriptions});
   // 3. send to gemini.
   const characterList = await geminiRequest({
     "prompt": "getCharacters",
@@ -45,14 +61,15 @@ async function graphCharacters(req) {
     "type": "json",
   });
   // 4. store graph.
+  characterList.characters = lowerCaseArrayStrings({array: characterList.characters});
   await storeGraph({uid, sku, visiblity, data: characterList, type: "characters"});
   return characterList;
 }
 
-async function graphCharacterDescriptions(req) {
-  const {uid, sku, visiblity} = req.body;
+async function graphCharacterDescriptions(params) {
+  const {uid, sku, visiblity} = params;
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
-  const fullText = consolidateTranscriptions(transcriptions);
+  const fullText = consolidateTranscriptions({transcriptions});
   let characters = await getGraph({uid, sku, visiblity, type: "characters"});
   const characterDescriptions = {};
   if (!characters.characters || !Array.isArray(characters.characters)) {
@@ -87,27 +104,28 @@ async function graphCharacterDescriptions(req) {
   return characterDescriptions;
 }
 
-async function graphLocations(req) {
-  const {uid, sku, visiblity} = req.body;
+async function graphLocations(params) {
+  const {uid, sku, visiblity} = params;
   // 1. load transcriptions.
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   // 2. consolidate transcriptions into single string.
-  const fullText = consolidateTranscriptions(transcriptions);
+  const fullText = consolidateTranscriptions({transcriptions});
   // 3. send to gemini.
   const locationList = await geminiRequest({
     "prompt": "getLocations",
     "message": fullText,
     "type": "json",
   });
+  locationList.locations = lowerCaseArrayStrings({array: locationList.locations});
   // 4. store graph.
   await storeGraph({uid, sku, visiblity, data: locationList, type: "locations"});
   return locationList;
 }
 
-async function graphLocationDescriptions(req) {
-  const {uid, sku, visiblity} = req.body;
+async function graphLocationDescriptions(params) {
+  const {uid, sku, visiblity} = params;
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
-  const fullText = consolidateTranscriptions(transcriptions);
+  const fullText = consolidateTranscriptions({transcriptions});
   let locations = await getGraph({uid, sku, visiblity, type: "locations"});
   const locationDescriptions = {};
   if (!locations.locations || !Array.isArray(locations.locations)) {
@@ -142,8 +160,8 @@ async function graphLocationDescriptions(req) {
   return locationDescriptions;
 }
 
-async function graphSummarizeDescriptions(req) {
-  const {uid, sku, visiblity} = req.body;
+async function graphSummarizeDescriptions(params) {
+  const {uid, sku, visiblity} = params;
   const characterDescriptions = await getGraph({uid, sku, visiblity, type: "characterDescriptions"});
   const characterSummaries = await novel.entityImageSummarize(
       "character_image_summarize_prompt",
@@ -162,8 +180,8 @@ async function graphSummarizeDescriptions(req) {
   return {characterSummaries, locationSummaries};
 }
 
-async function graphScenes(req) {
-  const {uid, sku, visiblity, chapter} = req.body;
+async function graphScenes(params) {
+  const {uid, sku, visiblity, chapter} = params;
   let scenes_result = [];
   const locations = await getGraph({uid, sku, visiblity, type: "locations"});
   locations.locations = locations.locations.map((location) => location.toLowerCase());
