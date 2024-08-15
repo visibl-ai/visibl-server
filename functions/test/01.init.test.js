@@ -90,7 +90,7 @@ describe("Full functional tests of visibl api", () => {
     const event = {
       data: testUser,
     };
-    const result = await newUser(app, event);
+    const result = await newUser(event);
     // Assume a Firestore trigger or function in index.js populates Firestore based on Auth user creation
     // Wait for Firestore to be updated (this might require a delay or a more complex event-driven approach in a real scenario)
 

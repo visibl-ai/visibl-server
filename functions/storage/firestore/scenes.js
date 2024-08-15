@@ -25,7 +25,7 @@ import {
   getDefaultSceneFilename,
 } from "../storage.js";
 
-async function getLibraryScenesFirestore(uid, data, app) {
+async function getLibraryScenesFirestore(uid, data) {
   const db = getFirestore();
   const {libraryId} = data;
   // Query the Scenes collection for items matching uid and libraryId
@@ -47,7 +47,7 @@ async function getLibraryScenesFirestore(uid, data, app) {
   return scenes;
 }
 
-async function getGlobalScenesFirestore(uid, data, app) {
+async function getGlobalScenesFirestore(uid, data) {
   const db = getFirestore();
   const {libraryId, sceneId} = data;
   // return a single scene.
@@ -88,7 +88,7 @@ async function getGlobalScenesFirestore(uid, data, app) {
   return scenes;
 }
 
-async function getCatalogueScenesFirestore(uid, data, app) {
+async function getCatalogueScenesFirestore(uid, data) {
   const db = getFirestore();
   const {catalogueId} = data;
   // Query the Scenes collection for items matching uid and libraryId
@@ -110,7 +110,7 @@ async function getCatalogueScenesFirestore(uid, data, app) {
   return scenes;
 }
 
-async function scenesCreateLibraryItemFirestore(uid, data, app) {
+async function scenesCreateLibraryItemFirestore(uid, data) {
   const db = getFirestore();
   const {libraryId, prompt, userDefault} = data;
   let {chapter} = data;
@@ -223,7 +223,7 @@ async function scenesCreateLibraryItemFirestore(uid, data, app) {
 // for a library item, ensuring that only one scene can be the default at any time.
 // The optional sceneId parameter allows the function to exclude a specific scene
 // from being updated, which is useful when that scene is being set as the new default.
-async function scenesUpdateLibraryItemFirestore(uid, data, app) {
+async function scenesUpdateLibraryItemFirestore(uid, data) {
   const db = getFirestore();
   const {libraryId, sceneId, userDefault} = data;
   if (!libraryId || !sceneId) {

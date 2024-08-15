@@ -112,10 +112,9 @@ function removeUndefinedProperties(data) {
  *
  * @param {string} uid - The user ID of the authenticated user.
  * @param {object} data - The data object containing the libraryId.
- * @param {object} app - The Firebase app instance.
  * @return {Promise<object>} A promise that resolves to the AI-generated content.
  */
-async function getAiFirestore(uid, data, app) {
+async function getAiFirestore(uid, data) {
   const {libraryId, sceneId, chapter} = data;
 
   if (!libraryId) {
@@ -142,7 +141,7 @@ async function getAiFirestore(uid, data, app) {
   // Retrieve the scenes data for the catalogueId
   let scenes;
   try {
-    scenes = await getUserLibraryScene(app, uid, libraryId, sceneId, chapter);
+    scenes = await getUserLibraryScene(uid, libraryId, sceneId, chapter);
   } catch (error) {
     logger.error(`Error retrieving scenes for libraryId ${libraryId}:`, error);
     throw new Error("Failed to retrieve scenes data");
@@ -161,7 +160,7 @@ async function getAiFirestore(uid, data, app) {
   }
 }
 
-// async function createLibraryScenesFirestore(uid, data, app) {
+// async function createLibraryScenesFirestore(uid, data) {
 //   const db = getFirestore();
 //   // eslint-disable-next-line prefer-const
 //   let {libraryId, prompt, userDefault} = data;
@@ -204,7 +203,7 @@ async function getAiFirestore(uid, data, app) {
 //   return {id: newSceneRef.id, ...newScene};
 // }
 
-async function getUserLibraryScene(app, uid, libraryId, sceneId) {
+async function getUserLibraryScene(uid, libraryId, sceneId) {
   const db = getFirestore();
   let sceneToFetch;
   // We're told what scene to get.

@@ -1,5 +1,5 @@
 /* eslint-disable require-jsdoc */
-import app from "../firebase.js";
+// import app from "../firebase.js";
 // import logger from "firebase-functions/logger";
 import {onCall} from "firebase-functions/v2/https";
 import {validateOnCallAuth} from "../auth/auth.js";
@@ -18,7 +18,7 @@ import {
  */
 export const v1addItemToLibrary = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return libraryAddItemFirestore(uid, data, app);
+  return libraryAddItemFirestore(uid, data);
 });
 
 /**
@@ -30,7 +30,7 @@ export const v1addItemToLibrary = onCall({region: "europe-west1"}, async (contex
  */
 export const v1getLibrary = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return libraryGetAllFirestore(app, uid, data);
+  return libraryGetAllFirestore(uid, data);
 });
 
 
@@ -43,5 +43,5 @@ export const v1getLibrary = onCall({region: "europe-west1"}, async (context) => 
  */
 export const v1deleteItemsFromLibrary = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return libraryDeleteItemFirestore(uid, data, app);
+  return libraryDeleteItemFirestore(uid, data);
 });

@@ -16,7 +16,7 @@ import fs from "fs/promises";
 const MAX_SIZE = process.env.MAX_SIZE || 24;
 const NUM_THREADS = process.env.NUM_THREADS || 32;
 
-async function uploadFilesToBucket(app, bookName, outputFiles, cloudPath = "splitAudio") {
+async function uploadFilesToBucket(bookName, outputFiles, cloudPath = "splitAudio") {
   const uploads = await Promise.all(outputFiles.map(async (outputFile) => {
     try {
       const uploadResponse = await uploadFileToBucket({localPath: outputFile, bucketPath: `${cloudPath}${outputFile.split("./bin/")[1]}`});
@@ -98,7 +98,7 @@ function getTranscriptionsPath(uid, sku) {
   }
 }
 
-async function getMetaData(app, uid, sku, path) {
+async function getMetaData(uid, sku, path) {
   const bookData = await getJsonFile({filename: getMetadataPath(uid, sku)});
   logger.debug(`Book Data: ${JSON.stringify(bookData, null, 2)}`);
   if (ENVIRONMENT.value() === "development") {
@@ -120,7 +120,7 @@ async function getMetaData(app, uid, sku, path) {
 }
 
 // TODO: Add AAX support.
-async function pipeline(app, uid, sku, ffmpegPath ) {
+async function pipeline(uid, sku, ffmpegPath ) {
   // 1. Download file from bucket to local - or, use the one already there.
   const inputFilePath = `./bin/${sku}.m4b`;
   const path = `./bin/`;
@@ -129,7 +129,7 @@ async function pipeline(app, uid, sku, ffmpegPath ) {
   logger.debug("STEP 1: File downloaded from bucket.");
   // 2. get metadata from audio file
 
-  const metadata = await getMetaData(app, uid, sku, path);
+  const metadata = await getMetaData(uid, sku, path);
   logger.debug("STEP 2: Metadata Obtained");
   // 3. Split file in parallel
   const outputFiles = await ffmpegTools.splitAudioInParallel(
@@ -146,7 +146,7 @@ async function pipeline(app, uid, sku, ffmpegPath ) {
   logger.debug(`STEP 3: File Split into chapters of ${MAX_SIZE}mb`);
   // 4. Upload the split files to bucket?
   let splitAudio = "";
-  splitAudio = await uploadFilesToBucket(app, sku, outputFiles, getSplitAudioPath(uid, sku));
+  splitAudio = await uploadFilesToBucket(sku, outputFiles, getSplitAudioPath(uid, sku));
   logger.debug("STEP 4: Files uploaded to bucket.");
   // 5. Transcribe the files
   console.log(metadata);
@@ -163,14 +163,14 @@ async function pipeline(app, uid, sku, ffmpegPath ) {
   return {transcriptions: transcriptionsFile.metadata.name, metadata: metadata.bookData, splitAudio};
 }
 
-async function downloadFffmpegBinary(app) {
+async function downloadFffmpegBinary() {
   const ffmpegPath = "./bin/ffmpeg";
   await downloadFileFromBucket({bucketPath: "bin/ffmpeg", localPath: ffmpegPath});
   await fs.chmod(ffmpegPath, 0o755);
   return ffmpegPath;
 }
 
-async function generateTranscriptions(uid, data, app) {
+async function generateTranscriptions(uid, data) {
   logger.debug(JSON.stringify(data));
   //   if (data.run !== true) {
   //     logger.debug("not running due to body.run");
@@ -180,12 +180,12 @@ async function generateTranscriptions(uid, data, app) {
   logger.debug(`Processing FileName: ${sku} for ${uid}`);
   let ffmpegPath;
   logger.debug(`Downloading ffmpeg binary`);
-  ffmpegPath = await downloadFffmpegBinary(app);
+  ffmpegPath = await downloadFffmpegBinary();
   if (ENVIRONMENT.value() === "development") {
     ffmpegPath = `ffmpeg`;
   }
   logger.debug(`using ffmpeg path: ${ffmpegPath}`);
-  const urls = await pipeline(app, uid, sku, ffmpegPath);
+  const urls = await pipeline(uid, sku, ffmpegPath);
   return urls;
 }
 

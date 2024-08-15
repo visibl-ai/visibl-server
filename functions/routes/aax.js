@@ -1,5 +1,4 @@
 /* eslint-disable require-jsdoc */
-import app from "../firebase.js";
 // import logger from "firebase-functions/logger";
 import {onCall, onRequest} from "firebase-functions/v2/https";
 import {validateOnCallAuth, validateOnRequestAdmin} from "../auth/auth.js";
@@ -30,19 +29,19 @@ import {
 // Endpoints to use audible-opds-firebase
 export const v1getAAXLoginURL = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await getAAXLoginURL(uid, data, app);
+  return await getAAXLoginURL(uid, data);
 });
 
 export const v1aaxConnect = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  const auth = await getAAXAuth(uid, data, app);
+  const auth = await getAAXAuth(uid, data);
   await dispatchTask("aaxPostAuthHook", {uid: uid, auth: auth});
   return auth;
 });
 
 export const v1AdminSubmitAAXAuth = onRequest({region: "europe-west1"}, async (req, res) => {
   await validateOnRequestAdmin(req);
-  res.status(200).send(await submitAAXAuth(req, app));
+  res.status(200).send(await submitAAXAuth(req));
 });
 
 export const v1getAAXConnectStatus = onCall({region: "europe-west1"}, async (context) => {
@@ -52,7 +51,7 @@ export const v1getAAXConnectStatus = onCall({region: "europe-west1"}, async (con
 
 export const v1disconnectAAX = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await disconnectAAXAuth(uid, data, app);
+  return await disconnectAAXAuth(uid, data);
 });
 
 export const v1refreshAAXTokens = onCall({region: "europe-west1"}, async (context) => {
@@ -62,12 +61,12 @@ export const v1refreshAAXTokens = onCall({region: "europe-west1"}, async (contex
 
 export const v1getAAXAvailable = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await getAAXAvailableFirestore(uid, data, app);
+  return await getAAXAvailableFirestore(uid, data);
 });
 
 export const v1AdminSetAAXAvailable = onRequest({region: "europe-west1"}, async (req, res) => {
   await validateOnRequestAdmin(req);
-  res.status(200).send(await setAAXAvailableFirestore(req, app));
+  res.status(200).send(await setAAXAvailableFirestore(req));
 });
 
 export const aaxPostAuthHook = onTaskDispatched(
@@ -76,6 +75,6 @@ export const aaxPostAuthHook = onTaskDispatched(
       // logger.debug(`aaxPostAuthHook: ${JSON.stringify(req.data)}`);
       // const body = req.data;
       const {body: body} = dataToBody(req);
-      return await audiblePostAuthHook(body.uid, {auth: body.auth}, app);
+      return await audiblePostAuthHook(body.uid, {auth: body.auth});
     },
 );

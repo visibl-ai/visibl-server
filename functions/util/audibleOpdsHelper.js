@@ -40,11 +40,10 @@ function formatFunctionsUrl(functionName) {
  * @param {string} uid - The user ID.
  * @param {Object} data - The data object containing the country code.
  * @param {string} data.country_code - The country code for the AAX store.
- * @param {Object} app - The Firebase app instance.
  * @return {Promise<Object>} A promise that resolves to the response data containing the login URL and related information.
  * @throws {Error} If there's an issue with the API request.
  */
-async function getAAXLoginURL(uid, data, app) {
+async function getAAXLoginURL(uid, data) {
   const aaxAvailable = await getAAXAvailableFirestore(uid);
   logger.debug(`aaxAvailable: ${aaxAvailable.active} for ${uid}`);
   if (!aaxAvailable.active) {
@@ -66,7 +65,7 @@ async function getAAXLoginURL(uid, data, app) {
 
 
 // eslint-disable-next-line require-jsdoc
-async function getAAXAuth(uid, data, app) {
+async function getAAXAuth(uid, data) {
   logger.info("getAAXAuth", {data});
   const response = await axios.post(formatFunctionsUrl("do_login"), {
     code_verifier: data.codeVerifier,
@@ -83,7 +82,7 @@ async function getAAXAuth(uid, data, app) {
   return auth;
 }
 
-async function audiblePostAuthHook(uid, data, app) {
+async function audiblePostAuthHook(uid, data) {
   // logger.debug(`audiblePostAuthHook: uid: ${uid}, data: ${JSON.stringify(data)}`);
   const auth = data.auth;
   const audibleUserId = auth.customer_info.user_id;
@@ -97,7 +96,7 @@ async function audiblePostAuthHook(uid, data, app) {
   await aaxStoreAuthFirestore(uid, audibleUserId, auth);
 
   // 2. Update the users audible items - this adds any new purchases
-  await updateUsersAAXCatalogue(uid, auth, app);
+  await updateUsersAAXCatalogue(uid, auth);
 
   // 3. For any items that are not currently in the catalogue,
   // or not in the users Bucket, do it!.
@@ -108,7 +107,7 @@ async function audiblePostAuthHook(uid, data, app) {
   await generateM4B(uid, auth, itemsToProcess);
   itemsToProcess = userItems.filter((item) => item.transcriptionsGenerated !== true);
   logger.info("Transcriptions itemsToProcess", {itemsToProcess});
-  await transcribe(app, uid, itemsToProcess);
+  await transcribe(uid, itemsToProcess);
   return {success: true};
 }
 
@@ -152,10 +151,10 @@ async function generateM4B(uid, auth, itemsToProcess) {
 }
 
 
-async function transcribe(app, uid, itemsToProcess) {
+async function transcribe(uid, itemsToProcess) {
   await Promise.all(itemsToProcess.map(async (item) => {
     try {
-      const transcription = await generateTranscriptions(uid, item, app);
+      const transcription = await generateTranscriptions(uid, item);
       item.transcriptions = transcription.transcriptions;
       item.metadata = transcription.metadata;
       item.splitAudio = transcription.splitAudio;
@@ -168,7 +167,7 @@ async function transcribe(app, uid, itemsToProcess) {
   }));
 }
 
-async function updateUsersAAXCatalogue(uid, app) {
+async function updateUsersAAXCatalogue(uid) {
   const auth = await aaxGetAuthByUidFirestore(uid);
   try {
     const response = await axios.post(formatFunctionsUrl("audible_get_library"), {
@@ -259,10 +258,10 @@ async function refreshAAXTokens(data) {
   };
 }
 
-async function submitAAXAuth(req, app) {
+async function submitAAXAuth(req) {
   const auth = req.body.auth;
   const uid = req.body.uid;
-  return await audiblePostAuthHook(uid, auth, app);
+  return await audiblePostAuthHook(uid, auth);
 }
 
 async function disconnectAAXAuth(uid) {

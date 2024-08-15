@@ -27,7 +27,7 @@ const SCENES_PER_REQUEST = 15;
 const TIMEOUT = 60000;
 
 
-async function generateImages(req, app) {
+async function generateImages(req) {
   try {
     // Scenes to generate is a [5,6,7,8] . Maximum 5.
     const {
@@ -58,7 +58,6 @@ async function generateImages(req, app) {
     // Now we save the scenes to the chapter.
     logger.info("===Starting DALL-E-3 image generation===");
     const images = await dalle3({
-      app,
       chapter,
       scenes,
       theme,
@@ -91,7 +90,7 @@ async function generateImages(req, app) {
   }
 }
 
-async function downloadImage(app, url, filename) {
+async function downloadImage(url, filename) {
   const response = await axios({
     method: "GET",
     url: url,
@@ -108,7 +107,7 @@ async function downloadImage(app, url, filename) {
 
 async function singleGeneration(request) {
   const {
-    app, chapter, scene, theme, sceneId, retry, openai,
+    chapter, scene, theme, sceneId, retry, openai,
   } = request;
   // DALL-E-3 Configs
   const dallE3Config = {
@@ -148,10 +147,10 @@ async function singleGeneration(request) {
     const imagePath = `Scenes/${sceneId}/${chapter}_scene${scene.scene_number}_${timestamp}`;
     const squareImagePath = `${imagePath}.4.3.jpg`;
     // logger.debug("imageName = " + imageName);
-    gcpURL = await downloadImage(app, imageUrl, squareImagePath);
+    gcpURL = await downloadImage(imageUrl, squareImagePath);
 
     logger.debug(`Outpainting ${squareImagePath} with Stability.`);
-    outpaintResult = await outpaintWideAndTall(app, {
+    outpaintResult = await outpaintWideAndTall({
       inputPath: squareImagePath,
       outputPathWithoutExtension: imagePath,
     });
@@ -183,12 +182,12 @@ async function singleGeneration(request) {
 
 async function dalle3(request) {
   const {
-    app, chapter, scenes, theme, sceneId, retry = true,
+    chapter, scenes, theme, sceneId, retry = true,
   } = request;
   const openai = new OpenAI(OPENAI_API_KEY.value());
   logger.debug(`scenes length = ${scenes.length}`);
   const promises = scenes.map(async (scene) => singleGeneration({
-    app, chapter, scene, theme, sceneId, retry, openai,
+    chapter, scene, theme, sceneId, retry, openai,
   }));
   return Promise.all(promises);
 }
@@ -203,7 +202,7 @@ function getScenesToGenerate(lastSceneGenerated, totalScenes) {
 }
 
 // start at 0.
-async function imageGenRecursive(req, app) {
+async function imageGenRecursive(req) {
   logger.debug(`imageGenRecursive`);
   logger.debug(JSON.stringify(req.body));
   const {sceneId, lastSceneGenerated, totalScenes, chapter} = req.body;

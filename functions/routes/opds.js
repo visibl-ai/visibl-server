@@ -1,5 +1,4 @@
 /* eslint-disable require-jsdoc */
-import app from "../firebase.js";
 // import logger from "firebase-functions/logger";
 import {onCall, onRequest} from "firebase-functions/v2/https";
 import {validateOnCallAuth} from "../auth/auth.js";
@@ -15,7 +14,7 @@ import {
 
 export const v1getPrivateOPDSFeed = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await generatePrivateOPDS(uid, data, app);
+  return await generatePrivateOPDS(uid, data);
 });
 
 export const v1getPrivateOPDSFeedURL = onCall({region: "europe-west1"}, async (context) => {
@@ -25,14 +24,14 @@ export const v1getPrivateOPDSFeedURL = onCall({region: "europe-west1"}, async (c
 
 export const v1TMPgetPrivateOPDSFeed = onRequest({region: "europe-west1"}, async (req, res) => {
   const uid = req.path.split("/").pop();
-  res.status(200).send(await generatePrivateOPDS(uid, req.body, app));
+  res.status(200).send(await generatePrivateOPDS(uid, req.body));
 });
 
 export const v1TMPgetPrivateManifest = onRequest({region: "europe-west1"}, async (req, res) => {
   const pathParts = req.path.split("/");
   const uid = pathParts[pathParts.length - 2];
   const catalogueId = pathParts[pathParts.length - 1];
-  res.status(200).send(await generateManifest(app, uid, catalogueId));
+  res.status(200).send(await generateManifest(uid, catalogueId));
 });
 
 /**
@@ -44,5 +43,5 @@ export const v1TMPgetPrivateManifest = onRequest({region: "europe-west1"}, async
  */
 export const v1getItemManifest = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return generateUserItemManifest(app, uid, data);
+  return await generateUserItemManifest(uid, data);
 });

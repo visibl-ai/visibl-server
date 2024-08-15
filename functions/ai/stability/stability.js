@@ -12,7 +12,7 @@ import {
   uploadStreamAndGetPublicLink,
 } from "../../storage/storage.js";
 
-async function outpaint(app, request) {
+async function outpaint(request) {
   const {
     inputPath,
     outputPath,
@@ -58,17 +58,17 @@ async function outpaint(app, request) {
   }
 }
 
-const outpaintWideAndTall = async (app, request) => {
+const outpaintWideAndTall = async (request) => {
   const {inputPath, outputPathWithoutExtension, pixels=384} = request;
   logger.debug(`Outpainting image ${inputPath} to ${outputPathWithoutExtension}`);
-  const tallPromise = outpaint(app, {
+  const tallPromise = outpaint({
     inputPath,
     outputPath: `${outputPathWithoutExtension}.9.16.jpg`,
     up: pixels,
     down: pixels,
   });
 
-  const widePromise = outpaint(app, {
+  const widePromise = outpaint({
     inputPath,
     outputPath: `${outputPathWithoutExtension}.16.9.jpg`,
     left: pixels,

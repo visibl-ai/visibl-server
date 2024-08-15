@@ -1,5 +1,4 @@
 /* eslint-disable require-jsdoc */
-import app from "../firebase.js";
 import logger from "firebase-functions/logger";
 import {onCall, onRequest} from "firebase-functions/v2/https";
 import {onTaskDispatched} from "firebase-functions/v2/tasks";
@@ -41,7 +40,7 @@ export const preProcessBook = onRequest({region: "europe-west1"},
 
 export const getPipeline = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return getPipelineFirestore(uid, data, app);
+  return getPipelineFirestore(uid, data);
 });
 
 export const v1generateTranscriptions = onCall({
@@ -51,14 +50,14 @@ export const v1generateTranscriptions = onCall({
   timeoutSeconds: 540,
 }, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await generateTranscriptions(uid, data, app);
+  return await generateTranscriptions(uid, data);
 });
 
 export const processM4B = onTaskDispatched(
     largeDispatchInstance(),
     async (req) => {
       logger.debug(`processM4B: ${JSON.stringify(req.data)}`);
-      return await processRawPublicItem(dataToBody(req), app);
+      return await processRawPublicItem(dataToBody(req));
     },
 );
 
@@ -66,7 +65,7 @@ export const generateSceneImages = onTaskDispatched(
     largeDispatchInstance(),
     async (req) => {
       logger.debug(`generateSceneImages: ${JSON.stringify(req.data)}`);
-      return await imageGenRecursive(dataToBody(req), app);
+      return await imageGenRecursive(dataToBody(req));
     },
 );
 

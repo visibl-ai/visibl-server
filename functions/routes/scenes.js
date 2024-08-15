@@ -1,5 +1,4 @@
 /* eslint-disable require-jsdoc */
-import app from "../firebase.js";
 // import logger from "firebase-functions/logger";
 import {onCall, onRequest} from "firebase-functions/v2/https";
 import {validateOnCallAuth, validateOnRequestAdmin} from "../auth/auth.js";
@@ -27,26 +26,26 @@ export const v1generateSceneImages = onRequest({region: "europe-west1", cors: tr
 
 export const v1getAi = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await getAiFirestore(uid, data, app);
+  return await getAiFirestore(uid, data);
 });
 
 export const v1getLibraryScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await getGlobalScenesFirestore(uid, data, app);
+  return await getGlobalScenesFirestore(uid, data);
 });
 
 export const v1getCatalogueItemScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await getCatalogueScenesFirestore(uid, data, app);
+  return await getCatalogueScenesFirestore(uid, data);
 });
 
 
 export const v1addLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await scenesCreateLibraryItemFirestore(uid, data, app);
+  return await scenesCreateLibraryItemFirestore(uid, data);
 });
 
 export const v1updateLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await scenesUpdateLibraryItemFirestore(uid, data, app);
+  return await scenesUpdateLibraryItemFirestore(uid, data);
 });

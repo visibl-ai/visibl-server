@@ -8,7 +8,6 @@ import {ADMIN_API_KEY} from "../config/config.js";
  * It handles the creation of a new user
  * in the Firestore database and sets up a personal
  * storage bucket for the user's files.
- * @param {Object} app - The application instance
  * @param {Object} event - The event object from firebase
  *
  * Event looks like:
@@ -56,7 +55,7 @@ import {ADMIN_API_KEY} from "../config/config.js";
   }
 }
  */
-async function newUser(app, event) {
+async function newUser(event) {
   logger.debug(`FUNCTION: new user creation.`);
   const user = {
     uid: event.data.uid,

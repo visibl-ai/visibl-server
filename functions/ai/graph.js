@@ -32,7 +32,7 @@ function consolidateTranscriptions(transcriptions) {
 }
 
 
-async function graphCharacters(app, req) {
+async function graphCharacters(req) {
   const {uid, sku, visiblity} = req.body;
   // 1. load transcriptions.
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
@@ -49,7 +49,7 @@ async function graphCharacters(app, req) {
   return characterList;
 }
 
-async function graphCharacterDescriptions(app, req) {
+async function graphCharacterDescriptions(req) {
   const {uid, sku, visiblity} = req.body;
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   const fullText = consolidateTranscriptions(transcriptions);
@@ -87,7 +87,7 @@ async function graphCharacterDescriptions(app, req) {
   return characterDescriptions;
 }
 
-async function graphLocations(app, req) {
+async function graphLocations(req) {
   const {uid, sku, visiblity} = req.body;
   // 1. load transcriptions.
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
@@ -104,7 +104,7 @@ async function graphLocations(app, req) {
   return locationList;
 }
 
-async function graphLocationDescriptions(app, req) {
+async function graphLocationDescriptions(req) {
   const {uid, sku, visiblity} = req.body;
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   const fullText = consolidateTranscriptions(transcriptions);
@@ -142,7 +142,7 @@ async function graphLocationDescriptions(app, req) {
   return locationDescriptions;
 }
 
-async function graphSummarizeDescriptions(app, req) {
+async function graphSummarizeDescriptions(req) {
   const {uid, sku, visiblity} = req.body;
   const characterDescriptions = await getGraph({uid, sku, visiblity, type: "characterDescriptions"});
   const characterSummaries = await novel.entityImageSummarize(
@@ -157,12 +157,12 @@ async function graphSummarizeDescriptions(app, req) {
       locationDescriptions,
       250000,
   );
-  await storeGraph(app, uid, sku, visiblity, locationSummaries, "locationSummaries");
+  await storeGraph({uid, sku, visiblity, data: locationSummaries, type: "locationSummaries"});
 
   return {characterSummaries, locationSummaries};
 }
 
-async function graphScenes(app, req) {
+async function graphScenes(req) {
   const {uid, sku, visiblity, chapter} = req.body;
   let scenes_result = [];
   const locations = await getGraph({uid, sku, visiblity, type: "locations"});
