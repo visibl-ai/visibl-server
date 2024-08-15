@@ -11,6 +11,7 @@ import {
   graphLocationDescriptions,
   graphSummarizeDescriptions,
   graphScenes,
+  graphScenes16k,
 } from "../ai/graph.js";
 
 import {
@@ -69,5 +70,12 @@ export const generateGraphScenes = onTaskDispatched(
     async (req) => {
       logger.debug(`graphScenes: ${JSON.stringify(req.data)}`);
       return await graphScenes(dataToBody(req).body);
+    });
+
+export const generateGraphScenes16k = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphScenes16k: ${JSON.stringify(req.data)}`);
+      return await graphScenes16k(dataToBody(req).body);
     });
 

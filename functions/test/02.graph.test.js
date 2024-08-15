@@ -46,10 +46,11 @@ const GENERATE_LOCATIONS = false;
 // const LOCATIONS_DEDUP = false;
 const CHARACTERS_TIMELINE = false;
 const LOCATIONS_TIMELINE = false;
-const GENERATE_CHARACTER_DESCRIPTIONS = true;
-const GENERATE_LOCATION_DESCRIPTIONS = true;
-const SUMMARIZE_DESCRIPTIONS = true;
+const GENERATE_CHARACTER_DESCRIPTIONS = false;
+const GENERATE_LOCATION_DESCRIPTIONS = false;
+const SUMMARIZE_DESCRIPTIONS = false;
 const GENERATE_SCENES = false;
+const GENERATE_SCENES_16K = true;
 
 const SYM_PATH = "./test/bindings/graph/";
 const GRAPH_PATH = fs.realpathSync(SYM_PATH);
@@ -203,6 +204,24 @@ describe("Graph tests", () => {
             .send({data: data}); // nest object as this is a dispatch.
         expect(response).to.have.status(204);
       }
+    });
+  }
+  if (GENERATE_SCENES_16K) {
+    // eslint-disable-next-line no-undef
+    it(`test generateGraphScenes16k`, async () => {
+      // Prepare the update data
+      const data = {
+        uid: "admin",
+        sku: process.env.PUBLIC_SKU1,
+        visiblity: "public",
+        chapter: 3,
+      };
+      const response = await chai
+          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .post("/generateGraphScenes16k")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
     });
   }
 });

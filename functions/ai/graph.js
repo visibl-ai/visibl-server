@@ -332,6 +332,34 @@ async function graphScenes(params) {
   return descriptive_scenes;
 }
 
+async function graphScenes16k(params) {
+  const {uid, sku, visiblity, chapter} = params;
+  const locations = await getGraph({uid, sku, visiblity, type: "locations"});
+  const locationsList = locations.locations.map((location) => location.name);
+  logger.debug(`locationsList: ${JSON.stringify(locationsList)}`);
+  const characters = await getGraph({uid, sku, visiblity, type: "characters"});
+  const charactersList = characters.characters.map((character) => character.name);
+  logger.debug(`charactersList: ${JSON.stringify(charactersList)}`);
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const chapterJson = transcriptions[chapter];
+  chapterJson.forEach((item) => {
+    if (typeof item.startTime === "number") {
+      item.startTime = item.startTime.toFixed(1);
+    }
+  });
+  const csvText = csv(chapterJson);
+  // logger.debug(`csvText: ${csvText}`);
+  const numScenes = 180;
+  const scenes = await nerFunctions.filmDirector16k({
+    charactersList,
+    locationsList,
+    csvText: JSON.stringify(csvText),
+    numScenes,
+  });
+  await storeGraph({uid, sku, visiblity, data: scenes, type: "scenes16k"});
+  return scenes;
+}
+
 export {
   graphCharacters,
   graphLocations,
@@ -339,4 +367,5 @@ export {
   graphLocationDescriptions,
   graphSummarizeDescriptions,
   graphScenes,
+  graphScenes16k,
 };

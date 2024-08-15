@@ -11,15 +11,21 @@ const DEFAULT_MAX_TOKENS = 4096;
 const DEFAULT_MODEL = "gpt-4-1106-preview";
 
 
-async function defaultCompletion(messages, temperature = DEFAULT_TEMP, format = "json_object") {
+async function defaultCompletion(params) {
+  const {messages,
+    temperature = DEFAULT_TEMP,
+    format = "json_object",
+    model = DEFAULT_MODEL,
+    maxTokens = DEFAULT_MAX_TOKENS,
+  } = params;
   logger.debug(`OpenAI request with ${tokenHelper.countTokens(JSON.stringify(messages))} prompt tokens`);
   const openai = new OpenAI(OPENAI_API_KEY.value());
   const {data: completion, response: raw} = await openai.chat.completions.create({
     messages: messages,
-    model: DEFAULT_MODEL,
+    model: model,
     response_format: {type: format},
     temperature: temperature,
-    max_tokens: DEFAULT_MAX_TOKENS,
+    max_tokens: maxTokens,
   }).withResponse();
   if (format === "json_object") {
     return parseJsonFromOpenAIResponse(completion, raw);
@@ -54,6 +60,8 @@ function parseJsonFromOpenAIResponse(completion, raw) {
   try {
     response = JSON.parse(completion.choices[0].message.content);
   } catch (error) {
+    logger.error(`Non JSON response received. Try again.`);
+    logger.error(completion?.choices[0]?.message?.content);
     throw new Error("Non JSON response received. Try again.");
   }
   logger.debug(`OpenAI tokens used: ${completion.usage.total_tokens} remaining tokens: ${raw.headers.get("x-ratelimit-remaining-tokens")}`);
@@ -73,7 +81,7 @@ const nerFunctions = {
       },
       {role: "user", content: JSON.stringify(text)},
     ];
-    return await defaultCompletion(messages);
+    return await defaultCompletion({messages});
   },
   locations: async (locationsList, text) => {
     const messages = [
@@ -86,7 +94,7 @@ const nerFunctions = {
       },
       {role: "user", content: JSON.stringify(text)},
     ];
-    return await defaultCompletion(messages);
+    return await (messages);
   },
   characterProperties: async (characters, properties, text) => {
     const messages = [
@@ -101,7 +109,7 @@ const nerFunctions = {
       },
       {role: "user", content: JSON.stringify(text, null, 2)},
     ];
-    return await defaultCompletion(messages);
+    return await defaultCompletion({messages});
   },
   dedupLocations: async (locations) => {
     const messages = [
@@ -111,7 +119,7 @@ const nerFunctions = {
       },
       {role: "user", content: JSON.stringify(locations, null, 2)},
     ];
-    return await defaultCompletion(messages);
+    return await defaultCompletion({messages});
   },
   dedupLocationsWithText: async (locations, text) => {
     const messages = [
@@ -124,7 +132,7 @@ const nerFunctions = {
       },
       {role: "user", content: text},
     ];
-    return await defaultCompletion(messages);
+    return await defaultCompletion({messages});
   },
   locationProperties: async (locations, properties, text) => {
     const messages = [
@@ -139,7 +147,7 @@ const nerFunctions = {
       },
       {role: "user", content: JSON.stringify(text, null, 2)},
     ];
-    return await defaultCompletion(messages);
+    return await defaultCompletion({messages});
   },
   characterDescriptions: async (character, characterGraphResponse) => {
     const messages = [
@@ -154,7 +162,7 @@ const nerFunctions = {
       },
       {role: "user", content: JSON.stringify("", null, 2)},
     ];
-    return await defaultCompletion(messages);
+    return await defaultCompletion({messages});
   },
   locationDescriptions: async (location, locationGraphResponse) => {
     const messages = [
@@ -169,7 +177,7 @@ const nerFunctions = {
       },
       {role: "user", content: JSON.stringify("", null, 2)},
     ];
-    return await defaultCompletion(messages);
+    return await defaultCompletion({messages});
   },
   filmDirector: async (charactersList, locationsList, jsonText) => {
     const messages = [
@@ -186,7 +194,27 @@ const nerFunctions = {
       {role: "user", content: JSON.stringify(jsonText, null, 2)},
     ];
     // Higher temp - we want some creativity here
-    return await defaultCompletion(messages, 0.8);
+    return await defaultCompletion({messages, temperature: 0.8});
+  },
+  filmDirector16k: async (params) => {
+    const {charactersList, locationsList, numScenes, csvText} = params;
+    const messages = [
+      {
+        role: "system",
+        content: prompts.transcribe_film_director_prompt_16k.replace(
+            "%CHARACTER_LIST%",
+            JSON.stringify(charactersList),
+        ).replace(
+            "%LOCATIONS_LIST%",
+            JSON.stringify(locationsList),
+        ).replace(
+            "%NUM_SCENES%",
+            JSON.stringify(numScenes),
+        ),
+      },
+      {role: "user", content: csvText},
+    ];
+    return await defaultCompletion({messages, temperature: 1, model: "chatgpt-4o-latest", outputTokens: 16384});
   },
 
   singleRequest: async (prompt, paramsList, text, temp=DEFAULT_TEMP) => {
@@ -204,7 +232,7 @@ const nerFunctions = {
       },
       {role: "user", content: typeof text === "object" ? JSON.stringify(text, null, 2) : text},
     ];
-    return await defaultCompletion(messages, temp);
+    return await defaultCompletion({messages, temperature: temp});
   },
 
   // Make batch requests to openai with rate limiting based on tokens.
@@ -251,7 +279,7 @@ const nerFunctions = {
         startTime = Date.now();
       }
       tokensUsed += (tokens + maxTokens);
-      promises.push(defaultCompletion(messages, temp, format));
+      promises.push(defaultCompletion({messages, temperature: temp, format}));
     }
     // Run the final batch.
     logger.debug(`Making final ${promises.length} requests with ${tokensUsed} max tokens`);
