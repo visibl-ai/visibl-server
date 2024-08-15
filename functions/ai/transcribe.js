@@ -58,7 +58,7 @@ async function transcribeFilesInParallel(bookData, outputFiles) {
   );
   if (ENVIRONMENT.value() === "development") {
     logger.debug("***Skipping transcription in development mode***");
-    await Promise.all(promises);
+    // await Promise.all(promises);
     return transcriptions;
   } else {
     await Promise.all(promises);
