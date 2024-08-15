@@ -22,7 +22,7 @@ async function outpaint(app, request) {
     up=0,
     outputFormat="jpeg"} = request;
 
-  const imageStream = await getFileStream(app, inputPath);
+  const imageStream = await getFileStream({path: inputPath});
   const inputFileName = inputPath.split("/").pop();
   const form = new FormData();
   form.append("image", imageStream,
@@ -52,7 +52,7 @@ async function outpaint(app, request) {
     logger.debug(`Outpainting image compelete ${outputPath}`);
     const buffer = Buffer.from(response.data);
     const stream = Readable.from(buffer);
-    return await uploadStreamAndGetPublicLink(app, stream, outputPath);
+    return await uploadStreamAndGetPublicLink({stream, filename: outputPath});
   } else {
     throw new Error(`${response.status}: ${response.data.toString()}`);
   }

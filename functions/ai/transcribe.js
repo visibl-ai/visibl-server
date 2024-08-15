@@ -19,7 +19,7 @@ const NUM_THREADS = process.env.NUM_THREADS || 32;
 async function uploadFilesToBucket(app, bookName, outputFiles, cloudPath = "splitAudio") {
   const uploads = await Promise.all(outputFiles.map(async (outputFile) => {
     try {
-      const uploadResponse = await uploadFileToBucket(app, outputFile, `${cloudPath}${outputFile.split("./bin/")[1]}`);
+      const uploadResponse = await uploadFileToBucket({localPath: outputFile, bucketPath: `${cloudPath}${outputFile.split("./bin/")[1]}`});
       logger.debug(`uploadFilesToBucket Upload response for ${outputFile}: ${JSON.stringify(uploadResponse.metadata.name)}`);
       return uploadResponse;
     } catch (error) {
@@ -29,7 +29,7 @@ async function uploadFilesToBucket(app, bookName, outputFiles, cloudPath = "spli
   },
   ));
   return uploads.map((uploadResponse) => {
-    logger.log(`Uploaded ${uploadResponse} to bucket`);
+    logger.log(`Uploaded ${uploadResponse.metadata.name} to bucket`);
     return `${uploadResponse.metadata.name}`;
   });
 }
@@ -99,7 +99,7 @@ function getTranscriptionsPath(uid, sku) {
 }
 
 async function getMetaData(app, uid, sku, path) {
-  const bookData = await getJsonFile(app, getMetadataPath(uid, sku));
+  const bookData = await getJsonFile({filename: getMetadataPath(uid, sku)});
   logger.debug(`Book Data: ${JSON.stringify(bookData, null, 2)}`);
   if (ENVIRONMENT.value() === "development") {
     bookData.chapters = Object.fromEntries(
@@ -116,7 +116,6 @@ async function getMetaData(app, uid, sku, path) {
   const endTimes = Object.values(bookData.chapters).map(
       (chapter) => chapter.endTime,
   );
-  logger.debug(inputFiles);
   return {bookData, inputFiles, outputFiles, startTimes, endTimes};
 }
 
@@ -126,7 +125,7 @@ async function pipeline(app, uid, sku, ffmpegPath ) {
   const inputFilePath = `./bin/${sku}.m4b`;
   const path = `./bin/`;
 
-  await downloadFileFromBucket(app, getM4BPath(uid, sku), inputFilePath);
+  await downloadFileFromBucket({bucketPath: getM4BPath(uid, sku), localPath: inputFilePath});
   logger.debug("STEP 1: File downloaded from bucket.");
   // 2. get metadata from audio file
 
@@ -159,14 +158,14 @@ async function pipeline(app, uid, sku, ffmpegPath ) {
     logger.debug("STEP 5: Transcriptions Complete");
   }
   // 6. Upload Transcriptions to Bucket.
-  const transcriptionsFile = await uploadJsonToBucket(app, transcriptions, getTranscriptionsPath(uid, sku));
+  const transcriptionsFile = await uploadJsonToBucket({json: transcriptions, bucketPath: getTranscriptionsPath(uid, sku)});
   logger.debug("STEP 6: Transcriptions Uploaded to Bucket.");
   return {transcriptions: transcriptionsFile.metadata.name, metadata: metadata.bookData, splitAudio};
 }
 
 async function downloadFffmpegBinary(app) {
   const ffmpegPath = "./bin/ffmpeg";
-  await downloadFileFromBucket(app, "bin/ffmpeg", ffmpegPath);
+  await downloadFileFromBucket({bucketPath: "bin/ffmpeg", localPath: ffmpegPath});
   await fs.chmod(ffmpegPath, 0o755);
   return ffmpegPath;
 }

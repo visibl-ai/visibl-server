@@ -170,10 +170,10 @@ async function scenesCreateLibraryItemFirestore(uid, data, app) {
   const newSceneRef = await scenesRef.add(newScene);
   logger.debug(`Created new scene for libraryId: ${libraryId} with id: ${newSceneRef.id}`);
   // Dispatch long running task to generate scenes..
-  const defaultExist = await fileExists(app, getDefaultSceneFilename(sku));
+  const defaultExist = await fileExists({path: getDefaultSceneFilename({sku})});
   if (defaultExist) {
-    const defaultScenes = await getCatalogueDefaultScene(app, sku);
-    await storeScenes(app, newSceneRef.id, defaultScenes);
+    const defaultScenes = await getCatalogueDefaultScene({sku});
+    await storeScenes({sceneId: newSceneRef.id, sceneData: defaultScenes});
     await imageDispatcher({
       sceneId: newSceneRef.id,
       lastSceneGenerated: 0,

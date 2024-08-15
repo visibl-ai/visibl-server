@@ -61,7 +61,7 @@ async function newUser(app, event) {
   const user = {
     uid: event.data.uid,
   };
-  const bucketPath = await createUserFolder(app, user.uid);
+  const bucketPath = await createUserFolder({uid: user.uid});
   user.bucketPath = bucketPath;
   await saveUser(user);
   return;

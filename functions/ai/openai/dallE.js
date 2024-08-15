@@ -43,7 +43,7 @@ async function generateImages(req, app) {
     }
     const scene = await getSceneFirestore(sceneId);
     const theme = scene.prompt;
-    let fullScenes = await getScene(app, sceneId);
+    let fullScenes = await getScene({sceneId});
     if (!fullScenes[chapter]) {
       logger.warn(`Chapter ${chapter} not found in scenes. Build the graph and try again!`);
       return fullScenes;
@@ -66,7 +66,7 @@ async function generateImages(req, app) {
     });
     logger.info("===ENDING DALL-E-3 image generation===");
     logger.debug(`Reloading scenes before editing.`);
-    fullScenes = await getScene(app, sceneId);
+    fullScenes = await getScene({sceneId});
     chapterScenes = fullScenes[chapter];
     for (const image of images) {
       const sceneIndex = chapterScenes.findIndex((s) => s.scene_number === image.metadata.scene_number);
@@ -82,7 +82,7 @@ async function generateImages(req, app) {
     }
 
     fullScenes[chapter] = chapterScenes;
-    await storeScenes(app, sceneId, fullScenes);
+    await storeScenes({sceneId, sceneData: fullScenes});
     logger.debug(`Stored updated scenes.`);
     return fullScenes;
   } catch (error) {
@@ -97,7 +97,7 @@ async function downloadImage(app, url, filename) {
     url: url,
     responseType: "stream",
   });
-  return uploadStreamAndGetPublicLink(app, response.data, filename).then(async (publicUrl) => {
+  return uploadStreamAndGetPublicLink({stream: response.data, filename}).then(async (publicUrl) => {
     logger.debug("uploaded to GCP, publicURL is = " + publicUrl);
     return publicUrl;
   }).catch((err) => {
