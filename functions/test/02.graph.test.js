@@ -15,19 +15,21 @@ import fs from "fs";
 
 import test from "firebase-functions-test";
 dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't work with conf.
+const APP_ID = process.env.APP_ID;
+const APP_URL = `http://127.0.0.1:5001/`;
 // Start the Firebase Functions test environment
 // eslint-disable-next-line no-unused-vars
 const firebaseTest = test({
   databaseURL: "http://localhost:8080",
-  storageBucket: "visibl-dev-ali.appspot.com",
-  projectId: "visibl-dev-ali",
+  storageBucket: `${APP_ID}.appspot.com`,
+  projectId: APP_ID,
 });
 // to get the app
 import {
   // eslint-disable-next-line no-unused-vars
   helloWorld,
 } from "../index.js";
-const APP_ID = process.env.APP_ID;
+
 const app = initializeApp({
   projectId: APP_ID,
   storageBucket: `${APP_ID}.appspot.com`,
@@ -36,23 +38,22 @@ const app = initializeApp({
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
-const APP_URL = `http://127.0.0.1:5002`;
 
-const GENERATE_CHARACTERS = true;
-const GENERATE_LOCATIONS = true;
-const CHARACTERS_DEDUP = false;
-const LOCATIONS_DEDUP = false;
+
+const GENERATE_CHARACTERS = false;
+const GENERATE_LOCATIONS = false;
+// const CHARACTERS_DEDUP = false;
+// const LOCATIONS_DEDUP = false;
 const CHARACTERS_TIMELINE = false;
 const LOCATIONS_TIMELINE = false;
-const GENERATE_CHARACTER_DESCRIPTIONS = false;
-const GENERATE_LOCATION_DESCRIPTIONS = false;
-const SUMMARIZE_DESCRIPTIONS = false;
+const GENERATE_CHARACTER_DESCRIPTIONS = true;
+const GENERATE_LOCATION_DESCRIPTIONS = true;
+const SUMMARIZE_DESCRIPTIONS = true;
 const GENERATE_SCENES = false;
 
 const SYM_PATH = "./test/bindings/graph/";
 const GRAPH_PATH = fs.realpathSync(SYM_PATH);
 console.log(GRAPH_PATH);
-
 
 // eslint-disable-next-line no-undef
 describe("Graph tests", () => {
@@ -110,7 +111,7 @@ describe("Graph tests", () => {
       };
 
       const response = await chai
-          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .request(`${APP_URL}${APP_ID}/us-central1`)
           .post("/generateGraphCharacters")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -126,7 +127,7 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .request(`${APP_URL}${APP_ID}/us-central1`)
           .post("/generateGraphLocations")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -143,7 +144,7 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .request(`${APP_URL}${APP_ID}/us-central1`)
           .post("/generateGraphCharacterDescriptions")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -160,7 +161,7 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .request(`${APP_URL}${APP_ID}/us-central1`)
           .post("/generateGraphLocationDescriptions")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -177,7 +178,7 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .request(`${APP_URL}${APP_ID}/us-central1`)
           .post("/generateGraphSummarizeDescriptions")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -196,7 +197,7 @@ describe("Graph tests", () => {
           chapter: chapter,
         };
         const response = await chai
-            .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+            .request(`${APP_URL}${APP_ID}/us-central1`)
             .post("/generateGraphScenes")
             .set("Content-Type", "application/json")
             .send({data: data}); // nest object as this is a dispatch.

@@ -18,24 +18,48 @@ If you're unsure whether to include a particular character, err on the side of i
       maxOutputTokens: 8192,
       responseMimeType: "application/json",
       responseSchema: {
-        type: "object",
-        properties: {
-          characters: {
-            type: "array",
-            items: {
-              type: "string",
+        "type": "object",
+        "properties": {
+          "characters": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                },
+                "aliases": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                  },
+                },
+              },
+              "required": [
+                "name",
+              ],
             },
           },
         },
+        "required": [
+          "characters",
+        ],
       },
     },
   },
   getLocations: {
     model: "gemini-1.5-pro-exp-0801",
     systemInstruction:
-`You are being provided the text of a novel. Respond with a list of all unique locations in the text. 
-Only include locations, do not include characters, or objects. Refer to the location by its most relevant name.
-Ignore any inappropriate locations which may cause content filtering issues.`,
+`You will be provided with the text of a novel. Your task is to create a list of all unique locations that appear in the story. 
+Carefully read through the text and identify all locations based on these criteria:
+1. Only include locations, not people, objects, or characteristics.
+2. Include all locations which are visualized in the story. If the reader is drawn to visualize the location, include it.
+3. A location can be as small as a room or an elevator, or as large as a country.
+4. Refer to each location by their most relevant name.
+5. If a location has multiple names or aliases, choose the most prominent one
+6. Include both major and minor locations, as long as they have some role in the story.
+If you're unsure whether to include a particular location, err on the side of inclusion. It's better to include a minor location than to miss an important one.
+`,
     generationConfig: {
       temperature: 0.1,
       topP: 0.95,
@@ -43,15 +67,66 @@ Ignore any inappropriate locations which may cause content filtering issues.`,
       maxOutputTokens: 8192,
       responseMimeType: "application/json",
       responseSchema: {
-        type: "object",
-        properties: {
-          locations: {
-            type: "array",
-            items: {
-              type: "string",
+        "type": "object",
+        "properties": {
+          "MainLocations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                },
+                "type": {
+                  "type": "string",
+                },
+                "SubLocations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                      },
+                      "type": {
+                        "type": "string",
+                      },
+                      "MicroLocation": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string",
+                            },
+                            "type": {
+                              "type": "string",
+                            },
+                          },
+                          "required": [
+                            "name",
+                            "type",
+                          ],
+                        },
+                      },
+                    },
+                    "required": [
+                      "name",
+                      "type",
+                    ],
+                  },
+                },
+              },
+              "required": [
+                "name",
+                "type",
+              ],
             },
           },
         },
+        "required": [
+          "MainLocations",
+        ],
       },
     },
   },
@@ -133,6 +208,88 @@ You are being provided the full text of a novel as well as a list of characters.
             },
           },
         },
+      },
+    },
+  },
+  getCharactersInChapter: {
+    model: "gemini-1.5-pro-exp-0801",
+    systemInstruction: `
+You will be provided with a chapter of text from a novel and a list of characters. Your task is to identify which characters from the provided list appear in the chapter.
+
+Here is the list of characters to look for:
+%CHARACTERS_LIST%
+To complete this task, follow these steps:
+1. Carefully read through the chapter text.
+2. For each character in the character list, check if their name appears in the chapter text. Be sure to consider variations of names (e.g., "Jim" might also appear as "Jimmy" or "James").
+3. Create a list of the characters that appear in the chapter.
+
+If no characters from the list appear in the chapter, set no_characters_found = true.
+
+Remember to only include characters from the provided list that actually appear in the chapter text.
+    `,
+    generationConfig: {
+      temperature: 0.5,
+      topP: 0.95,
+      topK: 64,
+      maxOutputTokens: 8192,
+      responseMimeType: "application/json",
+      responseSchema: {
+        "type": "object",
+        "properties": {
+          "characters_in_chapter": {
+            "type": "array",
+            "items": {
+              "type": "string",
+            },
+          },
+          "no_characters_found": {
+            "type": "boolean",
+          },
+        },
+        "required": [
+          "no_characters_found",
+        ],
+      },
+    },
+  },
+  getLocationsInChapter: {
+    model: "gemini-1.5-pro-exp-0801",
+    systemInstruction: `
+You will be provided with a chapter of text from a novel and a list of locations. Your task is to identify which locations from the provided list appear in the chapter.
+
+Here is the list of locations to look for:
+%LOCATIONS_LIST%
+To complete this task, follow these steps:
+1. Carefully read through the chapter text.
+2. For each location in the location list, check if their name appears in the chapter text. Be sure to consider variations of names (e.g., "Jim" might also appear as "Jimmy" or "James").
+3. Create a list of the locations that appear in the chapter.
+
+If no locations from the list appear in the chapter, set no_locationss_found = true.
+
+Remember to only include locations from the provided list that actually appear in the chapter text.
+    `,
+    generationConfig: {
+      temperature: 0.5,
+      topP: 0.95,
+      topK: 64,
+      maxOutputTokens: 8192,
+      responseMimeType: "application/json",
+      responseSchema: {
+        "type": "object",
+        "properties": {
+          "locations_in_chapter": {
+            "type": "array",
+            "items": {
+              "type": "string",
+            },
+          },
+          "no_locations_found": {
+            "type": "boolean",
+          },
+        },
+        "required": [
+          "no_locations_found",
+        ],
       },
     },
   },

@@ -583,156 +583,156 @@ Respond only with JSON.
    locations_properties_CSV: 
   `,
   transcribe_film_director_prompt: `
-    You are CinematographerGPT.
+You are CinematographerGPT.
 
-    You are being provided a CSV with the raw text of a novel. The "text" column
-    of the CSV contains individual sentences from the chapter. The "startTime" of the CSV
-    is the time in seconds when the narrator reaches the sentence.
-    You are also being provided a list of characters, and a list of locations. 
-    Pay close attention to the alisases of each character and location.
-    
-    You are working with a film director. You are creating a movie based on the novel. You are creating a 
-    set of scenes that a film crew will use to create the movie. Your goal is to read the text, and create a
-    scene object for each scene in the chapter. A scene object is:
-     a "scene_number" increasing one by one
-     a "description" of the scene, which is very detailed and outlines exactly what is happening. Take a lot of the text from the chapter and insert it here.
-     a "startTime" of the scene, based on the start_time of the sentences in the csv file the scene captures
-     a "character" array of characters in the scene
-     a "locations" array of locations in the scene
-     a "viewpoint" {
-      "setting": "time of day and lightning of the scene",
-      "placement": "Placement of characters or other points of focus",
-      "shot type: "wide, medium or close-up shot, camera angle",
-      "mood": "mood of the scene",
-      "technical": "lens choices and aperture settings"
-     }
+You are being provided a CSV with the raw text of a novel. The "text" column
+of the CSV contains individual sentences from the chapter. The "startTime" of the CSV
+is the time in seconds when the narrator reaches the sentence.
+You are also being provided a list of characters, and a list of locations. 
+Pay close attention to the alisases of each character and location.
 
-    Only refer to characters by their name from the Character List.
-    Only refer to locations by their name from the Locations List.
+You are working with a film director. You are creating a movie based on the novel. You are creating a 
+set of scenes that a film crew will use to create the movie. Your goal is to read the text, and create a
+scene object for each scene in the chapter. A scene object is:
+  a "scene_number" increasing one by one
+  a "description" of the scene, which is very detailed and outlines exactly what is happening. Take a lot of the text from the chapter and insert it here.
+  a "startTime" of the scene, based on the start_time of the sentences in the csv file the scene captures
+  a "character" array of characters in the scene
+  a "locations" array of locations in the scene
+  a "viewpoint" {
+  "setting": "time of day and lightning of the scene",
+  "placement": "Placement of characters or other points of focus",
+  "shot type: "wide, medium or close-up shot, camera angle",
+  "mood": "mood of the scene",
+  "technical": "lens choices and aperture settings"
+  }
 
-    You must create enough scenes to cover the entire chapter. Many scenes can be of the same description but
-    from a different viewpoint.
-    
-    ---Example Start---
-    List of Characters:
-        ["Tommy","Hannah", "Alphie"]
-    List of Locations:
-        ["office building","elevator", "coffin"]
-    Chapter JSON File:
-    "id","startTime","text"
-    0,"4.5","Tommy entered the office building."
-    1,"6.126506024096385","He was wearing a black leather jacket."
-    2,"7.933734939759036","He saw Hannah."
-    3,"8.656626506024097","She was wearing a red dress."
-    4,"9.921686746987952","He saw Alphie."
-    5,"10.644578313253012","He was wearing a blue suit."
-    6,"11.909638554216867","Tommy and the others entered the elevator."
-    7,"14.259036144578314","He pressed the button for the 13th floor."
-    8,"16.066265060240966","All of a sudden, the elevator stopped."
-    9,"18.054216867469883","They were trapped."
-    10,"18.59638554216868","He was claustrophobic."
-    11,"19.68072289156627","He started to panic."
-    12,"20.76506024096386","He started to sweat."
-    13,"21.668674698795183","He began to remember the time he was trapped in a coffin."
-    14,"24.560240963855424","He was buried alive."
-    15,"25.644578313253014","He was in a coffin made of fiberglass."
-    16,"27.63253012048193","All of a sudden, Hannah shook the kid awake."
-    17,"29.80120481927711","He was dreaming."
-    18,"30.52409638554217","He was in the elevator."
-    19,"31.96987951807229","He was not in a coffin."
-    20,"33.234939759036145","He was not buried alive."
-    
-    Scenes object:
-    {scenes: 
-        [{scene_number: 1, 
-          description: 'Tommy walking towards the office building in the evening.', 
-          characters: ['Tommy'], 
-          locations: ['office building'],
-          startTime: 4.5,
-          viewpoint: {
-            "setting": "evening, with glowing lights from the surrounding city",
-            "placement": "Tommy in the centre of the image walking towards the office buiding",
-            "shot type: "wide angle view of the building with a view of the street and surrounding area",
-            "mood": "rainy and gloomy",
-            "technical": "35mm f16"
-           }
-        }, 
-        {scene_number: 2, 
-          description: 'Tommy enters the office building, walking through the front doors.', 
-          characters: ['Tommy'], 
-          locations: ['office building'],
-          startTime: 6,
-          viewpoint: {
-            "setting": "evening, with glowing lights from the surrounding city",
-            "placement": "View of Tommy's face with the city in the background",
-            "shot type: "close-up",
-            "mood": "rainy and gloomy",
-            "technical": "50mm f2.8"
-           }
-        }, 
-        {scene_number: 3, 
-          description: 'Tommy exits the doorway of the office building is looking at Hannah and Alphie inside the office building', 
-          characters: ['Tommy', 'Hannah', "Alphie"], 
-          locations: ['office building'],
-          startTime: 8,
-          viewpoint: {
-            "setting": "inside building with flourescent lighting",
-            "placement": "A view of Tommy's back as he walks towards Hallah and Alphie",
-            "shot type: "close-up",
-            "mood": "sombre and boring",
-            "technical": "50mm f2.8"
-           }
-        },
-        {scene_number: 4, 
-          description: 'Tommy exits the doorway of the office building is looking at Hannah and Alphie inside the office building', 
-          characters: ['Tommy', 'Hannah', "Alphie"], 
-          locations: ['office building'],
-          startTime: 10,
-          viewpoint: {
-            "setting": "inside building with flourescent lighting",
-            "placement": "A view of Tommy Alphie and Hannah together",
-            "shot type: "medium shot",
-            "mood": "sombre and boring",
-            "technical": "35mm f6"
-           }
-        },
-        {scene_number: 5, 
-          description: 'Tommy enters the elevator with Hannah to his left and Alphie to his right', 
-          characters: ['Tommy', 'Hannah', "Alphie"], 
-          locations: ['elevator'],
-          startTime: 12,
-          viewpoint: {
-            "setting": "inside building with flourescent lighting",
-            "placement": "A view of Tommy, Hannah and Alphie's back walking towards th elevator",
-            "shot type: "medium shot",
-            "mood": "sombre and boring",
-            "technical": "50mm f1.4"
-           }
-        },
-        {scene_number: 6, 
-          description: 'Tommy enters the elevator with Hannah and Alphie', 
-          characters: ['Tommy', 'Hannah', "Alphie"], 
-          locations: ['elevator'],
-          startTime: 14,
-          viewpoint: {
-            "setting": "inside building with flourescent lighting",
-            "placement": "Tommy Hannah and Alphie in the elevator looking in through the open elevator door",
-            "shot type: "medium shot",
-            "mood": "sombre and boring",
-            "technical": "50mm f1.4"
-           }
-        },
-        ...
-    ]}
+Only refer to characters by their name from the Character List.
+Only refer to locations by their name from the Locations List.
 
-    ---Example End---
-    
-    Respond only with JSON
-    
-    List of Characters:
-        %CHARACTER_LIST%
-    List of Locations:
-        %LOCATIONS_LIST%
+You must create enough scenes to cover the entire chapter. Many scenes can be of the same description but
+from a different viewpoint.
+
+---Example Start---
+List of Characters:
+    ["Tommy","Hannah", "Alphie"]
+List of Locations:
+    ["office building","elevator", "coffin"]
+Chapter JSON File:
+"id","startTime","text"
+0,"4.5","Tommy entered the office building."
+1,"6.126506024096385","He was wearing a black leather jacket."
+2,"7.933734939759036","He saw Hannah."
+3,"8.656626506024097","She was wearing a red dress."
+4,"9.921686746987952","He saw Alphie."
+5,"10.644578313253012","He was wearing a blue suit."
+6,"11.909638554216867","Tommy and the others entered the elevator."
+7,"14.259036144578314","He pressed the button for the 13th floor."
+8,"16.066265060240966","All of a sudden, the elevator stopped."
+9,"18.054216867469883","They were trapped."
+10,"18.59638554216868","He was claustrophobic."
+11,"19.68072289156627","He started to panic."
+12,"20.76506024096386","He started to sweat."
+13,"21.668674698795183","He began to remember the time he was trapped in a coffin."
+14,"24.560240963855424","He was buried alive."
+15,"25.644578313253014","He was in a coffin made of fiberglass."
+16,"27.63253012048193","All of a sudden, Hannah shook the kid awake."
+17,"29.80120481927711","He was dreaming."
+18,"30.52409638554217","He was in the elevator."
+19,"31.96987951807229","He was not in a coffin."
+20,"33.234939759036145","He was not buried alive."
+
+Scenes object:
+{scenes: 
+    [{scene_number: 1, 
+      description: 'Tommy walking towards the office building in the evening.', 
+      characters: ['Tommy'], 
+      locations: ['office building'],
+      startTime: 4.5,
+      viewpoint: {
+        "setting": "evening, with glowing lights from the surrounding city",
+        "placement": "Tommy in the centre of the image walking towards the office buiding",
+        "shot type: "wide angle view of the building with a view of the street and surrounding area",
+        "mood": "rainy and gloomy",
+        "technical": "35mm f16"
+        }
+    }, 
+    {scene_number: 2, 
+      description: 'Tommy enters the office building, walking through the front doors.', 
+      characters: ['Tommy'], 
+      locations: ['office building'],
+      startTime: 6,
+      viewpoint: {
+        "setting": "evening, with glowing lights from the surrounding city",
+        "placement": "View of Tommy's face with the city in the background",
+        "shot type: "close-up",
+        "mood": "rainy and gloomy",
+        "technical": "50mm f2.8"
+        }
+    }, 
+    {scene_number: 3, 
+      description: 'Tommy exits the doorway of the office building is looking at Hannah and Alphie inside the office building', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['office building'],
+      startTime: 8,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "A view of Tommy's back as he walks towards Hallah and Alphie",
+        "shot type: "close-up",
+        "mood": "sombre and boring",
+        "technical": "50mm f2.8"
+        }
+    },
+    {scene_number: 4, 
+      description: 'Tommy exits the doorway of the office building is looking at Hannah and Alphie inside the office building', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['office building'],
+      startTime: 10,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "A view of Tommy Alphie and Hannah together",
+        "shot type: "medium shot",
+        "mood": "sombre and boring",
+        "technical": "35mm f6"
+        }
+    },
+    {scene_number: 5, 
+      description: 'Tommy enters the elevator with Hannah to his left and Alphie to his right', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['elevator'],
+      startTime: 12,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "A view of Tommy, Hannah and Alphie's back walking towards th elevator",
+        "shot type: "medium shot",
+        "mood": "sombre and boring",
+        "technical": "50mm f1.4"
+        }
+    },
+    {scene_number: 6, 
+      description: 'Tommy enters the elevator with Hannah and Alphie', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['elevator'],
+      startTime: 14,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "Tommy Hannah and Alphie in the elevator looking in through the open elevator door",
+        "shot type: "medium shot",
+        "mood": "sombre and boring",
+        "technical": "50mm f1.4"
+        }
+    },
+    ...
+]}
+
+---Example End---
+
+Respond only with JSON
+
+List of Characters:
+    %CHARACTER_LIST%
+List of Locations:
+    %LOCATIONS_LIST%
   `,
 };
 export default prompts;

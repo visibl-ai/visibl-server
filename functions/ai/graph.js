@@ -43,9 +43,16 @@ function lowerCaseObjectKeys(params) {
   );
 }
 
-function lowerCaseArrayStrings(params) {
-  const {array} = params;
-  return array.map((item) => item.toLowerCase());
+function lowercaseCharacters(characterList) {
+  return characterList.map((character) => {
+    const lowercasedCharacter = {
+      name: character.name.toLowerCase(),
+    };
+    if (character.aliases && character.aliases.length > 0) {
+      lowercasedCharacter.aliases = character.aliases.map((alias) => alias.toLowerCase());
+    }
+    return lowercasedCharacter;
+  });
 }
 
 async function graphCharacters(params) {
@@ -61,7 +68,7 @@ async function graphCharacters(params) {
     "type": "json",
   });
   // 4. store graph.
-  characterList.characters = lowerCaseArrayStrings({array: characterList.characters});
+  characterList.characters = lowercaseCharacters(characterList.characters);
   await storeGraph({uid, sku, visiblity, data: characterList, type: "characters"});
   return characterList;
 }
@@ -83,14 +90,22 @@ async function graphCharacterDescriptions(params) {
     }
   }
   for (const character of characters.characters) {
-    logger.debug(`Getting character description for ${character}`);
+    const name = character.name;
+    // Lets assume the model is smart enough to understand aliases for now.
+    // if (character.aliases && character.aliases.length > 0) {
+    //   name = `${name} aka `;
+    //   for (const alias of character.aliases) {
+    //     name = `${name} ${alias}, `;
+    //   }
+    // }
+    logger.debug(`Getting character description for ${name}`);
     const description = await geminiRequest({
-      "prompt": "getCharacterDescription2", // "getCharacterDescription",
+      "prompt": "getCharacterDescription", // "getCharacterDescription",
       "message": fullText,
       "replacements": [
         {
           key: "%CHARACTER%",
-          value: character,
+          value: name,
         },
       ],
     });
@@ -102,6 +117,30 @@ async function graphCharacterDescriptions(params) {
     await new Promise((resolve) => setTimeout(resolve, WAIT_TIME * 1000));
   }
   return characterDescriptions;
+}
+
+function flattenLocations(data) {
+  const flattened = [];
+
+  function traverse(location, path = []) {
+    const currentPath = [...path, location.name.toLowerCase()];
+    flattened.push({
+      name: location.name.toLowerCase(),
+      type: location.type.toLowerCase(),
+      path: currentPath.join(" > "),
+    });
+
+    if (location.SubLocations) {
+      location.SubLocations.forEach((subLocation) => traverse(subLocation, currentPath));
+    }
+
+    if (location.MicroLocation) {
+      location.MicroLocation.forEach((microLocation) => traverse(microLocation, currentPath));
+    }
+  }
+
+  data.MainLocations.forEach((mainLocation) => traverse(mainLocation));
+  return flattened;
 }
 
 async function graphLocations(params) {
@@ -116,9 +155,10 @@ async function graphLocations(params) {
     "message": fullText,
     "type": "json",
   });
-  locationList.locations = lowerCaseArrayStrings({array: locationList.locations});
+  // locationList.locations = lowerCaseArrayStrings({array: locationList.locations});
+  const flatLocations = {locations: flattenLocations(locationList)};
   // 4. store graph.
-  await storeGraph({uid, sku, visiblity, data: locationList, type: "locations"});
+  await storeGraph({uid, sku, visiblity, data: flatLocations, type: "locations"});
   return locationList;
 }
 
@@ -139,19 +179,20 @@ async function graphLocationDescriptions(params) {
     }
   }
   for (const location of locations.locations) {
-    logger.debug(`Getting location description for ${location}`);
+    const name = location.name;
+    logger.debug(`Getting location description for ${name}`);
     const description = await geminiRequest({
       "prompt": "getLocationDescription",
       "message": fullText,
       "replacements": [
         {
           key: "%LOCATION%",
-          value: location,
+          value: name,
         },
       ],
     });
-    locationDescriptions[location] = description;
-    logger.debug(`location description for ${location}: ${locationDescriptions[location]}`);
+    locationDescriptions[name] = description;
+    logger.debug(`location description for ${name}: ${locationDescriptions[name]}`);
     // Add a 15-second delay
     logger.debug(`Waiting ${WAIT_TIME} seconds before next request`);
     await storeGraph({uid, sku, visiblity, data: locationDescriptions, type: "locationDescriptions"});
