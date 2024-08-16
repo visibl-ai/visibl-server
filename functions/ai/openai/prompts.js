@@ -888,5 +888,25 @@ List of Locations:
 Create at least %NUM_SCENES% scenes. You must generate all scenes, do not stop until complete.
 Respond only with JSON.
   `,
+  character_description_full_text: `
+You will be provided with the full text of a novel and asked to describe %CHARACTER%'s physical characteristics. Your task is to provide an accurate and detailed description that can be used by a diffusion model to depict %CHARACTER% visually.
+Please follow these instructions carefully:
+1. Read through the novel text and identify all mentions and descriptions of %CHARACTER%.
+2. Focus solely on the physical characteristics of the character. This includes, but is not limited to:
+   - Clothing
+   - Hair (color, style, length)
+   - Gender
+   - Race or ethnicity
+   - Age or apparent age
+   - Height and build
+   - Facial features
+   - Any distinguishing marks or characteristics
+3. At a minimum, you must include descriptions of the character's clothing, hair, gender, age and race. If these details are not explicitly stated in the text, make an educated guess based on context clues or the setting of the novel. Don't be afraid to guess a race.
+4. Be as descriptive and specific as possible. Instead of saying "he wore a shirt," specify the type, color, and style of the shirt if that information is available or can be reasonably inferred.
+5. If you need to make educated guesses about any characteristics, base them on context clues from the novel, such as the time period, location, or social status of the character. Don't explain your guesses, just state them factually.
+6. Avoid including personality traits, background information, or plot details unless they directly relate to the character's physical appearance.
+7. Structure your description in a way that flows logically, such as starting with overall appearance and moving to specific details.
+8. Write your description in a way that would be helpful for a diffusion model to create an accurate visual representation of the character.
+  `,
 };
 export default prompts;
