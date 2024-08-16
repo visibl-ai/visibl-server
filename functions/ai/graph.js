@@ -16,7 +16,7 @@ import novel from "./openai/novel.js";
 import nerFunctions from "./openai/ner.js";
 import csv from "./csv.js";
 
-const WAIT_TIME = 20;
+const WAIT_TIME = 25;
 
 function consolidateTranscriptions(params) {
   const {transcriptions} = params;
@@ -360,6 +360,48 @@ async function graphScenes16k(params) {
   return scenes;
 }
 
+async function graphCharacterDescriptionsOAI(params) {
+  const {uid, sku, visiblity} = params;
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const fullText = consolidateTranscriptions({transcriptions});
+  let characters = await getGraph({uid, sku, visiblity, type: "characters"});
+  if (!characters.characters || !Array.isArray(characters.characters)) {
+    if (Array.isArray(characters)) {
+      characters = {
+        characters: characters,
+      };
+    } else {
+      logger.error(`No characters found for ${uid} ${sku} ${visiblity}`);
+      return {};
+    }
+  }
+  const prompt = "character_description_full_text";
+  const tokensPerMinute = 1900000;
+  const maxTokens = 16384;
+  const temp = 1;
+  const paramsList = [];
+  const textList = [];
+  for (const character of characters.characters) {
+    const name = character.name;
+    paramsList.push({name: "%CHARACTER%", value: name});
+    textList.push(fullText);
+  }
+  logger.debug(`textList: ${JSON.stringify(textList, null, 2).substring(0, 150)}...`);
+  logger.debug(`paramsList: ${JSON.stringify(paramsList, null, 2).substring(0, 150)}...`);
+  const characterDescriptions = await nerFunctions.batchRequest(
+      prompt,
+      paramsList,
+      textList,
+      tokensPerMinute,
+      temp,
+      maxTokens,
+      "text",
+  );
+  await storeGraph({uid, sku, visiblity, data: characterDescriptions, type: "characterDescriptionsOAI"});
+  return characterDescriptions;
+}
+
+
 export {
   graphCharacters,
   graphLocations,
@@ -368,4 +410,5 @@ export {
   graphSummarizeDescriptions,
   graphScenes,
   graphScenes16k,
+  graphCharacterDescriptionsOAI,
 };

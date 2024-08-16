@@ -12,6 +12,7 @@ import {
   graphSummarizeDescriptions,
   graphScenes,
   graphScenes16k,
+  graphCharacterDescriptionsOAI,
 } from "../ai/graph.js";
 
 import {
@@ -77,5 +78,12 @@ export const generateGraphScenes16k = onTaskDispatched(
     async (req) => {
       logger.debug(`graphScenes16k: ${JSON.stringify(req.data)}`);
       return await graphScenes16k(dataToBody(req).body);
+    });
+
+export const generateGraphCharacterDescriptionsOAI = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphCharacterDescriptionsOAI: ${JSON.stringify(req.data)}`);
+      return await graphCharacterDescriptionsOAI(dataToBody(req).body);
     });
 
