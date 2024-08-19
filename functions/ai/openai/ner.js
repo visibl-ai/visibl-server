@@ -242,7 +242,8 @@ const nerFunctions = {
   },
 
   // Make batch requests to openai with rate limiting based on tokens.
-  batchRequest: async (prompt, paramsList, textList, tokensPerMinute, temp=DEFAULT_TEMP, maxTokens = DEFAULT_MAX_TOKENS, format="json_object") => {
+  batchRequest: async (params) => {
+    const {prompt, paramsList, textList, tokensPerMinute, temp=DEFAULT_TEMP, maxTokens = DEFAULT_MAX_TOKENS, format="json_object"} = params;
     // Generate the content for the prompt so we can calcualte tokens.
     logger.debug(`Batch request for ${prompt} with ${textList.length} texts and tokensPerMinute=${tokensPerMinute}, format=${format}`);
     let content = prompts[prompt];
@@ -286,6 +287,61 @@ const nerFunctions = {
       }
       tokensUsed += (tokens + maxTokens);
       promises.push(defaultCompletion({messages, temperature: temp, format}));
+    }
+    // Run the final batch.
+    logger.debug(`Making final ${promises.length} requests with ${tokensUsed} max tokens`);
+    results = results.concat(await Promise.all(promises));
+    return results;
+  },
+  // Make batch requests to openai with rate limiting based on tokens.
+  batchRequestMultiPrompt: async (params) => {
+    const {prompt, paramsList, textList, tokensPerMinute, temp=DEFAULT_TEMP, maxTokens = DEFAULT_MAX_TOKENS, format="json_object", model = DEFAULT_MODEL} = params;
+    // Generate the content for the prompt so we can calcualte tokens.
+    logger.debug(`Batch request for ${prompt} with ${textList.length} texts and tokensPerMinute=${tokensPerMinute}, format=${format}`);
+    const promptList = [];
+    paramsList.forEach((params) => {
+      let content = prompts[prompt];
+      params.forEach((param) => {
+        logger.debug(`Generating prompt for ${param.name} with value ${param.value}`);
+        content = content.replaceAll(`%${param.name}%`, param.value);
+      });
+      promptList.push(content);
+      logger.debug(`Prompt: ${content}`);
+    });
+
+    let tokensUsed = 0;
+    const promises = [];
+    let startTime = Date.now();
+    let results = [];
+    // Loop through the textList.
+    for (let i = 0; i < textList.length; i++) {
+      const text = textList[i];
+      const userContent = typeof text === "object" ? JSON.stringify(text, null, 2) : text;
+      const messages = [
+        {
+          role: "system",
+          content: promptList[i],
+        },
+        {role: "user", content: userContent},
+      ];
+      const tokens = tokenHelper.countTokens(JSON.stringify(messages));
+      // This checks if the tokens in the current chunk takes us over the limit.
+      if ( (tokensUsed + tokens + maxTokens) > tokensPerMinute) {
+        // store results in a list.
+        logger.debug(`Making ${promises.length} parallel requests with ${tokensUsed} max tokens`);
+        results = results.concat(await Promise.all(promises));
+        promises.length = 0; // clear old promises.
+        tokensUsed = 0;
+        const elapsedTime = Date.now() - startTime;
+        // Make sure we wait 60 serconds between batches.
+        if (elapsedTime < 60000) {
+          logger.debug(`Waiting ${60000 - elapsedTime} milliseconds`);
+          await new Promise((resolve) => setTimeout(resolve, 60000 - elapsedTime));
+        }
+        startTime = Date.now();
+      }
+      tokensUsed += (tokens + maxTokens);
+      promises.push(defaultCompletion({messages, temperature: temp, format, model}));
     }
     // Run the final batch.
     logger.debug(`Making final ${promises.length} requests with ${tokensUsed} max tokens`);

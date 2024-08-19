@@ -258,13 +258,13 @@ async function graphScenes(params) {
   // textList = textList.slice(0, 10);
   logger.debug(`textList: ${JSON.stringify(textList, null, 2).substring(0, 150)}...`);
   logger.debug(`paramsList: ${JSON.stringify(paramsList, null, 2).substring(0, 150)}...`);
-  scenes_result = await nerFunctions.batchRequest(
-      prompt,
-      paramsList,
-      textList,
-      tokensPerMinute,
-      temp,
-  );
+  scenes_result = await nerFunctions.batchRequest({
+    prompt,
+    paramsList,
+    textList,
+    tokensPerMinute,
+    temp,
+  });
   const flattened_scenes_result = [];
   let scene_number = 0;
   for (const scenes of scenes_result) {
@@ -377,26 +377,30 @@ async function graphCharacterDescriptionsOAI(params) {
   }
   const prompt = "character_description_full_text";
   const tokensPerMinute = 1900000;
-  const maxTokens = 16384;
+  const maxTokens = 16383;
   const temp = 1;
   const paramsList = [];
   const textList = [];
   for (const character of characters.characters) {
     const name = character.name;
-    paramsList.push({name: "%CHARACTER%", value: name});
+    paramsList.push([{name: "CHARACTER", value: name}]);
     textList.push(fullText);
   }
-  logger.debug(`textList: ${JSON.stringify(textList, null, 2).substring(0, 150)}...`);
-  logger.debug(`paramsList: ${JSON.stringify(paramsList, null, 2).substring(0, 150)}...`);
-  const characterDescriptions = await nerFunctions.batchRequest(
-      prompt,
-      paramsList,
-      textList,
-      tokensPerMinute,
-      temp,
-      maxTokens,
-      "text",
-  );
+  logger.debug(`textList: ${JSON.stringify(textList).substring(0, 150)}...`);
+  logger.debug(`paramsList: ${JSON.stringify(paramsList).substring(0, 150)}...`);
+  // Trim paramsList and textList to 2 items
+  // paramsList = paramsList.slice(0, 2);
+  // textList = textList.slice(0, 2);
+  const characterDescriptions = await nerFunctions.batchRequestMultiPrompt({
+    prompt,
+    paramsList,
+    textList,
+    tokensPerMinute,
+    temp,
+    maxTokens,
+    format: "text",
+    model: "gpt-4o-2024-08-06",
+  });
   await storeGraph({uid, sku, visiblity, data: characterDescriptions, type: "characterDescriptionsOAI"});
   return characterDescriptions;
 }

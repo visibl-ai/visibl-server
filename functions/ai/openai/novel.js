@@ -234,12 +234,12 @@ const novel = {
       returnResults[item.mainName].aliases = item.aliases;
     }
 
-    const descriptionResults = await nerFunctions.batchRequest(
-        prompt,
-        [],
-        propsList,
-        tokensPerMinute,
-    );
+    const descriptionResults = await nerFunctions.batchRequest({
+      prompt,
+      paramsList: [],
+      textList: propsList,
+      tokensPerMinute,
+    });
     // logger.debug(`descriptionResults: ${JSON.stringify(descriptionResults, null, 2)}`);
     for (let i = 0; i < descriptionResults.length; i++) {
       const entityName = entityIndex[i];
@@ -259,15 +259,15 @@ const novel = {
     }
     logger.debug(`descriptions: ${JSON.stringify(descriptions, null, 2)}`);
     logger.debug(`names: ${JSON.stringify(names, null, 2)}`);
-    const descriptionSummaries = await nerFunctions.batchRequest(
-        prompt,
-        [],
-        descriptions,
-        tokensPerMinute,
-        0.1,
-        4096,
-        "text",
-    );
+    const descriptionSummaries = await nerFunctions.batchRequest({
+      prompt,
+      paramsList: [],
+      textList: descriptions,
+      tokensPerMinute,
+      temp: 0.1,
+      maxTokens: 4096,
+      format: "text",
+    });
     // need to map to characters and remove hyphens.
     for (let i = 0; i < descriptionSummaries.length; i++) {
       const key = names[i];
