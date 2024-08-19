@@ -22,10 +22,11 @@ import {
   outpaintWideAndTall,
 } from "../stability/stability.js";
 
+import {
+  OPENAI_DALLE_3_IMAGES_PER_MINUTE,
+} from "./openaiLimits.js";
 
-const SCENES_PER_REQUEST = 15;
 const TIMEOUT = 60000;
-
 
 async function generateImages(req) {
   try {
@@ -35,8 +36,8 @@ async function generateImages(req) {
       scenesToGenerate,
       sceneId} = req;
 
-    if (scenesToGenerate.length > SCENES_PER_REQUEST) {
-      throw new Error(`Maximum ${SCENES_PER_REQUEST} scenes per request`);
+    if (scenesToGenerate.length > OPENAI_DALLE_3_IMAGES_PER_MINUTE) {
+      throw new Error(`Maximum ${OPENAI_DALLE_3_IMAGES_PER_MINUTE} scenes per request`);
     }
     if (sceneId === undefined) {
       throw new Error("generateImages: sceneId is required");
@@ -195,7 +196,7 @@ async function dalle3(request) {
 function getScenesToGenerate(lastSceneGenerated, totalScenes) {
   const scenesToGenerate = [];
   const i = lastSceneGenerated;
-  for (let j = i; j < i + SCENES_PER_REQUEST && j < totalScenes; j++) {
+  for (let j = i; j < i + OPENAI_DALLE_3_IMAGES_PER_MINUTE && j < totalScenes; j++) {
     scenesToGenerate.push(j);
   }
   return scenesToGenerate;

@@ -13,6 +13,7 @@ import {
   graphScenes,
   graphScenes16k,
   graphCharacterDescriptionsOAI,
+  graphLocationDescriptionsOAI,
 } from "../ai/graph.js";
 
 import {
@@ -87,3 +88,9 @@ export const generateGraphCharacterDescriptionsOAI = onTaskDispatched(
       return await graphCharacterDescriptionsOAI(dataToBody(req).body);
     });
 
+export const generateGraphLocationDescriptionsOAI = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphLocationDescriptionsOAI: ${JSON.stringify(req.data)}`);
+      return await graphLocationDescriptionsOAI(dataToBody(req).body);
+    });

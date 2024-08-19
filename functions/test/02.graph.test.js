@@ -42,15 +42,14 @@ process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 
 const GENERATE_CHARACTERS = false;
 const GENERATE_LOCATIONS = false;
-// const CHARACTERS_DEDUP = false;
-// const LOCATIONS_DEDUP = false;
-const CHARACTERS_TIMELINE = false;
-const LOCATIONS_TIMELINE = false;
+// const CHARACTERS_TIMELINE = false;
+// const LOCATIONS_TIMELINE = false;
 const GENERATE_CHARACTER_DESCRIPTIONS = false;
-const GENERATE_CHARACTER_DESCRIPTIONS_OAI = true;
 const GENERATE_LOCATION_DESCRIPTIONS = false;
+const GENERATE_CHARACTER_DESCRIPTIONS_OAI = false;
+const GENERATE_LOCATION_DESCRIPTIONS_OAI = false;
 const SUMMARIZE_DESCRIPTIONS = false;
-const GENERATE_SCENES = false;
+const GENERATE_SCENES = true;
 const GENERATE_SCENES_16K = false;
 
 const SYM_PATH = "./test/bindings/graph/";
@@ -187,6 +186,23 @@ describe("Graph tests", () => {
       expect(response).to.have.status(204);
     });
   }
+  if (GENERATE_LOCATION_DESCRIPTIONS_OAI) {
+    // eslint-disable-next-line no-undef
+    it(`test graphLocationDescriptionsOAI`, async () => {
+      // Prepare the update data
+      const data = {
+        uid: "admin",
+        sku: process.env.PUBLIC_SKU1,
+        visiblity: "public",
+      };
+      const response = await chai
+          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .post("/generateGraphLocationDescriptionsOAI")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+    });
+  }
   if (SUMMARIZE_DESCRIPTIONS) {
     // eslint-disable-next-line no-undef
     it(`test graphSummarizeDescriptions`, async () => {
@@ -207,7 +223,8 @@ describe("Graph tests", () => {
   if (GENERATE_SCENES) {
     // eslint-disable-next-line no-undef
     it(`test generateGraphScenes`, async () => {
-      for (let chapter = 0; chapter < 6; chapter++) {
+      for (let chapter = 3; chapter < 4; chapter++) {
+      // for (let chapter = 0; chapter < 31; chapter++) {
         // Prepare the update data
         const data = {
           uid: "admin",

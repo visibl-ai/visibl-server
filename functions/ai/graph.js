@@ -14,6 +14,7 @@ import {
 import logger from "firebase-functions/logger";
 import novel from "./openai/novel.js";
 import nerFunctions from "./openai/ner.js";
+import {OPENAI_TOKENS_PER_MINUTE} from "./openai/openaiLimits.js";
 import csv from "./csv.js";
 
 const WAIT_TIME = 25;
@@ -225,11 +226,16 @@ async function graphScenes(params) {
   const {uid, sku, visiblity, chapter} = params;
   let scenes_result = [];
   const locations = await getGraph({uid, sku, visiblity, type: "locations"});
-  locations.locations = locations.locations.map((location) => location.toLowerCase());
+  locations.locations = locations.locations.map((location) => location.name.toLowerCase());
   const characters = await getGraph({uid, sku, visiblity, type: "characters"});
-  characters.characters = characters.characters.map((character) => character.toLowerCase());
+  characters.characters = characters.characters.map((character) => character.name.toLowerCase());
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
-  const CHAPTER_FULL = transcriptions[chapter];
+  const chapterJson = transcriptions[chapter];
+  chapterJson.forEach((item) => {
+    if (typeof item.startTime === "number") {
+      item.startTime = item.startTime.toFixed(1);
+    }
+  });
   let charactersDescription = await getGraph({uid, sku, visiblity, type: "characterSummaries"});
   charactersDescription = Object.fromEntries(
       Object.entries(charactersDescription).map(([key, value]) => [key.toLowerCase(), value]),
@@ -239,7 +245,7 @@ async function graphScenes(params) {
       Object.entries(locationDescription).map(([key, value]) => [key.toLowerCase(), value]),
   );
   // Loop
-  const SLICE_SIZE = 25;
+  const SLICE_SIZE = 35;
   // const promises = [];
 
   const prompt = "transcribe_film_director_prompt";
@@ -247,11 +253,11 @@ async function graphScenes(params) {
     {name: "CHARACTER_LIST", value: characters},
     {name: "LOCATIONS_LIST", value: locations},
   ];
-  const tokensPerMinute = 1900000;
+  const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
   const temp = 0.8;
   const textList = [];
-  for (let i = 0; i < CHAPTER_FULL.length; i += SLICE_SIZE) {
-    const chapterChunkCSV = csv(CHAPTER_FULL, i, i + SLICE_SIZE);
+  for (let i = 0; i < chapterJson.length; i += SLICE_SIZE) {
+    const chapterChunkCSV = csv(chapterJson, i, i + SLICE_SIZE);
     textList.push(chapterChunkCSV);
   }
   // TMP: testing.
@@ -264,6 +270,8 @@ async function graphScenes(params) {
     textList,
     tokensPerMinute,
     temp,
+    maxTokens: 16383,
+    model: "gpt-4o-2024-08-06",
   });
   const flattened_scenes_result = [];
   let scene_number = 0;
@@ -309,14 +317,14 @@ async function graphScenes(params) {
 
   // Set the start time of the first scene to when the chapter starts.
   if (descriptive_scenes.length > 0) {
-    descriptive_scenes[0].startTime = CHAPTER_FULL[0].startTime;
+    descriptive_scenes[0].startTime = chapterJson[0].startTime;
   }
   descriptive_scenes.forEach((scene, i) => {
     if (i < (descriptive_scenes.length - 1)) {
       scene.endTime = descriptive_scenes[i + 1].startTime;
     } else {
       console.log("last scene");
-      scene.endTime = CHAPTER_FULL[CHAPTER_FULL.length - 1].startTime;
+      scene.endTime = chapterJson[chapterJson.length - 1].startTime;
     }
   });
   let scenes;
@@ -329,6 +337,7 @@ async function graphScenes(params) {
     scenes[chapter] = descriptive_scenes;
   }
   await storeGraph({uid, sku, visiblity, data: scenes, type: "scenes"});
+  logger.debug(`Generated a total of ${descriptive_scenes.length} scenes for chapter ${chapter}`);
   return descriptive_scenes;
 }
 
@@ -360,10 +369,8 @@ async function graphScenes16k(params) {
   return scenes;
 }
 
-async function graphCharacterDescriptionsOAI(params) {
+async function getCharactersList(params) {
   const {uid, sku, visiblity} = params;
-  const transcriptions = await getTranscriptions({uid, sku, visiblity});
-  const fullText = consolidateTranscriptions({transcriptions});
   let characters = await getGraph({uid, sku, visiblity, type: "characters"});
   if (!characters.characters || !Array.isArray(characters.characters)) {
     if (Array.isArray(characters)) {
@@ -375,23 +382,31 @@ async function graphCharacterDescriptionsOAI(params) {
       return {};
     }
   }
+  return characters;
+}
+
+async function graphCharacterDescriptionsOAI(params) {
+  const {uid, sku, visiblity} = params;
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const fullText = consolidateTranscriptions({transcriptions});
+  const characters = await getCharactersList({uid, sku, visiblity});
   const prompt = "character_description_full_text";
-  const tokensPerMinute = 1900000;
+  const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
   const maxTokens = 16383;
   const temp = 1;
   const paramsList = [];
   const textList = [];
+  const responseKey = [];
   for (const character of characters.characters) {
     const name = character.name;
     paramsList.push([{name: "CHARACTER", value: name}]);
     textList.push(fullText);
+    responseKey.push(name);
   }
   logger.debug(`textList: ${JSON.stringify(textList).substring(0, 150)}...`);
   logger.debug(`paramsList: ${JSON.stringify(paramsList).substring(0, 150)}...`);
-  // Trim paramsList and textList to 2 items
-  // paramsList = paramsList.slice(0, 2);
-  // textList = textList.slice(0, 2);
   const characterDescriptions = await nerFunctions.batchRequestMultiPrompt({
+    responseKey,
     prompt,
     paramsList,
     textList,
@@ -401,8 +416,46 @@ async function graphCharacterDescriptionsOAI(params) {
     format: "text",
     model: "gpt-4o-2024-08-06",
   });
-  await storeGraph({uid, sku, visiblity, data: characterDescriptions, type: "characterDescriptionsOAI"});
+  await storeGraph({uid, sku, visiblity, data: characterDescriptions, type: "characterDescriptions"});
   return characterDescriptions;
+}
+
+async function graphLocationDescriptionsOAI(params) {
+  const {uid, sku, visiblity} = params;
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const fullText = consolidateTranscriptions({transcriptions});
+  const locations = await getGraph({uid, sku, visiblity, type: "locations"});
+  const prompt = "location_description_full_text";
+  const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
+  const maxTokens = 16383;
+  const temp = 1;
+  const paramsList = [];
+  const textList = [];
+  const responseKey = [];
+  for (const location of locations.locations) {
+    const name = location.name;
+    paramsList.push([{name: "LOCATION", value: name}]);
+    textList.push(fullText);
+    responseKey.push(name);
+  }
+  logger.debug(`textList: ${JSON.stringify(textList).substring(0, 150)}...`);
+  logger.debug(`paramsList: ${JSON.stringify(paramsList).substring(0, 150)}...`);
+  // Trim textList and paramsList to 2 items
+  // textList = textList.slice(0, 2);
+  // paramsList = paramsList.slice(0, 2);
+  const locationDescriptions = await nerFunctions.batchRequestMultiPrompt({
+    responseKey,
+    prompt,
+    paramsList,
+    textList,
+    tokensPerMinute,
+    temp,
+    maxTokens,
+    format: "text",
+    model: "gpt-4o-2024-08-06",
+  });
+  await storeGraph({uid, sku, visiblity, data: locationDescriptions, type: "locationDescriptions"});
+  return locationDescriptions;
 }
 
 
@@ -415,4 +468,5 @@ export {
   graphScenes,
   graphScenes16k,
   graphCharacterDescriptionsOAI,
+  graphLocationDescriptionsOAI,
 };

@@ -17,6 +17,7 @@ async function defaultCompletion(params) {
     format = "json_object",
     model = DEFAULT_MODEL,
     maxTokens = DEFAULT_MAX_TOKENS,
+    retry = true,
   } = params;
   logger.debug(`OpenAI request with ${tokenHelper.countTokens(JSON.stringify(messages))} prompt tokens`);
   const openai = new OpenAI(OPENAI_API_KEY.value());
@@ -27,6 +28,16 @@ async function defaultCompletion(params) {
     temperature: temperature,
     max_tokens: maxTokens,
   }).withResponse();
+  if (completion.choices[0].finish_reason === "content_filter") {
+    if (retry) {
+      logger.error(`Content filter triggered on request. Will retry once.`);
+      params.retry = false;
+      return await defaultCompletion(params);
+    } else {
+      if (format === "json_object") return {};
+      else return "";
+    }
+  }
   if (format === "json_object") {
     return parseJsonFromOpenAIResponse(completion, raw);
   } else {
@@ -243,7 +254,7 @@ const nerFunctions = {
 
   // Make batch requests to openai with rate limiting based on tokens.
   batchRequest: async (params) => {
-    const {prompt, paramsList, textList, tokensPerMinute, temp=DEFAULT_TEMP, maxTokens = DEFAULT_MAX_TOKENS, format="json_object"} = params;
+    const {prompt, paramsList, textList, tokensPerMinute, temp=DEFAULT_TEMP, maxTokens = DEFAULT_MAX_TOKENS, format="json_object", model = DEFAULT_MODEL} = params;
     // Generate the content for the prompt so we can calcualte tokens.
     logger.debug(`Batch request for ${prompt} with ${textList.length} texts and tokensPerMinute=${tokensPerMinute}, format=${format}`);
     let content = prompts[prompt];
@@ -286,7 +297,7 @@ const nerFunctions = {
         startTime = Date.now();
       }
       tokensUsed += (tokens + maxTokens);
-      promises.push(defaultCompletion({messages, temperature: temp, format}));
+      promises.push(defaultCompletion({messages, temperature: temp, format, model, maxTokens}));
     }
     // Run the final batch.
     logger.debug(`Making final ${promises.length} requests with ${tokensUsed} max tokens`);
@@ -295,18 +306,16 @@ const nerFunctions = {
   },
   // Make batch requests to openai with rate limiting based on tokens.
   batchRequestMultiPrompt: async (params) => {
-    const {prompt, paramsList, textList, tokensPerMinute, temp=DEFAULT_TEMP, maxTokens = DEFAULT_MAX_TOKENS, format="json_object", model = DEFAULT_MODEL} = params;
+    const {responseKey, prompt, paramsList, textList, tokensPerMinute, temp=DEFAULT_TEMP, maxTokens = DEFAULT_MAX_TOKENS, format="json_object", model = DEFAULT_MODEL} = params;
     // Generate the content for the prompt so we can calcualte tokens.
     logger.debug(`Batch request for ${prompt} with ${textList.length} texts and tokensPerMinute=${tokensPerMinute}, format=${format}`);
     const promptList = [];
     paramsList.forEach((params) => {
       let content = prompts[prompt];
       params.forEach((param) => {
-        logger.debug(`Generating prompt for ${param.name} with value ${param.value}`);
         content = content.replaceAll(`%${param.name}%`, param.value);
       });
       promptList.push(content);
-      logger.debug(`Prompt: ${content}`);
     });
 
     let tokensUsed = 0;
@@ -346,7 +355,12 @@ const nerFunctions = {
     // Run the final batch.
     logger.debug(`Making final ${promises.length} requests with ${tokensUsed} max tokens`);
     results = results.concat(await Promise.all(promises));
-    return results;
+    // Flatten the results
+    const flattenedResults = {};
+    results.forEach((result, index) => {
+      flattenedResults[responseKey[index]] = result;
+    });
+    return flattenedResults;
   },
 };
 
