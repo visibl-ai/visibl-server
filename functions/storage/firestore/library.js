@@ -13,7 +13,8 @@ import {
 } from "./catalogue.js";
 
 import {
-  scenesCreateLibraryItemFirestore,
+  scenesCreateItemFirestore,
+  getCatalogueScenesFirestore,
 } from "./scenes.js";
 
 import {generateManifest} from "../../util/opds.js";
@@ -83,16 +84,33 @@ async function libraryAddItemFirestore(uid, data) {
   const docRef = await libraryRef.add(newItem);
   const addedDoc = await docRef.get();
 
-  // Create a new scene for the library item
-  const sceneData = await scenesCreateLibraryItemFirestore(uid, {
-    libraryId: addedDoc.id,
-    prompt: "",
-    userDefault: true,
+  // Get the scene with globalDefault: true, or, prompt = "".
+  let defaultSceneId;
+  const scenes = await getCatalogueScenesFirestore(uid, {catalogueId: data.catalogueId});
+  const scene = scenes.find((scene) => scene.globalDefault || scene.prompt === "");
+  if (!scene) {
+    // Otherwise, create one.
+    const sceneData = await scenesCreateItemFirestore(uid, {
+      libraryId: addedDoc.id,
+      prompt: "",
+      globalDefault: true,
+    });
+    defaultSceneId = sceneData.id;
+  } else {
+    defaultSceneId = scene.id;
+  }
+
+  // Update the library item with the id of the generated Scene
+  await docRef.update({
+    defaultSceneId: defaultSceneId,
   });
 
+  // Fetch the updated document
+  const updatedDoc = await docRef.get();
+
   return {
-    id: addedDoc.id,
-    ...addedDoc.data(),
+    id: updatedDoc.id,
+    ...updatedDoc.data(),
   };
 }
 

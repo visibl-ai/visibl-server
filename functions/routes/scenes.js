@@ -10,7 +10,7 @@ import {
 import {
   getGlobalScenesFirestore,
   getCatalogueScenesFirestore,
-  scenesCreateLibraryItemFirestore,
+  scenesCreateItemFirestore,
   scenesUpdateLibraryItemFirestore,
 } from "../storage/firestore/scenes.js";
 
@@ -42,7 +42,7 @@ export const v1getCatalogueItemScenes = onCall({region: "europe-west1"}, async (
 
 export const v1addLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await scenesCreateLibraryItemFirestore(uid, data);
+  return await scenesCreateItemFirestore(uid, data);
 });
 
 export const v1updateLibraryItemScenes = onCall({region: "europe-west1"}, async (context) => {

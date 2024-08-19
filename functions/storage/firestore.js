@@ -160,49 +160,6 @@ async function getAiFirestore(uid, data) {
   }
 }
 
-// async function createLibraryScenesFirestore(uid, data) {
-//   const db = getFirestore();
-//   // eslint-disable-next-line prefer-const
-//   let {libraryId, prompt, userDefault} = data;
-//   if (!libraryId) {
-//     throw new Error("Both libraryId and prompt are required");
-//   }
-//   // Set userDefault to false if it's undefined
-//   if (prompt === undefined) {
-//     throw new Error("Prompt cannot be undefined");
-//   }
-//   userDefault === undefined ? false : userDefault;
-//   const scenesRef = db.collection("Scenes");
-
-//   // Check for existing scene
-//   const existingScene = await scenesRef
-//       .where("uid", "==", uid)
-//       .where("libraryId", "==", libraryId)
-//       .where("prompt", "==", prompt)
-//       .limit(1)
-//       .get();
-
-//   if (!existingScene.empty) {
-//     const existingSceneData = existingScene.docs[0].data();
-//     return {id: existingScene.docs[0].id, ...existingSceneData};
-//   }
-
-
-//   // Create new scene if not exists
-//   const newScene = {
-//     uid,
-//     libraryId,
-//     prompt,
-//     userDefault,
-//     createdAt: Timestamp.now(),
-//   };
-//   const newSceneRef = await scenesRef.add(newScene);
-//   if (userDefault) {
-//     await scenesUpdateUserLibraryDefaultFirestore(db, uid, newSceneRef, libraryId, newSceneRef.id);
-//   }
-//   return {id: newSceneRef.id, ...newScene};
-// }
-
 async function getUserLibraryScene(uid, libraryId, sceneId) {
   const db = getFirestore();
   let sceneToFetch;
@@ -219,20 +176,11 @@ async function getUserLibraryScene(uid, libraryId, sceneId) {
   } else {
     // No scene Id given. Get the default scene.
     logger.debug(`Getting default scene for ${uid} to ${libraryId}`);
-    const defaultSceneQuery = await db.collection("Scenes")
-        .where("uid", "==", uid)
-        .where("libraryId", "==", libraryId)
-        .where("userDefault", "==", true)
-        .limit(1)
-        .get();
-
-    if (defaultSceneQuery.empty) {
-      logger.debug(`No default scene found for ${uid} to ${libraryId}`);
-      throw new Error("No default scene found for this library item");
-    }
-
-    sceneToFetch = defaultSceneQuery.docs[0].id;
     const libraryData = await libraryGetFirestore(uid, libraryId);
+    if (!libraryData) {
+      throw new Error("Library item not found");
+    }
+    sceneToFetch = libraryData.defaultSceneId;
     const sku = libraryData.sku;
     // Check if the default scene exists.
     const exists = await fileExists({path: getSceneFilename(sceneToFetch)});
