@@ -536,17 +536,50 @@ Respond only with JSON.
   `,
 
   character_image_summarize_prompt: `
-  You are CharacterInterpreterGPT.
-  You are being given text with the description of a character. Your goal is to summarize this description by removing any non-physical traits. Remove descriptions of items the character might be holding, focus on what they look like and are wearing. Be sure to include age, gender, clothing and race if it is provided or can be inferred.
-  The description will be used to generate a visual image using Dall-E 3, so it's crucial to include only the physical characteristics. 
-  Respond in point form, do not include any gap words or explanations of your reasoning. Do not leave out any detail.
+You are CharacterInterpreterGPT. Your task is to summarize a character description by focusing solely on physical characteristics. This summary will be used to generate a visual image using Dall-E 3, so it's crucial to include only the physical traits.
+
+Follow these guidelines to create your summary:
+
+1. Focus only on physical traits, including:
+   - Age
+   - Gender
+   - Race (if provided or can be inferred)
+   - Physical appearance
+   - Clothing and accessories worn by the character
+   - Items the character might be holding
+
+2. Exclude:
+   - Non-physical traits (personality, background, etc.)
+   - Any context or setting information
+
+3. Format your response in point form, without any gap words or explanations of your reasoning.
+
+4. Include all relevant physical details provided in the description.
+
+5. If any key physical characteristics (age, gender, race) are not explicitly stated but can be reasonably inferred, include them in your summary.
+
+Include every relevant physical detail without any additional explanation.
   `,
 
   location_image_summarize_prompt: `
-  You are LocationInterpreterGPT.
-  You are being given text with the description of a location. Your goal is to summarize this description by removing any non-physical traits. Remove descriptions any characters might inside the location.
-  The description will be used to generate a visual image using Dall-E 3, so it's crucial to include only the physical characteristics. 
-  Respond in point form, do not include any gap words or explanations of your reasoning. Do not leave out any detail.
+You are LocationInterpreterGPT. Your task is to interpret and summarize a given location description, focusing solely on its physical characteristics. This summary will be used to generate a visual image using Dall-E 3, so it's crucial to include only the physical aspects of the location.
+
+Follow these steps to summarize the location:
+
+1. Read the description carefully.
+2. Identify all physical characteristics of the location.
+3. Remove any mentions of non-physical traits, such as historical significance, emotional atmosphere, or cultural importance.
+4. Exclude any descriptions of characters or people that might be present in the location.
+5. Summarize the physical aspects in a concise, point-form format.
+6. Include all relevant physical details, no matter how small.
+7. Do not use any filler words, explanations, or transition phrases.
+
+Remember:
+- Include ONLY physical characteristics that can be visually represented.
+- Do NOT include any non-physical traits or descriptions of characters.
+- Be comprehensive - do not leave out any physical details from the original description.
+- Do NOT include any explanations or reasoning for your choices.
+- Use concise language without any gap words or filler phrases.
   `,
 
   location_image_prompt: `
@@ -902,6 +935,7 @@ Please follow these instructions carefully:
    - Height and build
    - Facial features
    - Any distinguishing marks or characteristics
+   - Asthetics: attractive, ugly, beautiful, etc.
 3. At a minimum, you must include descriptions of the character's clothing, hair, gender, age and race. If these details are not explicitly stated in the text, make an educated guess based on context clues or the setting of the novel. Don't be afraid to guess a race.
 4. Be as descriptive and specific as possible. Instead of saying "he wore a shirt," specify the type, color, and style of the shirt if that information is available or can be reasonably inferred.
 5. If you need to make educated guesses about any characteristics, base them on context clues from the novel, such as the time period, location, or social status of the character. Don't explain your guesses, just state them factually.
@@ -921,9 +955,10 @@ To complete this task, follow these steps:
 
 2. Identify all relevant details about %LOCATION%, including:
    - Physical characteristics (size, shape, color, etc.)
+   - The location type (city, room, business type, etc.)
    - Atmosphere or mood
-   - Time period or historical context
-   - Any significant objects or features within the location
+   - Any distictivive objects or features within the location
+   - Any recognizable items or features within the location
    - Sensory details (sights, sounds, smells, textures)
 
 3. Synthesize these details into a coherent and vivid description. Your description should:
@@ -934,8 +969,6 @@ To complete this task, follow these steps:
 4. Ensure your description is appropriate for all audiences:
    - Omit any graphic violence, explicit sexual content, or other inappropriate details
    - Focus on elements that would not trigger content filtering issues
-
-5. Write your final description and aim for a paragraph of 4-6 sentences that paints a clear picture of the location.
 
 Remember, your goal is to create a description that is both faithful to the novel and suitable for image generation. Be descriptive and evocative, but avoid any content that could be deemed inappropriate or offensive.
   `,

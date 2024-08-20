@@ -393,7 +393,7 @@ async function graphCharacterDescriptionsOAI(params) {
   const prompt = "character_description_full_text";
   const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
   const maxTokens = 16383;
-  const temp = 1;
+  const temp = 0.8;
   const paramsList = [];
   const textList = [];
   const responseKey = [];
@@ -428,7 +428,7 @@ async function graphLocationDescriptionsOAI(params) {
   const prompt = "location_description_full_text";
   const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
   const maxTokens = 16383;
-  const temp = 1;
+  const temp = 0.8;
   const paramsList = [];
   const textList = [];
   const responseKey = [];

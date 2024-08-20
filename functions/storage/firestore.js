@@ -116,7 +116,7 @@ function removeUndefinedProperties(data) {
  */
 async function getAiFirestore(uid, data) {
   const {libraryId, sceneId, chapter} = data;
-
+  logger.debug(`Getting AI for ${uid} to libraryId ${libraryId} sceneId ${sceneId} chapter ${chapter}`);
   if (!libraryId) {
     throw new Error("Invalid or missing libraryId");
   }
@@ -153,6 +153,7 @@ async function getAiFirestore(uid, data) {
 
   // Here you would typically process the catalogueManifest and generate AI content
   // For now, we'll return a placeholder response
+  logger.debug(`Returning scenes: ${JSON.stringify(scenes).substring(0, 150)}`);
   if (chapter) {
     return scenes[chapter];
   } else {
@@ -198,7 +199,7 @@ async function getUserLibraryScene(uid, libraryId, sceneId) {
         return {error: "Scenes not found - likely still being generatred"};
       }
     } else {
-      logger.debug(`we should not see this log message.`);
+      logger.debug(`Scenes exist for ${sceneToFetch} - will return that.`);
     }
   }
   return await getScene({sceneId: sceneToFetch});
