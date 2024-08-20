@@ -317,14 +317,14 @@ async function graphScenes(params) {
 
   // Set the start time of the first scene to when the chapter starts.
   if (descriptive_scenes.length > 0) {
-    descriptive_scenes[0].startTime = chapterJson[0].startTime;
+    descriptive_scenes[0].startTime = parseFloat(chapterJson[0].startTime).toFixed(2);
   }
   descriptive_scenes.forEach((scene, i) => {
     if (i < (descriptive_scenes.length - 1)) {
-      scene.endTime = descriptive_scenes[i + 1].startTime;
+      scene.endTime = parseFloat(descriptive_scenes[i + 1].startTime).toFixed(2);
     } else {
       console.log("last scene");
-      scene.endTime = chapterJson[chapterJson.length - 1].startTime;
+      scene.endTime = parseFloat(chapterJson[chapterJson.length - 1].startTime).toFixed(2);
     }
   });
   let scenes;
