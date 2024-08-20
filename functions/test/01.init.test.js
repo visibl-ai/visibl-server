@@ -1043,7 +1043,6 @@ describe("Full functional tests of visibl api", () => {
     expect(result).to.have.property("userDefault").that.is.a("boolean");
     expect(result).to.have.property("createdAt");
   });
-
   // eslint-disable-next-line no-undef
   it(`test v1getLibraryScenes after adding a new scene`, async () => {
     const wrapped = firebaseTest.wrap(v1getLibraryScenes);
