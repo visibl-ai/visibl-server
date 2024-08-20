@@ -169,8 +169,8 @@ async function getUserLibraryScene(uid, libraryId, sceneId) {
     const sceneRef = db.collection("Scenes").doc(sceneId);
     const scene = await sceneRef.get();
 
-    if (!scene.exists || scene.data().uid !== uid) {
-      throw new Error("Scene not found or does not belong to the user");
+    if (!scene.exists) {
+      throw new Error("Scene not found");
     }
 
     sceneToFetch = sceneId;
