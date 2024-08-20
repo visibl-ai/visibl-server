@@ -940,7 +940,7 @@ describe("Full functional tests of visibl api", () => {
     // Check properties of each scene
     result.forEach((scene) => {
       expect(scene).to.have.property("id");
-      expect(scene).to.have.property("uid").that.equals(userData.uid);
+      expect(scene).to.have.property("uid").that.equals("admin"); // this is the global default scene.
       expect(scene).to.have.property("catalogueId").that.equals(libraryItem.catalogueId);
       expect(scene).to.have.property("prompt");
       expect(scene).to.have.property("userDefault").that.is.a("boolean");
