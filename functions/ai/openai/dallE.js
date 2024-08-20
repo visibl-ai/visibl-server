@@ -26,6 +26,11 @@ import {
   OPENAI_DALLE_3_IMAGES_PER_MINUTE,
 } from "./openaiLimits.js";
 
+import {
+  sceneFromCurrentTime,
+  scenesToGenerateFromCurrentTime,
+} from "../../util/sceneHelpers.js";
+
 const TIMEOUT = 60000;
 
 async function generateImages(req) {
@@ -77,6 +82,7 @@ async function generateImages(req) {
         chapterScenes[sceneIndex].wide = image.wide;
         chapterScenes[sceneIndex].tall = image.tall;
         chapterScenes[sceneIndex].prompt = image.description;
+        chapterScenes[sceneIndex].sceneId = sceneId;
         logger.info("chapterScenes[sceneIndex].image = " + chapterScenes[sceneIndex].image);
       }
     }
@@ -203,8 +209,8 @@ function getScenesToGenerate(lastSceneGenerated, totalScenes) {
 }
 
 // start at 0.
-async function imageGenRecursive(req) {
-  logger.debug(`imageGenRecursive`);
+async function imageGenChapterRecursive(req) {
+  logger.debug(`imageGenChapterRecursive`);
   logger.debug(JSON.stringify(req.body));
   const {sceneId, lastSceneGenerated, totalScenes, chapter} = req.body;
 
@@ -242,12 +248,34 @@ async function imageGenRecursive(req) {
   }
 }
 
+// start at 0.
+async function imageGenCurrentTime(req) {
+  logger.debug(`imageGenChapterRecursive`);
+  logger.debug(JSON.stringify(req.body));
+  const {sceneId, currentTime} = req.body;
+  if (!sceneId || !currentTime) {
+    throw new Error("sceneId and currentTime are required");
+  }
+  const fullScenes = await getScene({sceneId});
+  const {chapter, sceneNumber} = sceneFromCurrentTime(fullScenes, currentTime) || {};
+
+  if (chapter === undefined || sceneNumber === undefined) {
+    throw new Error("No matching scene found for the given currentTime");
+  }
+
+  logger.debug(`Found scene: Chapter ${chapter}, Scene ${sceneNumber}`);
+  const scenesToGenerate = scenesToGenerateFromCurrentTime({currentSceneNumber: sceneNumber, currentChapter: chapter, fullScenes});
+  logger.debug(`scenesToGenerate = ${JSON.stringify(scenesToGenerate)}`);
+  return scenesToGenerate;
+}
+
 async function imageDispatcher(request, delay) {
   await dispatchTask("generateSceneImages", request, 60 * 5, delay);
 }
 
 export {
   generateImages,
-  imageGenRecursive,
+  imageGenChapterRecursive,
   imageDispatcher,
+  imageGenCurrentTime,
 };
