@@ -14,11 +14,13 @@ import {
 import logger from "firebase-functions/logger";
 import novel from "./openai/novel.js";
 import nerFunctions from "./openai/ner.js";
+import {OPENAI_TOKENS_PER_MINUTE} from "./openai/openaiLimits.js";
 import csv from "./csv.js";
 
-const WAIT_TIME = 20;
+const WAIT_TIME = 25;
 
-function consolidateTranscriptions(transcriptions) {
+function consolidateTranscriptions(params) {
+  const {transcriptions} = params;
   let consolidatedText = "";
   for (const key in transcriptions) {
     if (Object.prototype.hasOwnProperty.call(transcriptions, key)) {
@@ -31,13 +33,35 @@ function consolidateTranscriptions(transcriptions) {
   return consolidatedText.trim();
 }
 
+// eslint-disable-next-line no-unused-vars
+function lowerCaseObjectKeys(params) {
+  const {object} = params;
+  return Object.fromEntries(
+      Object.entries(object).map(([key, value]) => [
+        key.toLowerCase(),
+      typeof value === "object" ? lowerCaseObjectKeys({object: value}) : value,
+      ]),
+  );
+}
 
-async function graphCharacters(app, req) {
-  const {uid, sku, visiblity} = req.body;
+function lowercaseCharacters(characterList) {
+  return characterList.map((character) => {
+    const lowercasedCharacter = {
+      name: character.name.toLowerCase(),
+    };
+    if (character.aliases && character.aliases.length > 0) {
+      lowercasedCharacter.aliases = character.aliases.map((alias) => alias.toLowerCase());
+    }
+    return lowercasedCharacter;
+  });
+}
+
+async function graphCharacters(params) {
+  const {uid, sku, visiblity} = params;
   // 1. load transcriptions.
-  const transcriptions = await getTranscriptions(app, uid, sku, visiblity);
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
   // 2. consolidate transcriptions into single string.
-  const fullText = consolidateTranscriptions(transcriptions);
+  const fullText = consolidateTranscriptions({transcriptions});
   // 3. send to gemini.
   const characterList = await geminiRequest({
     "prompt": "getCharacters",
@@ -45,15 +69,16 @@ async function graphCharacters(app, req) {
     "type": "json",
   });
   // 4. store graph.
-  await storeGraph(app, uid, sku, visiblity, characterList, "characters");
+  characterList.characters = lowercaseCharacters(characterList.characters);
+  await storeGraph({uid, sku, visiblity, data: characterList, type: "characters"});
   return characterList;
 }
 
-async function graphCharacterDescriptions(app, req) {
-  const {uid, sku, visiblity} = req.body;
-  const transcriptions = await getTranscriptions(app, uid, sku, visiblity);
-  const fullText = consolidateTranscriptions(transcriptions);
-  let characters = await getGraph(app, uid, sku, visiblity, "characters");
+async function graphCharacterDescriptions(params) {
+  const {uid, sku, visiblity} = params;
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const fullText = consolidateTranscriptions({transcriptions});
+  let characters = await getGraph({uid, sku, visiblity, type: "characters"});
   const characterDescriptions = {};
   if (!characters.characters || !Array.isArray(characters.characters)) {
     if (Array.isArray(characters)) {
@@ -66,14 +91,22 @@ async function graphCharacterDescriptions(app, req) {
     }
   }
   for (const character of characters.characters) {
-    logger.debug(`Getting character description for ${character}`);
+    const name = character.name;
+    // Lets assume the model is smart enough to understand aliases for now.
+    // if (character.aliases && character.aliases.length > 0) {
+    //   name = `${name} aka `;
+    //   for (const alias of character.aliases) {
+    //     name = `${name} ${alias}, `;
+    //   }
+    // }
+    logger.debug(`Getting character description for ${name}`);
     const description = await geminiRequest({
-      "prompt": "getCharacterDescription2", // "getCharacterDescription",
+      "prompt": "getCharacterDescription", // "getCharacterDescription",
       "message": fullText,
       "replacements": [
         {
           key: "%CHARACTER%",
-          value: character,
+          value: name,
         },
       ],
     });
@@ -81,34 +114,60 @@ async function graphCharacterDescriptions(app, req) {
     logger.debug(`Character description for ${character}: ${characterDescriptions[character]}`);
     // Add a 15-second delay
     logger.debug(`Waiting ${WAIT_TIME} seconds before next request`);
-    await storeGraph(app, uid, sku, visiblity, characterDescriptions, "characterDescriptions");
+    await storeGraph({uid, sku, visiblity, data: characterDescriptions, type: "characterDescriptions"});
     await new Promise((resolve) => setTimeout(resolve, WAIT_TIME * 1000));
   }
   return characterDescriptions;
 }
 
-async function graphLocations(app, req) {
-  const {uid, sku, visiblity} = req.body;
+function flattenLocations(data) {
+  const flattened = [];
+
+  function traverse(location, path = []) {
+    const currentPath = [...path, location.name.toLowerCase()];
+    flattened.push({
+      name: location.name.toLowerCase(),
+      type: location.type.toLowerCase(),
+      path: currentPath.join(" > "),
+    });
+
+    if (location.SubLocations) {
+      location.SubLocations.forEach((subLocation) => traverse(subLocation, currentPath));
+    }
+
+    if (location.MicroLocation) {
+      location.MicroLocation.forEach((microLocation) => traverse(microLocation, currentPath));
+    }
+  }
+
+  data.MainLocations.forEach((mainLocation) => traverse(mainLocation));
+  return flattened;
+}
+
+async function graphLocations(params) {
+  const {uid, sku, visiblity} = params;
   // 1. load transcriptions.
-  const transcriptions = await getTranscriptions(app, uid, sku, visiblity);
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
   // 2. consolidate transcriptions into single string.
-  const fullText = consolidateTranscriptions(transcriptions);
+  const fullText = consolidateTranscriptions({transcriptions});
   // 3. send to gemini.
   const locationList = await geminiRequest({
     "prompt": "getLocations",
     "message": fullText,
     "type": "json",
   });
+  // locationList.locations = lowerCaseArrayStrings({array: locationList.locations});
+  const flatLocations = {locations: flattenLocations(locationList)};
   // 4. store graph.
-  await storeGraph(app, uid, sku, visiblity, locationList, "locations");
+  await storeGraph({uid, sku, visiblity, data: flatLocations, type: "locations"});
   return locationList;
 }
 
-async function graphLocationDescriptions(app, req) {
-  const {uid, sku, visiblity} = req.body;
-  const transcriptions = await getTranscriptions(app, uid, sku, visiblity);
-  const fullText = consolidateTranscriptions(transcriptions);
-  let locations = await getGraph(app, uid, sku, visiblity, "locations");
+async function graphLocationDescriptions(params) {
+  const {uid, sku, visiblity} = params;
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const fullText = consolidateTranscriptions({transcriptions});
+  let locations = await getGraph({uid, sku, visiblity, type: "locations"});
   const locationDescriptions = {};
   if (!locations.locations || !Array.isArray(locations.locations)) {
     if (Array.isArray(locations)) {
@@ -121,67 +180,72 @@ async function graphLocationDescriptions(app, req) {
     }
   }
   for (const location of locations.locations) {
-    logger.debug(`Getting location description for ${location}`);
+    const name = location.name;
+    logger.debug(`Getting location description for ${name}`);
     const description = await geminiRequest({
       "prompt": "getLocationDescription",
       "message": fullText,
       "replacements": [
         {
           key: "%LOCATION%",
-          value: location,
+          value: name,
         },
       ],
     });
-    locationDescriptions[location] = description;
-    logger.debug(`location description for ${location}: ${locationDescriptions[location]}`);
+    locationDescriptions[name] = description;
+    logger.debug(`location description for ${name}: ${locationDescriptions[name]}`);
     // Add a 15-second delay
     logger.debug(`Waiting ${WAIT_TIME} seconds before next request`);
-    await storeGraph(app, uid, sku, visiblity, locationDescriptions, "locationDescriptions");
+    await storeGraph({uid, sku, visiblity, data: locationDescriptions, type: "locationDescriptions"});
     await new Promise((resolve) => setTimeout(resolve, WAIT_TIME * 1000));
   }
   return locationDescriptions;
 }
 
-async function graphSummarizeDescriptions(app, req) {
-  const {uid, sku, visiblity} = req.body;
-  const characterDescriptions = await getGraph(app, uid, sku, visiblity, "characterDescriptions");
-  // const locationDescriptions = await getGraph(app, uid, sku, visiblity, "locationDescriptions");
+async function graphSummarizeDescriptions(params) {
+  const {uid, sku, visiblity} = params;
+  const characterDescriptions = await getGraph({uid, sku, visiblity, type: "characterDescriptions"});
   const characterSummaries = await novel.entityImageSummarize(
       "character_image_summarize_prompt",
       characterDescriptions,
       250000,
   );
-  await storeGraph(app, uid, sku, visiblity, characterSummaries, "characterSummaries");
-  const locationDescriptions = await getGraph(app, uid, sku, visiblity, "locationDescriptions");
+  await storeGraph({uid, sku, visiblity, data: characterSummaries, type: "characterSummaries"});
+  const locationDescriptions = await getGraph({uid, sku, visiblity, type: "locationDescriptions"});
   const locationSummaries = await novel.entityImageSummarize(
       "location_image_summarize_prompt",
       locationDescriptions,
       250000,
   );
-  await storeGraph(app, uid, sku, visiblity, locationSummaries, "locationSummaries");
+  await storeGraph({uid, sku, visiblity, data: locationSummaries, type: "locationSummaries"});
 
   return {characterSummaries, locationSummaries};
 }
 
-async function graphScenes(app, req) {
-  const {uid, sku, visiblity, chapter} = req.body;
+async function graphScenes(params) {
+  const {uid, sku, visiblity, chapter} = params;
   let scenes_result = [];
-  const locations = await getGraph(app, uid, sku, visiblity, "locations");
-  locations.locations = locations.locations.map((location) => location.toLowerCase());
-  const characters = await getGraph(app, uid, sku, visiblity, "characters");
-  characters.characters = characters.characters.map((character) => character.toLowerCase());
-  const transcriptions = await getTranscriptions(app, uid, sku, visiblity);
-  const CHAPTER_FULL = transcriptions[chapter];
-  let charactersDescription = await getGraph(app, uid, sku, visiblity, "characterSummaries");
+  const locations = await getGraph({uid, sku, visiblity, type: "locations"});
+  locations.locations = locations.locations.map((location) => location.name.toLowerCase());
+  const characters = await getGraph({uid, sku, visiblity, type: "characters"});
+  characters.characters = characters.characters.map((character) => character.name.toLowerCase());
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const chapterJson = transcriptions[chapter];
+  chapterJson.forEach((item) => {
+    if (typeof item.startTime === "number") {
+      item.startTime = item.startTime.toFixed(1);
+    }
+  });
+  let charactersDescription = await getGraph({uid, sku, visiblity, type: "characterSummaries"});
   charactersDescription = Object.fromEntries(
       Object.entries(charactersDescription).map(([key, value]) => [key.toLowerCase(), value]),
   );
-  let locationDescription = await getGraph(app, uid, sku, visiblity, "locationSummaries");
+  let locationDescription = await getGraph({uid, sku, visiblity, type: "locationSummaries"});
   locationDescription = Object.fromEntries(
       Object.entries(locationDescription).map(([key, value]) => [key.toLowerCase(), value]),
   );
   // Loop
-  const SLICE_SIZE = 25;
+  const SLICE_SIZE = 35;
   // const promises = [];
 
   const prompt = "transcribe_film_director_prompt";
@@ -189,24 +253,26 @@ async function graphScenes(app, req) {
     {name: "CHARACTER_LIST", value: characters},
     {name: "LOCATIONS_LIST", value: locations},
   ];
-  const tokensPerMinute = 1900000;
+  const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
   const temp = 0.8;
   const textList = [];
-  for (let i = 0; i < CHAPTER_FULL.length; i += SLICE_SIZE) {
-    const chapterChunkCSV = csv(CHAPTER_FULL, i, i + SLICE_SIZE);
+  for (let i = 0; i < chapterJson.length; i += SLICE_SIZE) {
+    const chapterChunkCSV = csv(chapterJson, i, i + SLICE_SIZE);
     textList.push(chapterChunkCSV);
   }
   // TMP: testing.
   // textList = textList.slice(0, 10);
   logger.debug(`textList: ${JSON.stringify(textList, null, 2).substring(0, 150)}...`);
   logger.debug(`paramsList: ${JSON.stringify(paramsList, null, 2).substring(0, 150)}...`);
-  scenes_result = await nerFunctions.batchRequest(
-      prompt,
-      paramsList,
-      textList,
-      tokensPerMinute,
-      temp,
-  );
+  scenes_result = await nerFunctions.batchRequest({
+    prompt,
+    paramsList,
+    textList,
+    tokensPerMinute,
+    temp,
+    maxTokens: 16383,
+    model: "gpt-4o-2024-08-06",
+  });
   const flattened_scenes_result = [];
   let scene_number = 0;
   for (const scenes of scenes_result) {
@@ -251,28 +317,147 @@ async function graphScenes(app, req) {
 
   // Set the start time of the first scene to when the chapter starts.
   if (descriptive_scenes.length > 0) {
-    descriptive_scenes[0].startTime = CHAPTER_FULL[0].startTime;
+    descriptive_scenes[0].startTime = parseFloat(chapterJson[0].startTime).toFixed(2);
   }
   descriptive_scenes.forEach((scene, i) => {
     if (i < (descriptive_scenes.length - 1)) {
-      scene.endTime = descriptive_scenes[i + 1].startTime;
+      scene.endTime = parseFloat(descriptive_scenes[i + 1].startTime).toFixed(2);
     } else {
       console.log("last scene");
-      scene.endTime = CHAPTER_FULL[CHAPTER_FULL.length - 1].startTime;
+      scene.endTime = parseFloat(chapterJson[chapterJson.length - 1].startTime).toFixed(2);
     }
   });
   let scenes;
   try {
-    scenes = await getGraph(app, uid, sku, visiblity, "scenes");
+    scenes = await getGraph({uid, sku, visiblity, type: "scenes"});
     scenes[chapter] = descriptive_scenes;
   } catch (e) {
     logger.warn(`Error storing scenes: ${e}`);
     scenes = {};
     scenes[chapter] = descriptive_scenes;
   }
-  await storeGraph(app, uid, sku, visiblity, scenes, "scenes");
+  await storeGraph({uid, sku, visiblity, data: scenes, type: "scenes"});
+  logger.debug(`Generated a total of ${descriptive_scenes.length} scenes for chapter ${chapter}`);
   return descriptive_scenes;
 }
+
+async function graphScenes16k(params) {
+  const {uid, sku, visiblity, chapter} = params;
+  const locations = await getGraph({uid, sku, visiblity, type: "locations"});
+  const locationsList = locations.locations.map((location) => location.name);
+  logger.debug(`locationsList: ${JSON.stringify(locationsList)}`);
+  const characters = await getGraph({uid, sku, visiblity, type: "characters"});
+  const charactersList = characters.characters.map((character) => character.name);
+  logger.debug(`charactersList: ${JSON.stringify(charactersList)}`);
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const chapterJson = transcriptions[chapter];
+  chapterJson.forEach((item) => {
+    if (typeof item.startTime === "number") {
+      item.startTime = item.startTime.toFixed(1);
+    }
+  });
+  const csvText = csv(chapterJson);
+  // logger.debug(`csvText: ${csvText}`);
+  const numScenes = 180;
+  const scenes = await nerFunctions.filmDirector16k({
+    charactersList,
+    locationsList,
+    csvText: JSON.stringify(csvText),
+    numScenes,
+  });
+  await storeGraph({uid, sku, visiblity, data: scenes, type: "scenes16k"});
+  return scenes;
+}
+
+async function getCharactersList(params) {
+  const {uid, sku, visiblity} = params;
+  let characters = await getGraph({uid, sku, visiblity, type: "characters"});
+  if (!characters.characters || !Array.isArray(characters.characters)) {
+    if (Array.isArray(characters)) {
+      characters = {
+        characters: characters,
+      };
+    } else {
+      logger.error(`No characters found for ${uid} ${sku} ${visiblity}`);
+      return {};
+    }
+  }
+  return characters;
+}
+
+async function graphCharacterDescriptionsOAI(params) {
+  const {uid, sku, visiblity} = params;
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const fullText = consolidateTranscriptions({transcriptions});
+  const characters = await getCharactersList({uid, sku, visiblity});
+  const prompt = "character_description_full_text";
+  const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
+  const maxTokens = 16383;
+  const temp = 0.8;
+  const paramsList = [];
+  const textList = [];
+  const responseKey = [];
+  for (const character of characters.characters) {
+    const name = character.name;
+    paramsList.push([{name: "CHARACTER", value: name}]);
+    textList.push(fullText);
+    responseKey.push(name);
+  }
+  logger.debug(`textList: ${JSON.stringify(textList).substring(0, 150)}...`);
+  logger.debug(`paramsList: ${JSON.stringify(paramsList).substring(0, 150)}...`);
+  const characterDescriptions = await nerFunctions.batchRequestMultiPrompt({
+    responseKey,
+    prompt,
+    paramsList,
+    textList,
+    tokensPerMinute,
+    temp,
+    maxTokens,
+    format: "text",
+    model: "gpt-4o-2024-08-06",
+  });
+  await storeGraph({uid, sku, visiblity, data: characterDescriptions, type: "characterDescriptions"});
+  return characterDescriptions;
+}
+
+async function graphLocationDescriptionsOAI(params) {
+  const {uid, sku, visiblity} = params;
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const fullText = consolidateTranscriptions({transcriptions});
+  const locations = await getGraph({uid, sku, visiblity, type: "locations"});
+  const prompt = "location_description_full_text";
+  const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
+  const maxTokens = 16383;
+  const temp = 0.8;
+  const paramsList = [];
+  const textList = [];
+  const responseKey = [];
+  for (const location of locations.locations) {
+    const name = location.name;
+    paramsList.push([{name: "LOCATION", value: name}]);
+    textList.push(fullText);
+    responseKey.push(name);
+  }
+  logger.debug(`textList: ${JSON.stringify(textList).substring(0, 150)}...`);
+  logger.debug(`paramsList: ${JSON.stringify(paramsList).substring(0, 150)}...`);
+  // Trim textList and paramsList to 2 items
+  // textList = textList.slice(0, 2);
+  // paramsList = paramsList.slice(0, 2);
+  const locationDescriptions = await nerFunctions.batchRequestMultiPrompt({
+    responseKey,
+    prompt,
+    paramsList,
+    textList,
+    tokensPerMinute,
+    temp,
+    maxTokens,
+    format: "text",
+    model: "gpt-4o-2024-08-06",
+  });
+  await storeGraph({uid, sku, visiblity, data: locationDescriptions, type: "locationDescriptions"});
+  return locationDescriptions;
+}
+
 
 export {
   graphCharacters,
@@ -281,4 +466,7 @@ export {
   graphLocationDescriptions,
   graphSummarizeDescriptions,
   graphScenes,
+  graphScenes16k,
+  graphCharacterDescriptionsOAI,
+  graphLocationDescriptionsOAI,
 };

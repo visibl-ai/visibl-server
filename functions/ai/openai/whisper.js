@@ -8,7 +8,7 @@ import {OPENAI_API_KEY} from "../../config/config.js";
 // Initialize the OpenAI client with the API key from environment variables
 
 
-async function whisperTranscribe(file, offset, retry = true) {
+async function whisperTranscribe(file, offset, prompt, retry = true) {
   let map = {};
   const openai = new OpenAI(OPENAI_API_KEY.value());
   try {
@@ -29,7 +29,7 @@ async function whisperTranscribe(file, offset, retry = true) {
     logger.debug(`Error transcribing ${file} ${err}`);
     // Retry 1x time.
     if (retry) {
-      return whisperTranscribe(file, offset, false);
+      return whisperTranscribe(file, offset, prompt, false);
     }
   }
   return map;

@@ -22,12 +22,13 @@ import {
   outpaintWideAndTall,
 } from "../stability/stability.js";
 
+import {
+  OPENAI_DALLE_3_IMAGES_PER_MINUTE,
+} from "./openaiLimits.js";
 
-const SCENES_PER_REQUEST = 15;
 const TIMEOUT = 60000;
 
-
-async function generateImages(req, app) {
+async function generateImages(req) {
   try {
     // Scenes to generate is a [5,6,7,8] . Maximum 5.
     const {
@@ -35,15 +36,15 @@ async function generateImages(req, app) {
       scenesToGenerate,
       sceneId} = req;
 
-    if (scenesToGenerate.length > SCENES_PER_REQUEST) {
-      throw new Error(`Maximum ${SCENES_PER_REQUEST} scenes per request`);
+    if (scenesToGenerate.length > OPENAI_DALLE_3_IMAGES_PER_MINUTE) {
+      throw new Error(`Maximum ${OPENAI_DALLE_3_IMAGES_PER_MINUTE} scenes per request`);
     }
     if (sceneId === undefined) {
       throw new Error("generateImages: sceneId is required");
     }
     const scene = await getSceneFirestore(sceneId);
     const theme = scene.prompt;
-    let fullScenes = await getScene(app, sceneId);
+    let fullScenes = await getScene({sceneId});
     if (!fullScenes[chapter]) {
       logger.warn(`Chapter ${chapter} not found in scenes. Build the graph and try again!`);
       return fullScenes;
@@ -58,7 +59,6 @@ async function generateImages(req, app) {
     // Now we save the scenes to the chapter.
     logger.info("===Starting DALL-E-3 image generation===");
     const images = await dalle3({
-      app,
       chapter,
       scenes,
       theme,
@@ -66,7 +66,7 @@ async function generateImages(req, app) {
     });
     logger.info("===ENDING DALL-E-3 image generation===");
     logger.debug(`Reloading scenes before editing.`);
-    fullScenes = await getScene(app, sceneId);
+    fullScenes = await getScene({sceneId});
     chapterScenes = fullScenes[chapter];
     for (const image of images) {
       const sceneIndex = chapterScenes.findIndex((s) => s.scene_number === image.metadata.scene_number);
@@ -82,7 +82,7 @@ async function generateImages(req, app) {
     }
 
     fullScenes[chapter] = chapterScenes;
-    await storeScenes(app, sceneId, fullScenes);
+    await storeScenes({sceneId, sceneData: fullScenes});
     logger.debug(`Stored updated scenes.`);
     return fullScenes;
   } catch (error) {
@@ -91,13 +91,13 @@ async function generateImages(req, app) {
   }
 }
 
-async function downloadImage(app, url, filename) {
+async function downloadImage(url, filename) {
   const response = await axios({
     method: "GET",
     url: url,
     responseType: "stream",
   });
-  return uploadStreamAndGetPublicLink(app, response.data, filename).then(async (publicUrl) => {
+  return uploadStreamAndGetPublicLink({stream: response.data, filename}).then(async (publicUrl) => {
     logger.debug("uploaded to GCP, publicURL is = " + publicUrl);
     return publicUrl;
   }).catch((err) => {
@@ -108,7 +108,7 @@ async function downloadImage(app, url, filename) {
 
 async function singleGeneration(request) {
   const {
-    app, chapter, scene, theme, sceneId, retry, openai,
+    chapter, scene, theme, sceneId, retry, openai,
   } = request;
   // DALL-E-3 Configs
   const dallE3Config = {
@@ -148,10 +148,10 @@ async function singleGeneration(request) {
     const imagePath = `Scenes/${sceneId}/${chapter}_scene${scene.scene_number}_${timestamp}`;
     const squareImagePath = `${imagePath}.4.3.jpg`;
     // logger.debug("imageName = " + imageName);
-    gcpURL = await downloadImage(app, imageUrl, squareImagePath);
+    gcpURL = await downloadImage(imageUrl, squareImagePath);
 
     logger.debug(`Outpainting ${squareImagePath} with Stability.`);
-    outpaintResult = await outpaintWideAndTall(app, {
+    outpaintResult = await outpaintWideAndTall({
       inputPath: squareImagePath,
       outputPathWithoutExtension: imagePath,
     });
@@ -183,12 +183,12 @@ async function singleGeneration(request) {
 
 async function dalle3(request) {
   const {
-    app, chapter, scenes, theme, sceneId, retry = true,
+    chapter, scenes, theme, sceneId, retry = true,
   } = request;
   const openai = new OpenAI(OPENAI_API_KEY.value());
   logger.debug(`scenes length = ${scenes.length}`);
   const promises = scenes.map(async (scene) => singleGeneration({
-    app, chapter, scene, theme, sceneId, retry, openai,
+    chapter, scene, theme, sceneId, retry, openai,
   }));
   return Promise.all(promises);
 }
@@ -196,14 +196,14 @@ async function dalle3(request) {
 function getScenesToGenerate(lastSceneGenerated, totalScenes) {
   const scenesToGenerate = [];
   const i = lastSceneGenerated;
-  for (let j = i; j < i + SCENES_PER_REQUEST && j < totalScenes; j++) {
+  for (let j = i; j < i + OPENAI_DALLE_3_IMAGES_PER_MINUTE && j < totalScenes; j++) {
     scenesToGenerate.push(j);
   }
   return scenesToGenerate;
 }
 
 // start at 0.
-async function imageGenRecursive(req, app) {
+async function imageGenRecursive(req) {
   logger.debug(`imageGenRecursive`);
   logger.debug(JSON.stringify(req.body));
   const {sceneId, lastSceneGenerated, totalScenes, chapter} = req.body;

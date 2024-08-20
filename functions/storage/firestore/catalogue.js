@@ -73,7 +73,6 @@ function validateAudiobookData(data) {
  * Adds a new item to the Catalogue collection in Firestore.
  *
  * @param {object} req - The request object from Express.
- * @param {object} app - The Firebase app instance.
  * @return {Promise<object>} A promise that resolves to the full document data of the newly created catalogue item.
  */
 async function catalogueAddFirestore(req) {
@@ -137,11 +136,10 @@ async function catalogueBatchAddFirestore(items) {
 /**
  * Retrieves all items from the Catalogue collection in Firestore.
  *
- * @param {object} app - The Firebase app instance.
  * @param {string} [visibility] - The visibility of the items to retrieve. Defaults to "public".
  * @return {Promise<Array<object>>} A promise that resolves to an array of all catalogue items.
  */
-async function catalogueGetAllFirestore(app, visibility = "public") {
+async function catalogueGetAllFirestore(visibility = "public") {
   const catalogueRef = getFirestore().collection("Catalogue");
   const snapshot = await catalogueRef.where("visibility", "==", visibility).get();
 
@@ -257,10 +255,9 @@ async function catalogueGetItemFirestore(identifier) {
  * Deletes an item from the Catalogue collection in Firestore.
  *
  * @param {object} req - The request object from Express.
- * @param {object} app - The Firebase app instance.
  * @return {Promise<object>} A promise that resolves to an object indicating the success of the deletion.
  */
-async function catalogueDeleteFirestore(req, app) {
+async function catalogueDeleteFirestore(req) {
   const data = req.body;
   if (!data.id) {
     throw new Error("Item ID is required for deletion");

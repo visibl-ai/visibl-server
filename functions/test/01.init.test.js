@@ -90,7 +90,7 @@ describe("Full functional tests of visibl api", () => {
     const event = {
       data: testUser,
     };
-    const result = await newUser(app, event);
+    const result = await newUser(event);
     // Assume a Firestore trigger or function in index.js populates Firestore based on Auth user creation
     // Wait for Firestore to be updated (this might require a delay or a more complex event-driven approach in a real scenario)
 
@@ -307,6 +307,24 @@ describe("Full functional tests of visibl api", () => {
     expect(foundBook.metadata.visiblId).to.equal(catalogueBook.id);
     console.log(foundBook);
   });
+
+  const GENERATE_TRANSCRIPTIONS = true;
+  if (GENERATE_TRANSCRIPTIONS) {
+    // eslint-disable-next-line no-undef
+    it(`generates transcriptions for the book`, async () => {
+      const wrapped = firebaseTest.wrap(v1generateTranscriptions);
+      const result = await wrapped({
+        auth: {
+          uid: "admin",
+        },
+        data: {
+          sku: process.env.PUBLIC_SKU1,
+        },
+      });
+      console.log(result);
+    });
+  }
+
   // eslint-disable-next-line no-undef
   it("AAX - checks if audible connect is available for user (default true)", async () => {
     const wrapped = firebaseTest.wrap(v1getAAXAvailable);
@@ -575,24 +593,6 @@ describe("Full functional tests of visibl api", () => {
     });
   });
 
-
-  const GENERATE_TRANSCRIPTIONS = false;
-  if (GENERATE_TRANSCRIPTIONS) {
-    // eslint-disable-next-line no-undef
-    it(`generates transcriptions for the two books`, async () => {
-      const wrapped = firebaseTest.wrap(v1generateTranscriptions);
-      const result = await wrapped({
-        auth: {
-          uid: userData.uid,
-        },
-        data: {
-          sku: process.env.SKU1,
-        },
-      });
-      console.log(result);
-    });
-  }
-
   // Get an OPDS feed for the users private items
   // eslint-disable-next-line no-undef
   it("AAX - get private OPDS feeds", async () => {
@@ -763,7 +763,7 @@ describe("Full functional tests of visibl api", () => {
     expect(result.addedAt).to.exist;
 
     libraryPrivateItem = result;
-
+    console.log(`Testing adding duplicate of ${result.id}`);
     // Try to add the same item again, it should return the existing item
     const duplicateResult = await wrapped({
       auth: {
@@ -941,7 +941,7 @@ describe("Full functional tests of visibl api", () => {
     result.forEach((scene) => {
       expect(scene).to.have.property("id");
       expect(scene).to.have.property("uid").that.equals(userData.uid);
-      expect(scene).to.have.property("libraryId").that.equals(libraryItem.id);
+      expect(scene).to.have.property("catalogueId").that.equals(libraryItem.catalogueId);
       expect(scene).to.have.property("prompt");
       expect(scene).to.have.property("userDefault").that.is.a("boolean");
       expect(scene).to.have.property("createdAt");
@@ -984,7 +984,6 @@ describe("Full functional tests of visibl api", () => {
     console.log(result);
     expect(result).to.have.property("id");
     expect(result).to.have.property("prompt", "Miyazaki");
-    expect(result).to.have.property("userDefault", true);
     addedScene = result;
   });
 
@@ -1039,7 +1038,7 @@ describe("Full functional tests of visibl api", () => {
     expect(result).to.be.an("object");
     expect(result).to.have.property("id");
     expect(result).to.have.property("uid").that.equals(userData.uid);
-    expect(result).to.have.property("libraryId").that.equals(libraryItem.id);
+    expect(result).to.have.property("catalogueId").that.equals(libraryItem.catalogueId);
     expect(result).to.have.property("prompt");
     expect(result).to.have.property("userDefault").that.is.a("boolean");
     expect(result).to.have.property("createdAt");
@@ -1093,8 +1092,8 @@ describe("Full functional tests of visibl api", () => {
     });
 
     console.log(result);
-    expect(result).to.have.property("id", originalScene.id);
-    expect(result).to.have.property("userDefault", true);
+    expect(result).to.have.property("id", libraryItem.id);
+    expect(result).to.have.property("defaultSceneId", originalScene.id);
 
     // Now get the scenes again to verify the changes
     const getScenes = firebaseTest.wrap(v1getLibraryScenes);

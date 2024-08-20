@@ -15,19 +15,21 @@ import fs from "fs";
 
 import test from "firebase-functions-test";
 dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't work with conf.
+const APP_ID = process.env.APP_ID;
+const APP_URL = `http://127.0.0.1:5001/`;
 // Start the Firebase Functions test environment
 // eslint-disable-next-line no-unused-vars
 const firebaseTest = test({
   databaseURL: "http://localhost:8080",
-  storageBucket: "visibl-dev-ali.appspot.com",
-  projectId: "visibl-dev-ali",
+  storageBucket: `${APP_ID}.appspot.com`,
+  projectId: APP_ID,
 });
 // to get the app
 import {
   // eslint-disable-next-line no-unused-vars
   helloWorld,
 } from "../index.js";
-const APP_ID = process.env.APP_ID;
+
 const app = initializeApp({
   projectId: APP_ID,
   storageBucket: `${APP_ID}.appspot.com`,
@@ -36,19 +38,23 @@ const app = initializeApp({
 process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
-const APP_URL = `http://127.0.0.1:5002`;
+
 
 const GENERATE_CHARACTERS = false;
 const GENERATE_LOCATIONS = false;
+// const CHARACTERS_TIMELINE = false;
+// const LOCATIONS_TIMELINE = false;
 const GENERATE_CHARACTER_DESCRIPTIONS = false;
 const GENERATE_LOCATION_DESCRIPTIONS = false;
+const GENERATE_CHARACTER_DESCRIPTIONS_OAI = false;
+const GENERATE_LOCATION_DESCRIPTIONS_OAI = false;
 const SUMMARIZE_DESCRIPTIONS = false;
-const GENERATE_SCENES = false;
+const GENERATE_SCENES = true;
+const GENERATE_SCENES_16K = false;
 
 const SYM_PATH = "./test/bindings/graph/";
 const GRAPH_PATH = fs.realpathSync(SYM_PATH);
 console.log(GRAPH_PATH);
-
 
 // eslint-disable-next-line no-undef
 describe("Graph tests", () => {
@@ -105,15 +111,12 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
 
-      const response = await chai.request(APP_URL)
-          .post("/v1/admin/graph/characters")
-          .set("API-KEY", process.env.ADMIN_API_KEY)
-          .send(data);
-      expect(response).to.have.status(200);
-      const result = response.body;
-      console.log(result);
-      const path = `${GRAPH_PATH}${process.env.PUBLIC_SKU1}-characters-graph.json`;
-      fs.writeFileSync(path, JSON.stringify(result, null, 2));
+      const response = await chai
+          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .post("/generateGraphCharacters")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
     });
   }
   if (GENERATE_LOCATIONS) {
@@ -125,15 +128,11 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(APP_URL)
-          .post("/v1/admin/graph/locations")
-          .set("API-KEY", process.env.ADMIN_API_KEY)
-          .send(data);
-      expect(response).to.have.status(200);
-      const result = response.body;
-      console.log(result);
-      const path = `${GRAPH_PATH}${process.env.PUBLIC_SKU1}-locations-graph.json`;
-      fs.writeFileSync(path, JSON.stringify(result, null, 2));
+          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .post("/generateGraphLocations")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
     });
   }
   if (GENERATE_CHARACTER_DESCRIPTIONS) {
@@ -146,8 +145,25 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .request(`${APP_URL}${APP_ID}/us-central1`)
           .post("/generateGraphCharacterDescriptions")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+    });
+  }
+  if (GENERATE_CHARACTER_DESCRIPTIONS_OAI) {
+    // eslint-disable-next-line no-undef
+    it(`test graphCharacterDescriptionsOAI`, async () => {
+      // Prepare the update data
+      const data = {
+        uid: "admin",
+        sku: process.env.PUBLIC_SKU1,
+        visiblity: "public",
+      };
+      const response = await chai
+          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .post("/generateGraphCharacterDescriptionsOAI")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
       expect(response).to.have.status(204);
@@ -163,8 +179,25 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .request(`${APP_URL}${APP_ID}/us-central1`)
           .post("/generateGraphLocationDescriptions")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+    });
+  }
+  if (GENERATE_LOCATION_DESCRIPTIONS_OAI) {
+    // eslint-disable-next-line no-undef
+    it(`test graphLocationDescriptionsOAI`, async () => {
+      // Prepare the update data
+      const data = {
+        uid: "admin",
+        sku: process.env.PUBLIC_SKU1,
+        visiblity: "public",
+      };
+      const response = await chai
+          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .post("/generateGraphLocationDescriptionsOAI")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
       expect(response).to.have.status(204);
@@ -180,7 +213,7 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .request(`${APP_URL}${APP_ID}/us-central1`)
           .post("/generateGraphSummarizeDescriptions")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -190,7 +223,8 @@ describe("Graph tests", () => {
   if (GENERATE_SCENES) {
     // eslint-disable-next-line no-undef
     it(`test generateGraphScenes`, async () => {
-      for (let chapter = 0; chapter < 6; chapter++) {
+      for (let chapter = 3; chapter < 4; chapter++) {
+      // for (let chapter = 0; chapter < 31; chapter++) {
         // Prepare the update data
         const data = {
           uid: "admin",
@@ -199,12 +233,30 @@ describe("Graph tests", () => {
           chapter: chapter,
         };
         const response = await chai
-            .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+            .request(`${APP_URL}${APP_ID}/us-central1`)
             .post("/generateGraphScenes")
             .set("Content-Type", "application/json")
             .send({data: data}); // nest object as this is a dispatch.
         expect(response).to.have.status(204);
       }
+    });
+  }
+  if (GENERATE_SCENES_16K) {
+    // eslint-disable-next-line no-undef
+    it(`test generateGraphScenes16k`, async () => {
+      // Prepare the update data
+      const data = {
+        uid: "admin",
+        sku: process.env.PUBLIC_SKU1,
+        visiblity: "public",
+        chapter: 3,
+      };
+      const response = await chai
+          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .post("/generateGraphScenes16k")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
     });
   }
 });

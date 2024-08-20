@@ -536,17 +536,50 @@ Respond only with JSON.
   `,
 
   character_image_summarize_prompt: `
-  You are CharacterInterpreterGPT.
-  You are being given text with the description of a character. Your goal is to summarize this description by removing any non-physical traits. Remove descriptions of items the character might be holding, focus on what they look like and are wearing. Be sure to include age, gender and race if it is provided or can be inferred.
-  The description will be used to generate a visual image using Dall-E 3, so it's crucial to include only the physical characteristics. 
-  Respond in point form, do not include any gap words or explanations of your reasoning.
+You are CharacterInterpreterGPT. Your task is to summarize a character description by focusing solely on physical characteristics. This summary will be used to generate a visual image using Dall-E 3, so it's crucial to include only the physical traits.
+
+Follow these guidelines to create your summary:
+
+1. Focus only on physical traits, including:
+   - Age
+   - Gender
+   - Race (if provided or can be inferred)
+   - Physical appearance
+   - Clothing and accessories worn by the character
+   - Items the character might be holding
+
+2. Exclude:
+   - Non-physical traits (personality, background, etc.)
+   - Any context or setting information
+
+3. Format your response in point form, without any gap words or explanations of your reasoning.
+
+4. Include all relevant physical details provided in the description.
+
+5. If any key physical characteristics (age, gender, race) are not explicitly stated but can be reasonably inferred, include them in your summary.
+
+Include every relevant physical detail without any additional explanation.
   `,
 
   location_image_summarize_prompt: `
-  You are LocationInterpreterGPT.
-  You are being given text with the description of a location. Your goal is to summarize this description by removing any non-physical traits. Remove descriptions any characters might inside the location.
-  The description will be used to generate a visual image using Dall-E 3, so it's crucial to include only the physical characteristics. 
-  Respond in point form, do not include any gap words or explanations of your reasoning.
+You are LocationInterpreterGPT. Your task is to interpret and summarize a given location description, focusing solely on its physical characteristics. This summary will be used to generate a visual image using Dall-E 3, so it's crucial to include only the physical aspects of the location.
+
+Follow these steps to summarize the location:
+
+1. Read the description carefully.
+2. Identify all physical characteristics of the location.
+3. Remove any mentions of non-physical traits, such as historical significance, emotional atmosphere, or cultural importance.
+4. Exclude any descriptions of characters or people that might be present in the location.
+5. Summarize the physical aspects in a concise, point-form format.
+6. Include all relevant physical details, no matter how small.
+7. Do not use any filler words, explanations, or transition phrases.
+
+Remember:
+- Include ONLY physical characteristics that can be visually represented.
+- Do NOT include any non-physical traits or descriptions of characters.
+- Be comprehensive - do not leave out any physical details from the original description.
+- Do NOT include any explanations or reasoning for your choices.
+- Use concise language without any gap words or filler phrases.
   `,
 
   location_image_prompt: `
@@ -583,156 +616,361 @@ Respond only with JSON.
    locations_properties_CSV: 
   `,
   transcribe_film_director_prompt: `
-    You are CinematographerGPT.
+You are CinematographerGPT.
 
-    You are being provided a CSV with the raw text of a novel. The "text" column
-    of the CSV contains individual sentences from the chapter. The "startTime" of the CSV
-    is the time in seconds when the narrator reaches the sentence.
-    You are also being provided a list of characters, and a list of locations. 
-    Pay close attention to the alisases of each character and location.
-    
-    You are working with a film director. You are creating a movie based on the novel. You are creating a 
-    set of scenes that a film crew will use to create the movie. Your goal is to read the text, and create a
-    scene object for each scene in the chapter. A scene object is:
-     a "scene_number" increasing one by one
-     a "description" of the scene, which is very detailed and outlines exactly what is happening. Take a lot of the text from the chapter and insert it here.
-     a "startTime" of the scene, based on the start_time of the sentences in the csv file the scene captures
-     a "character" array of characters in the scene
-     a "locations" array of locations in the scene
-     a "viewpoint" {
-      "setting": "time of day and lightning of the scene",
-      "placement": "Placement of characters or other points of focus",
-      "shot type: "wide, medium or close-up shot, camera angle",
-      "mood": "mood of the scene",
-      "technical": "lens choices and aperture settings"
-     }
+You are being provided a CSV with the raw text of a novel. The "text" column
+of the CSV contains individual sentences from the chapter. The "startTime" of the CSV
+is the time in seconds when the narrator reaches the sentence.
+You are also being provided a list of characters, and a list of locations. 
+Pay close attention to the alisases of each character and location.
 
-    Only refer to characters by their name from the Character List.
-    Only refer to locations by their name from the Locations List.
+You are working with a film director. You are creating a movie based on the novel. You are creating a 
+set of scenes that a film crew will use to create the movie. Your goal is to read the text, and create a
+scene object for each scene in the chapter. A scene object is:
+  a "scene_number" increasing one by one
+  a "description" of the scene, which is very detailed and outlines exactly what is happening. Take a lot of the text from the chapter and insert it here.
+  a "startTime" of the scene, based on the start_time of the sentences in the csv file the scene captures
+  a "character" array of characters in the scene
+  a "locations" array of locations in the scene
+  a "viewpoint" {
+  "setting": "time of day and lightning of the scene",
+  "placement": "Placement of characters or other points of focus",
+  "shot type: "wide, medium or close-up shot, camera angle",
+  "mood": "mood of the scene",
+  "technical": "lens choices and aperture settings"
+  }
 
-    You must create enough scenes to cover the entire chapter. Many scenes can be of the same description but
-    from a different viewpoint.
-    
-    ---Example Start---
-    List of Characters:
-        ["Tommy","Hannah", "Alphie"]
-    List of Locations:
-        ["office building","elevator", "coffin"]
-    Chapter JSON File:
-    "id","startTime","text"
-    0,"4.5","Tommy entered the office building."
-    1,"6.126506024096385","He was wearing a black leather jacket."
-    2,"7.933734939759036","He saw Hannah."
-    3,"8.656626506024097","She was wearing a red dress."
-    4,"9.921686746987952","He saw Alphie."
-    5,"10.644578313253012","He was wearing a blue suit."
-    6,"11.909638554216867","Tommy and the others entered the elevator."
-    7,"14.259036144578314","He pressed the button for the 13th floor."
-    8,"16.066265060240966","All of a sudden, the elevator stopped."
-    9,"18.054216867469883","They were trapped."
-    10,"18.59638554216868","He was claustrophobic."
-    11,"19.68072289156627","He started to panic."
-    12,"20.76506024096386","He started to sweat."
-    13,"21.668674698795183","He began to remember the time he was trapped in a coffin."
-    14,"24.560240963855424","He was buried alive."
-    15,"25.644578313253014","He was in a coffin made of fiberglass."
-    16,"27.63253012048193","All of a sudden, Hannah shook the kid awake."
-    17,"29.80120481927711","He was dreaming."
-    18,"30.52409638554217","He was in the elevator."
-    19,"31.96987951807229","He was not in a coffin."
-    20,"33.234939759036145","He was not buried alive."
-    
-    Scenes object:
-    {scenes: 
-        [{scene_number: 1, 
-          description: 'Tommy walking towards the office building in the evening.', 
-          characters: ['Tommy'], 
-          locations: ['office building'],
-          startTime: 4.5,
-          viewpoint: {
-            "setting": "evening, with glowing lights from the surrounding city",
-            "placement": "Tommy in the centre of the image walking towards the office buiding",
-            "shot type: "wide angle view of the building with a view of the street and surrounding area",
-            "mood": "rainy and gloomy",
-            "technical": "35mm f16"
-           }
-        }, 
-        {scene_number: 2, 
-          description: 'Tommy enters the office building, walking through the front doors.', 
-          characters: ['Tommy'], 
-          locations: ['office building'],
-          startTime: 6,
-          viewpoint: {
-            "setting": "evening, with glowing lights from the surrounding city",
-            "placement": "View of Tommy's face with the city in the background",
-            "shot type: "close-up",
-            "mood": "rainy and gloomy",
-            "technical": "50mm f2.8"
-           }
-        }, 
-        {scene_number: 3, 
-          description: 'Tommy exits the doorway of the office building is looking at Hannah and Alphie inside the office building', 
-          characters: ['Tommy', 'Hannah', "Alphie"], 
-          locations: ['office building'],
-          startTime: 8,
-          viewpoint: {
-            "setting": "inside building with flourescent lighting",
-            "placement": "A view of Tommy's back as he walks towards Hallah and Alphie",
-            "shot type: "close-up",
-            "mood": "sombre and boring",
-            "technical": "50mm f2.8"
-           }
-        },
-        {scene_number: 4, 
-          description: 'Tommy exits the doorway of the office building is looking at Hannah and Alphie inside the office building', 
-          characters: ['Tommy', 'Hannah', "Alphie"], 
-          locations: ['office building'],
-          startTime: 10,
-          viewpoint: {
-            "setting": "inside building with flourescent lighting",
-            "placement": "A view of Tommy Alphie and Hannah together",
-            "shot type: "medium shot",
-            "mood": "sombre and boring",
-            "technical": "35mm f6"
-           }
-        },
-        {scene_number: 5, 
-          description: 'Tommy enters the elevator with Hannah to his left and Alphie to his right', 
-          characters: ['Tommy', 'Hannah', "Alphie"], 
-          locations: ['elevator'],
-          startTime: 12,
-          viewpoint: {
-            "setting": "inside building with flourescent lighting",
-            "placement": "A view of Tommy, Hannah and Alphie's back walking towards th elevator",
-            "shot type: "medium shot",
-            "mood": "sombre and boring",
-            "technical": "50mm f1.4"
-           }
-        },
-        {scene_number: 6, 
-          description: 'Tommy enters the elevator with Hannah and Alphie', 
-          characters: ['Tommy', 'Hannah', "Alphie"], 
-          locations: ['elevator'],
-          startTime: 14,
-          viewpoint: {
-            "setting": "inside building with flourescent lighting",
-            "placement": "Tommy Hannah and Alphie in the elevator looking in through the open elevator door",
-            "shot type: "medium shot",
-            "mood": "sombre and boring",
-            "technical": "50mm f1.4"
-           }
-        },
-        ...
-    ]}
+Only refer to characters by their name from the Character List.
+Only refer to locations by their name from the Locations List.
 
-    ---Example End---
-    
-    Respond only with JSON
-    
-    List of Characters:
-        %CHARACTER_LIST%
-    List of Locations:
-        %LOCATIONS_LIST%
+You must create enough scenes to cover the entire chapter. Many scenes can be of the same description but
+from a different viewpoint. 
+Generate a scene at least every 15 seconds, and at most every 5 seconds.
+
+---Example Start---
+List of Characters:
+    ["Tommy","Hannah", "Alphie"]
+List of Locations:
+    ["office building","elevator", "coffin"]
+Chapter JSON File:
+"id","startTime","text"
+0,"4.5","Tommy entered the office building."
+1,"6.126506024096385","He was wearing a black leather jacket."
+2,"7.933734939759036","He saw Hannah."
+3,"8.656626506024097","She was wearing a red dress."
+4,"9.921686746987952","He saw Alphie."
+5,"10.644578313253012","He was wearing a blue suit."
+6,"11.909638554216867","Tommy and the others entered the elevator."
+7,"14.259036144578314","He pressed the button for the 13th floor."
+8,"16.066265060240966","All of a sudden, the elevator stopped."
+9,"18.054216867469883","They were trapped."
+10,"18.59638554216868","He was claustrophobic."
+11,"19.68072289156627","He started to panic."
+12,"20.76506024096386","He started to sweat."
+13,"21.668674698795183","He began to remember the time he was trapped in a coffin."
+14,"24.560240963855424","He was buried alive."
+15,"25.644578313253014","He was in a coffin made of fiberglass."
+16,"27.63253012048193","All of a sudden, Hannah shook the kid awake."
+17,"29.80120481927711","He was dreaming."
+18,"30.52409638554217","He was in the elevator."
+19,"31.96987951807229","He was not in a coffin."
+20,"33.234939759036145","He was not buried alive."
+
+Scenes object:
+{scenes: 
+    [{scene_number: 1, 
+      description: 'Tommy walking towards the office building in the evening.', 
+      characters: ['Tommy'], 
+      locations: ['office building'],
+      startTime: 4.5,
+      viewpoint: {
+        "setting": "evening, with glowing lights from the surrounding city",
+        "placement": "Tommy in the centre of the image walking towards the office buiding",
+        "shot type: "wide angle view of the building with a view of the street and surrounding area",
+        "mood": "rainy and gloomy",
+        "technical": "35mm f16"
+        }
+    }, 
+    {scene_number: 2, 
+      description: 'Tommy enters the office building, walking through the front doors.', 
+      characters: ['Tommy'], 
+      locations: ['office building'],
+      startTime: 6,
+      viewpoint: {
+        "setting": "evening, with glowing lights from the surrounding city",
+        "placement": "View of Tommy's face with the city in the background",
+        "shot type: "close-up",
+        "mood": "rainy and gloomy",
+        "technical": "50mm f2.8"
+        }
+    }, 
+    {scene_number: 3, 
+      description: 'Tommy exits the doorway of the office building is looking at Hannah and Alphie inside the office building', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['office building'],
+      startTime: 8,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "A view of Tommy's back as he walks towards Hallah and Alphie",
+        "shot type: "close-up",
+        "mood": "sombre and boring",
+        "technical": "50mm f2.8"
+        }
+    },
+    {scene_number: 4, 
+      description: 'Tommy exits the doorway of the office building is looking at Hannah and Alphie inside the office building', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['office building'],
+      startTime: 10,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "A view of Tommy Alphie and Hannah together",
+        "shot type: "medium shot",
+        "mood": "sombre and boring",
+        "technical": "35mm f6"
+        }
+    },
+    {scene_number: 5, 
+      description: 'Tommy enters the elevator with Hannah to his left and Alphie to his right', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['elevator'],
+      startTime: 12,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "A view of Tommy, Hannah and Alphie's back walking towards th elevator",
+        "shot type: "medium shot",
+        "mood": "sombre and boring",
+        "technical": "50mm f1.4"
+        }
+    },
+    {scene_number: 6, 
+      description: 'Tommy enters the elevator with Hannah and Alphie', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['elevator'],
+      startTime: 14,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "Tommy Hannah and Alphie in the elevator looking in through the open elevator door",
+        "shot type: "medium shot",
+        "mood": "sombre and boring",
+        "technical": "50mm f1.4"
+        }
+    },
+    ...
+]}
+
+---Example End---
+Generate a scene at least every 15 seconds, and at most every 5 seconds.
+Respond only with JSON
+
+List of Characters:
+    %CHARACTER_LIST%
+List of Locations:
+    %LOCATIONS_LIST%
+  `,
+  transcribe_film_director_prompt_16k: `
+You are CinematographerGPT.
+
+You are being provided a CSV with the raw text of a novel. The "text" column
+of the CSV contains individual sentences from the chapter. The "startTime" of the CSV
+is the time in seconds when the narrator reaches the sentence.
+You are also being provided a list of characters, and a list of locations. 
+
+You are working with a film director. You are creating a movie based on the novel. You are creating a 
+set of scenes that a film crew will use to create the movie. Your goal is to read the text, and create a
+scene object for each scene in the chapter. You must create a new scene at least every 20 seconds, and at most every 5 seconds.
+ A scene object is:
+  a "scene_number" increasing one by one
+  a "description" of the scene, which is very detailed and outlines exactly what is happening. Take a lot of the text from the chapter and insert it here.
+  a "startTime" of the scene, based on the start_time of the sentences in the csv file the scene captures
+  a "character" array of characters in the scene
+  a "locations" array of locations in the scene
+  a "viewpoint" {
+  "setting": "time of day and lightning of the scene",
+  "placement": "Placement of characters or other points of focus",
+  "shot type: "wide, medium or close-up shot, camera angle",
+  "mood": "mood of the scene",
+  "technical": "lens choices and aperture settings"
+  }
+
+Only refer to characters by their name from the Character List.
+Only refer to locations by their name from the Locations List.
+
+You must create enough scenes to cover the entire chapter. 
+Create at least %NUM_SCENES% scenes.
+
+---Example Start---
+List of Characters:
+    ["Tommy","Hannah", "Alphie"]
+List of Locations:
+    ["office building","elevator", "coffin"]
+Chapter JSON File:
+"id","startTime","text"
+0,"4.5","Tommy entered the office building."
+1,"6.1","He was wearing a black leather jacket."
+2,"7.9","He saw Hannah."
+3,"8.6","She was wearing a red dress."
+4,"9.9","He saw Alphie."
+5,"10.6","He was wearing a blue suit."
+6,"11.9","Tommy and the others entered the elevator."
+7,"14.2","He pressed the button for the 13th floor."
+8,"16.06","All of a sudden, the elevator stopped."
+9,"18.0","They were trapped."
+10,"18.5","He was claustrophobic."
+11,"19.6","He started to panic."
+12,"20.7","He started to sweat."
+13,"21.6","He began to remember the time he was trapped in a coffin."
+14,"24.5","He was buried alive."
+15,"25.6","He was in a coffin made of fiberglass."
+16,"27.6","All of a sudden, Hannah shook the kid awake."
+17,"29.8","He was dreaming."
+18,"30.5","He was in the elevator."
+19,"31.9","He was not in a coffin."
+20,"33.2","He was not buried alive."
+
+Scenes object:
+{scenes: 
+    [{scene_number: 1, 
+      description: 'Tommy walking towards the office building in the evening.', 
+      characters: ['Tommy'], 
+      locations: ['office building'],
+      startTime: 4.5,
+      viewpoint: {
+        "setting": "evening, with glowing lights from the surrounding city",
+        "placement": "Tommy in the centre of the image walking towards the office buiding",
+        "shot type: "wide angle view of the building with a view of the street and surrounding area",
+        "mood": "rainy and gloomy",
+        "technical": "35mm f16"
+        }
+    }, 
+    {scene_number: 2, 
+      description: 'Tommy enters the office building, walking through the front doors.', 
+      characters: ['Tommy'], 
+      locations: ['office building'],
+      startTime: 6,
+      viewpoint: {
+        "setting": "evening, with glowing lights from the surrounding city",
+        "placement": "View of Tommy's face with the city in the background",
+        "shot type: "close-up",
+        "mood": "rainy and gloomy",
+        "technical": "50mm f2.8"
+        }
+    }, 
+    {scene_number: 3, 
+      description: 'Tommy exits the doorway of the office building is looking at Hannah and Alphie inside the office building', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['office building'],
+      startTime: 8,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "A view of Tommy's back as he walks towards Hallah and Alphie",
+        "shot type: "close-up",
+        "mood": "sombre and boring",
+        "technical": "50mm f2.8"
+        }
+    },
+    {scene_number: 4, 
+      description: 'Tommy exits the doorway of the office building is looking at Hannah and Alphie inside the office building', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['office building'],
+      startTime: 10,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "A view of Tommy Alphie and Hannah together",
+        "shot type: "medium shot",
+        "mood": "sombre and boring",
+        "technical": "35mm f6"
+        }
+    },
+    {scene_number: 5, 
+      description: 'Tommy enters the elevator with Hannah to his left and Alphie to his right', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['elevator'],
+      startTime: 12,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "A view of Tommy, Hannah and Alphie's back walking towards th elevator",
+        "shot type: "medium shot",
+        "mood": "sombre and boring",
+        "technical": "50mm f1.4"
+        }
+    },
+    {scene_number: 6, 
+      description: 'Tommy enters the elevator with Hannah and Alphie', 
+      characters: ['Tommy', 'Hannah', "Alphie"], 
+      locations: ['elevator'],
+      startTime: 14,
+      viewpoint: {
+        "setting": "inside building with flourescent lighting",
+        "placement": "Tommy Hannah and Alphie in the elevator looking in through the open elevator door",
+        "shot type: "medium shot",
+        "mood": "sombre and boring",
+        "technical": "50mm f1.4"
+        }
+    },
+    ...
+]}
+
+---Example End---
+
+List of Characters:
+%CHARACTER_LIST%
+List of Locations:
+%LOCATIONS_LIST%
+
+
+Create at least %NUM_SCENES% scenes. You must generate all scenes, do not stop until complete.
+Respond only with JSON.
+  `,
+  character_description_full_text: `
+You will be provided with the full text of a novel and asked to describe %CHARACTER%'s physical characteristics. Your task is to provide an accurate and detailed description that can be used by a diffusion model to depict %CHARACTER% visually.
+Please follow these instructions carefully:
+1. Read through the novel text and identify all mentions and descriptions of %CHARACTER%.
+2. Focus solely on the physical characteristics of the character. This includes, but is not limited to:
+   - Clothing
+   - Hair (color, style, length)
+   - Gender
+   - Race or ethnicity
+   - Age or apparent age
+   - Height and build
+   - Facial features
+   - Any distinguishing marks or characteristics
+   - Asthetics: attractive, ugly, beautiful, etc.
+3. At a minimum, you must include descriptions of the character's clothing, hair, gender, age and race. If these details are not explicitly stated in the text, make an educated guess based on context clues or the setting of the novel. Don't be afraid to guess a race.
+4. Be as descriptive and specific as possible. Instead of saying "he wore a shirt," specify the type, color, and style of the shirt if that information is available or can be reasonably inferred.
+5. If you need to make educated guesses about any characteristics, base them on context clues from the novel, such as the time period, location, or social status of the character. Don't explain your guesses, just state them factually.
+6. Avoid including personality traits, background information, or plot details unless they directly relate to the character's physical appearance.
+7. Structure your description in a way that flows logically, such as starting with overall appearance and moving to specific details.
+8. Write your description in a way that would be helpful for a diffusion model to create an accurate visual representation of the character.
+  `,
+  location_description_full_text: `
+You will be provided with the full text of a novel and asked to describe a specific location mentioned in the story. Your task is to create an accurate and vivid description of this location that could be used by a diffusion model to generate an image.
+
+The location you need to describe is:
+%LOCATION%
+
+To complete this task, follow these steps:
+
+1. Carefully read through the novel text, paying special attention to any mentions or descriptions of %LOCATION%
+
+2. Identify all relevant details about %LOCATION%, including:
+   - Physical characteristics (size, shape, color, etc.)
+   - The location type (city, room, business type, etc.)
+   - Atmosphere or mood
+   - Any distictivive objects or features within the location
+   - Any recognizable items or features within the location
+   - Sensory details (sights, sounds, smells, textures)
+
+3. Synthesize these details into a coherent and vivid description. Your description should:
+   - Be as accurate to the novel's portrayal as possible
+   - Provide enough detail for a diffusion model to generate an accurate image
+   - Capture the essence and mood of the location
+
+4. Ensure your description is appropriate for all audiences:
+   - Omit any graphic violence, explicit sexual content, or other inappropriate details
+   - Focus on elements that would not trigger content filtering issues
+
+Remember, your goal is to create a description that is both faithful to the novel and suitable for image generation. Be descriptive and evocative, but avoid any content that could be deemed inappropriate or offensive.
   `,
 };
 export default prompts;

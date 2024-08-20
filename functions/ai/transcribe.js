@@ -13,15 +13,13 @@ import {uploadFileToBucket,
 } from "../storage/storage.js";
 import fs from "fs/promises";
 
-import {aaxAsinFromSkuFirestore} from "../storage/firestore/aax.js";
-
 const MAX_SIZE = process.env.MAX_SIZE || 24;
 const NUM_THREADS = process.env.NUM_THREADS || 32;
 
-async function uploadFilesToBucket(app, bookName, outputFiles, cloudPath = "splitAudio") {
+async function uploadFilesToBucket(bookName, outputFiles, cloudPath = "splitAudio") {
   const uploads = await Promise.all(outputFiles.map(async (outputFile) => {
     try {
-      const uploadResponse = await uploadFileToBucket(app, outputFile, `${cloudPath}${outputFile.split("./bin/")[1]}`);
+      const uploadResponse = await uploadFileToBucket({localPath: outputFile, bucketPath: `${cloudPath}${outputFile.split("./bin/")[1]}`});
       logger.debug(`uploadFilesToBucket Upload response for ${outputFile}: ${JSON.stringify(uploadResponse.metadata.name)}`);
       return uploadResponse;
     } catch (error) {
@@ -31,7 +29,7 @@ async function uploadFilesToBucket(app, bookName, outputFiles, cloudPath = "spli
   },
   ));
   return uploads.map((uploadResponse) => {
-    logger.log(`Uploaded ${uploadResponse} to bucket`);
+    logger.log(`Uploaded ${uploadResponse.metadata.name} to bucket`);
     return `${uploadResponse.metadata.name}`;
   });
 }
@@ -41,15 +39,17 @@ async function transcribeFilesInParallel(bookData, outputFiles) {
   outputFiles.forEach((outputFile, index) => {
     bookData.chapters[index].outputFile = outputFile;
   });
+  const prompt = `The transcript is an audiobook version of ${bookData.title} by ${bookData.author}.`;
   const promises = Object.entries(bookData.chapters).map(
       async ([chapterIndex, chapter]) => {
         const {startTime, endTime} = chapter;
         logger.debug(
-            `Transcribing chapter ${chapterIndex} from ${startTime} to ${endTime}`,
+            `Transcribing chapter ${chapterIndex} from ${startTime} to ${endTime} with prompt ${prompt}`,
         );
         const transcription = await whisper.whisper(
             chapter.outputFile,
             startTime,
+            prompt,
         );
         logger.debug(`Chapter ${chapterIndex} transcription complete.`);
         transcriptions[chapterIndex] = transcription;
@@ -58,6 +58,7 @@ async function transcribeFilesInParallel(bookData, outputFiles) {
   );
   if (ENVIRONMENT.value() === "development") {
     logger.debug("***Skipping transcription in development mode***");
+    // await Promise.all(promises);
     return transcriptions;
   } else {
     await Promise.all(promises);
@@ -97,8 +98,8 @@ function getTranscriptionsPath(uid, sku) {
   }
 }
 
-async function getMetaData(app, uid, sku, path) {
-  const bookData = await getJsonFile(app, getMetadataPath(uid, sku));
+async function getMetaData(uid, sku, path) {
+  const bookData = await getJsonFile({filename: getMetadataPath(uid, sku)});
   logger.debug(`Book Data: ${JSON.stringify(bookData, null, 2)}`);
   if (ENVIRONMENT.value() === "development") {
     bookData.chapters = Object.fromEntries(
@@ -115,21 +116,20 @@ async function getMetaData(app, uid, sku, path) {
   const endTimes = Object.values(bookData.chapters).map(
       (chapter) => chapter.endTime,
   );
-  logger.debug(inputFiles);
   return {bookData, inputFiles, outputFiles, startTimes, endTimes};
 }
 
 // TODO: Add AAX support.
-async function pipeline(app, uid, sku, ffmpegPath ) {
+async function pipeline(uid, sku, ffmpegPath ) {
   // 1. Download file from bucket to local - or, use the one already there.
   const inputFilePath = `./bin/${sku}.m4b`;
   const path = `./bin/`;
 
-  await downloadFileFromBucket(app, getM4BPath(uid, sku), inputFilePath);
+  await downloadFileFromBucket({bucketPath: getM4BPath(uid, sku), localPath: inputFilePath});
   logger.debug("STEP 1: File downloaded from bucket.");
   // 2. get metadata from audio file
 
-  const metadata = await getMetaData(app, uid, sku, path);
+  const metadata = await getMetaData(uid, sku, path);
   logger.debug("STEP 2: Metadata Obtained");
   // 3. Split file in parallel
   const outputFiles = await ffmpegTools.splitAudioInParallel(
@@ -146,7 +146,7 @@ async function pipeline(app, uid, sku, ffmpegPath ) {
   logger.debug(`STEP 3: File Split into chapters of ${MAX_SIZE}mb`);
   // 4. Upload the split files to bucket?
   let splitAudio = "";
-  splitAudio = await uploadFilesToBucket(app, sku, outputFiles, getSplitAudioPath(uid, sku));
+  splitAudio = await uploadFilesToBucket(sku, outputFiles, getSplitAudioPath(uid, sku));
   logger.debug("STEP 4: Files uploaded to bucket.");
   // 5. Transcribe the files
   console.log(metadata);
@@ -158,19 +158,19 @@ async function pipeline(app, uid, sku, ffmpegPath ) {
     logger.debug("STEP 5: Transcriptions Complete");
   }
   // 6. Upload Transcriptions to Bucket.
-  const transcriptionsFile = await uploadJsonToBucket(app, transcriptions, getTranscriptionsPath(uid, sku));
+  const transcriptionsFile = await uploadJsonToBucket({json: transcriptions, bucketPath: getTranscriptionsPath(uid, sku)});
   logger.debug("STEP 6: Transcriptions Uploaded to Bucket.");
   return {transcriptions: transcriptionsFile.metadata.name, metadata: metadata.bookData, splitAudio};
 }
 
-async function downloadFffmpegBinary(app) {
+async function downloadFffmpegBinary() {
   const ffmpegPath = "./bin/ffmpeg";
-  await downloadFileFromBucket(app, "bin/ffmpeg", ffmpegPath);
+  await downloadFileFromBucket({bucketPath: "bin/ffmpeg", localPath: ffmpegPath});
   await fs.chmod(ffmpegPath, 0o755);
   return ffmpegPath;
 }
 
-async function generateTranscriptions(uid, data, app) {
+async function generateTranscriptions(uid, data) {
   logger.debug(JSON.stringify(data));
   //   if (data.run !== true) {
   //     logger.debug("not running due to body.run");
@@ -178,16 +178,14 @@ async function generateTranscriptions(uid, data, app) {
   //   }
   const sku = data.sku;
   logger.debug(`Processing FileName: ${sku} for ${uid}`);
-  const asin = await aaxAsinFromSkuFirestore(uid, sku);
-  logger.debug(`Asin for SKU: ${sku} is ${asin}`);
   let ffmpegPath;
   logger.debug(`Downloading ffmpeg binary`);
-  ffmpegPath = await downloadFffmpegBinary(app);
+  ffmpegPath = await downloadFffmpegBinary();
   if (ENVIRONMENT.value() === "development") {
     ffmpegPath = `ffmpeg`;
   }
   logger.debug(`using ffmpeg path: ${ffmpegPath}`);
-  const urls = await pipeline(app, uid, sku, ffmpegPath);
+  const urls = await pipeline(uid, sku, ffmpegPath);
   return urls;
 }
 

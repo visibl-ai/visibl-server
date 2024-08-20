@@ -29,7 +29,7 @@ function generateManifestUrl(visibility, uid, catalogueId) {
   }
 }
 
-async function generateOPDS(app, uid, catalogueItems, title) {
+async function generateOPDS(uid, catalogueItems, title) {
   console.log(catalogueItems);
   const opdsResponse = {
     metadata: {
@@ -40,7 +40,7 @@ async function generateOPDS(app, uid, catalogueItems, title) {
       metadata: metadataToOPDSMetadata(item.metadata, item.id),
       images: [
         {
-          href: await getAlbumArtUrl(app, item.visibility, uid, item.sku),
+          href: await getAlbumArtUrl(item.visibility, uid, item.sku),
           type: "image/jpeg",
         },
       ],
@@ -57,24 +57,24 @@ async function generateOPDS(app, uid, catalogueItems, title) {
   return opdsResponse;
 }
 
-async function generatePublicOPDS(app) {
+async function generatePublicOPDS() {
   const uid = "admin";
-  const catalogueItems = await catalogueGetAllFirestore(app);
-  return await generateOPDS(app, uid, catalogueItems, "Visibl Catalog");
+  const catalogueItems = await catalogueGetAllFirestore();
+  return await generateOPDS(uid, catalogueItems, "Visibl Catalog");
 }
 
-async function generatePrivateOPDS(uid, data, app) {
+async function generatePrivateOPDS(uid, data) {
   const catalogueItems = await getPrivateCatalogueItemsFirestore(uid);
   logger.debug(`Generating private OPDS for ${catalogueItems.length} items`);
-  return await generateOPDS(app, uid, catalogueItems, `${AAX_CONNECT_SOURCE.value()} Import`);
+  return await generateOPDS(uid, catalogueItems, `${AAX_CONNECT_SOURCE.value()} Import`);
 }
 
-async function generateUserItemManifest(app, uid, data) {
+async function generateUserItemManifest(uid, data) {
   const libraryItem = await libraryGetFirestore(uid, data.libraryId);
-  return await generateManifest(app, uid, libraryItem.catalogueId);
+  return await generateManifest(uid, libraryItem.catalogueId);
 }
 
-async function generateManifest(app, uid, catalogueId) {
+async function generateManifest(uid, catalogueId) {
   // 1. get the item from the catalogue
   const catalogueItem = await catalogueGetItemFirestore({id: catalogueId});
   logger.debug(`Generating manifest for ${catalogueItem.title} sku ${catalogueItem.sku}`);
@@ -82,9 +82,9 @@ async function generateManifest(app, uid, catalogueId) {
   const visibility = catalogueItem.visibility;
   // 3. Generate the manifest
   const metadata = metadataToOPDSMetadata(catalogueItem.metadata, catalogueItem.id);
-  const imageUrl = await getAlbumArtUrl(app, visibility, uid, catalogueItem.sku);
+  const imageUrl = await getAlbumArtUrl(visibility, uid, catalogueItem.sku);
   logger.debug(`Image URL: ${imageUrl}`);
-  const readingOrder = await metadataToOPDSReadingOrder(app, uid, visibility, catalogueItem.metadata);
+  const readingOrder = await metadataToOPDSReadingOrder(uid, visibility, catalogueItem.metadata);
   logger.debug(`Reading Order: ${readingOrder}`);
   const manifest = {
     "@context": "https://readium.org/webpub-manifest/context.jsonld",
@@ -101,15 +101,15 @@ async function generateManifest(app, uid, catalogueId) {
   return manifest;
 }
 
-async function getAlbumArtUrl(app, visibility, uid, sku) {
+async function getAlbumArtUrl(visibility, uid, sku) {
   if (visibility === "public") {
-    return await getPublicUrl(app, `Catalogue/Processed/${sku}/${sku}.jpg`);
+    return await getPublicUrl({path: `Catalogue/Processed/${sku}/${sku}.jpg`});
   } else {
-    return await getPublicUrl(app, `UserData/${uid}/Uploads/AAXRaw/${sku}.jpg`);
+    return await getPublicUrl({path: `UserData/${uid}/Uploads/AAXRaw/${sku}.jpg`});
   }
 }
 
-async function processRawPublicItem(req, app) {
+async function processRawPublicItem(req) {
   const sku = req.body.sku;
   if (!sku) {
     return {
@@ -117,7 +117,7 @@ async function processRawPublicItem(req, app) {
       message: "sku is required",
     };
   }
-  const metadata = await getJsonFile(app, `Catalogue/Raw/${sku}.json`);
+  const metadata = await getJsonFile({filename: `Catalogue/Raw/${sku}.json`});
   if (!metadata) {
     return {
       error: true,
@@ -125,24 +125,24 @@ async function processRawPublicItem(req, app) {
     };
   }
   // eslint-disable-next-line no-unused-vars
-  const transcriptions = await generateTranscriptions("admin", metadata, app);
+  const transcriptions = await generateTranscriptions("admin", metadata);
   // Now that the transcriptions and metadata are available lets add it to the catalogue.
   await addSkuToCatalogue("admin", metadata, "public");
   // Copy the album art
-  await copyAlbumArt(app, sku);
+  await copyAlbumArt(sku);
   return;
 }
 
-async function getM4AUrl(app, visibility, sku, uid, chapterIndex) {
+async function getM4AUrl(visibility, sku, uid, chapterIndex) {
   logger.debug(`Getting M4B URL for uid ${uid} visibility ${visibility} sku ${sku} chapter ${chapterIndex}`);
   if (visibility === "public") {
-    return await getPublicUrl(app, `Catalogue/Processed/${sku}/${sku}-ch${chapterIndex}.m4a`);
+    return await getPublicUrl({path: `Catalogue/Processed/${sku}/${sku}-ch${chapterIndex}.m4a`});
   } else {
-    return await getPublicUrl(app, `UserData/${uid}/Uploads/Processed/${sku}/${sku}-ch${chapterIndex}.m4a`);
+    return await getPublicUrl({path: `UserData/${uid}/Uploads/Processed/${sku}/${sku}-ch${chapterIndex}.m4a`});
   }
 }
 
-async function metadataToOPDSReadingOrder(app, uid, visibility, metadata) {
+async function metadataToOPDSReadingOrder(uid, visibility, metadata) {
   const sku = metadata.sku;
   if (ENVIRONMENT.value() === "development") {
     metadata.chapters = {
@@ -154,7 +154,7 @@ async function metadataToOPDSReadingOrder(app, uid, visibility, metadata) {
     type: "audio/mp4",
     duration: chapter.endTime - chapter.startTime,
     title: chapter.title,
-    href: await getM4AUrl(app, visibility, sku, uid, chapterIndex),
+    href: await getM4AUrl(visibility, sku, uid, chapterIndex),
   })));
   return readingOrder;
 }
@@ -200,8 +200,8 @@ async function addSkuToCatalogue(uid, metadata, visibility) {
   return await catalogueAddFirestore({body: itemToAdd});
 }
 
-async function copyAlbumArt(app, sku) {
-  await copyFile(app, `Catalogue/Raw/${sku}.jpg`, `Catalogue/Processed/${sku}/${sku}.jpg`);
+async function copyAlbumArt(sku) {
+  await copyFile({sourcePath: `Catalogue/Raw/${sku}.jpg`, destinationPath: `Catalogue/Processed/${sku}/${sku}.jpg`});
 }
 
 export {

@@ -13,7 +13,8 @@ import {
 } from "./catalogue.js";
 
 import {
-  scenesCreateLibraryItemFirestore,
+  scenesCreateItemFirestore,
+  getCatalogueScenesFirestore,
 } from "./scenes.js";
 
 import {generateManifest} from "../../util/opds.js";
@@ -44,10 +45,9 @@ async function libraryGetFirestore(uid, libraryId) {
  *
  * @param {string} uid - The user ID of the authenticated user.
  * @param {object} data - The data object containing the catalogueId of the item to be added.
- * @param {object} app - The Firebase app instance.
  * @return {Promise<object>} A promise that resolves to the added library item.
  */
-async function libraryAddItemFirestore(uid, data, app) {
+async function libraryAddItemFirestore(uid, data) {
   if (!data.catalogueId) {
     throw new Error("Catalogue ID is required");
   }
@@ -84,28 +84,44 @@ async function libraryAddItemFirestore(uid, data, app) {
   const docRef = await libraryRef.add(newItem);
   const addedDoc = await docRef.get();
 
-  // Create a new scene for the library item
-  const sceneData = await scenesCreateLibraryItemFirestore(uid, {
-    libraryId: addedDoc.id,
-    prompt: "",
-    userDefault: true,
-  }, app);
+  // Get the scene with globalDefault: true, or, prompt = "".
+  let defaultSceneId;
+  const scenes = await getCatalogueScenesFirestore(uid, {catalogueId: data.catalogueId});
+  const scene = scenes.find((scene) => scene.globalDefault || scene.prompt === "");
+  if (!scene) {
+    // Otherwise, create one.
+    const sceneData = await scenesCreateItemFirestore(uid, {
+      libraryId: addedDoc.id,
+      prompt: "",
+      globalDefault: true,
+    });
+    defaultSceneId = sceneData.id;
+  } else {
+    defaultSceneId = scene.id;
+  }
+
+  // Update the library item with the id of the generated Scene
+  await docRef.update({
+    defaultSceneId: defaultSceneId,
+  });
+
+  // Fetch the updated document
+  const updatedDoc = await docRef.get();
 
   return {
-    id: addedDoc.id,
-    ...addedDoc.data(),
+    id: updatedDoc.id,
+    ...updatedDoc.data(),
   };
 }
 
 /**
  * Retrieves the user's library items from Firestore.
  *
- * @param {object} app - The Firebase app instance.
  * @param {string} uid - The user ID of the authenticated user.
  * @param {object} data - The data object containing optional parameters.
  * @return {Promise<Array>} A promise that resolves to an array of library items.
  */
-async function libraryGetAllFirestore(app, uid, data) {
+async function libraryGetAllFirestore(uid, data) {
   const db = getFirestore();
   const libraryRef = db.collection("Library").where("uid", "==", uid);
 
@@ -123,7 +139,7 @@ async function libraryGetAllFirestore(app, uid, data) {
   if (data.includeManifest) {
     libraryItems = await Promise.all(libraryItems.map(async (item) => {
       try {
-        const manifest = await generateManifest(app, uid, item.catalogueId);
+        const manifest = await generateManifest(uid, item.catalogueId);
         return {...item, manifest};
       } catch (error) {
         console.error(`Error fetching manifest for item ${item.id}:`, error);
@@ -140,10 +156,9 @@ async function libraryGetAllFirestore(app, uid, data) {
  *
  * @param {string} uid - The user ID of the authenticated user.
  * @param {object} data - The data object containing the libraryIds to delete.
- * @param {object} app - The Firebase app instance.
  * @return {Promise<object>} A promise that resolves to an object with the deletion results.
  */
-async function libraryDeleteItemFirestore(uid, data, app) {
+async function libraryDeleteItemFirestore(uid, data) {
   const db = getFirestore();
   const libraryRef = db.collection("Library");
   const scenesRef = db.collection("Scenes");
