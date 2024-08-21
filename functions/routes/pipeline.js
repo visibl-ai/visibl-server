@@ -12,6 +12,7 @@ import {
 } from "../util/pipeline.js";
 import {
   imageGenChapterRecursive,
+  imageGenCurrentTime,
 } from "../ai/openai/dallE.js";
 
 import {
@@ -66,6 +67,14 @@ export const generateSceneImages = onTaskDispatched(
     async (req) => {
       logger.debug(`generateSceneImages: ${JSON.stringify(req.data)}`);
       return await imageGenChapterRecursive(dataToBody(req));
+    },
+);
+
+export const generateSceneImagesCurrentTime = onTaskDispatched(
+    largeDispatchInstance(),
+    async (req) => {
+      logger.debug(`generateSceneImagesCurrentTime: ${JSON.stringify(req.data)}`);
+      return await imageGenCurrentTime(dataToBody(req));
     },
 );
 

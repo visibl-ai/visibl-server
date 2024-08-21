@@ -53,10 +53,10 @@ async function generateImages(req) {
   try {
     // Scenes to generate is a [5,6,7,8] . Maximum 5.
     const {
-      scenesToGenerate,
+      scenes,
       sceneId} = req;
 
-    if (scenesToGenerate.length > OPENAI_DALLE_3_IMAGES_PER_MINUTE) {
+    if (scenes.length > OPENAI_DALLE_3_IMAGES_PER_MINUTE) {
       throw new Error(`Maximum ${OPENAI_DALLE_3_IMAGES_PER_MINUTE} scenes per request`);
     }
     if (sceneId === undefined) {
@@ -65,7 +65,7 @@ async function generateImages(req) {
     const scene = await getSceneFirestore(sceneId);
     const theme = scene.prompt;
     let fullScenes = await getScene({sceneId});
-    const scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
+    // /const scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
     // const scenes = chapterScenes.filter((singleScene, index) => scenesToGenerate.includes(index));
     logger.debug("scenes.length = " + scenes.length);
     logger.info("scenes = " + JSON.stringify(scenes).substring(0, 100));
@@ -228,11 +228,12 @@ async function imageGenChapterRecursive(req) {
   await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, false, Date.now());
   const scenesToGenerate = getScenesToGenerate(lastSceneGenerated, totalScenes, chapter);
   logger.debug(`scenesToGenerate = ${JSON.stringify(scenesToGenerate)}`);
+  const fullScenes = await getScene({sceneId});
+  const scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
   const startTime = Date.now();
   await generateImages(
       {
-        chapter: chapter,
-        scenesToGenerate: scenesToGenerate,
+        scenes: scenes,
         sceneId: sceneId,
       },
   );
@@ -260,6 +261,10 @@ async function imageGenChapterRecursive(req) {
   }
 }
 
+async function imageDispatcher(request, delay) {
+  await dispatchTask("generateSceneImages", request, 60 * 5, delay);
+}
+
 // start at 0.
 async function imageGenCurrentTime(req) {
   logger.debug(`imageGenChapterRecursive`);
@@ -277,12 +282,17 @@ async function imageGenCurrentTime(req) {
 
   logger.debug(`Found scene: Chapter ${chapter}, Scene ${sceneNumber}`);
   const scenesToGenerate = scenesToGenerateFromCurrentTime({currentSceneNumber: sceneNumber, currentChapter: chapter, fullScenes});
-  logger.debug(`scenesToGenerate = ${JSON.stringify(scenesToGenerate)}`);
-  return scenesToGenerate;
-}
-
-async function imageDispatcher(request, delay) {
-  await dispatchTask("generateSceneImages", request, 60 * 5, delay);
+  let scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
+  const filteredScenes = scenes.filter((scene) => scene.sceneId !== sceneId);
+  logger.debug(`Filtered out ${scenes.length - filteredScenes.length} scenes with matching sceneId`);
+  scenes = filteredScenes;
+  const generatedScenes = await generateImages(
+      {
+        scenes: scenes,
+        sceneId: sceneId,
+      },
+  );
+  return scenesToGenerateFromCurrentTime({currentSceneNumber: sceneNumber, currentChapter: chapter, fullScenes: generatedScenes});
 }
 
 export {

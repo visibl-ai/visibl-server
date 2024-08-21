@@ -821,7 +821,7 @@ describe("Full functional tests of visibl api", () => {
     const bucketPath = `Catalogue/Processed/${catalogueBook.sku}/${catalogueBook.sku}-scenes.json`;
     const file = bucket.file(bucketPath);
     try {
-      const stream = fs.createReadStream(`./test/bindings/graph/${catalogueBook.sku}-scenes-graph.json`);
+      const stream = fs.createReadStream(`./test/bindings/scenes/${catalogueBook.sku}-scenes-graph.json`);
 
       await new Promise((resolve, reject) => {
         stream.pipe(file.createWriteStream({}))
@@ -1018,6 +1018,40 @@ describe("Full functional tests of visibl api", () => {
         .send({
           data:
           {sceneId, lastSceneGenerated, totalScenes, chapter},
+        });
+    expect(response).to.have.status(204);
+  });
+  // eslint-disable-next-line no-undef
+  it(`test generateSceneImagesCurrentTime taskQueue`, async () => {
+    const sceneId = addedScene.id;
+    const lastSceneGenerated = 0;
+    const totalScenes = 6;
+    const chapter = 3;
+    const response = await chai
+        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+        .post("/generateSceneImagesCurrentTime")
+        .set("Content-Type", "application/json")
+        .send({
+          data:
+            {sceneId, currentTime: 30320.1},
+          // Should be Chapter 30 scene 1.
+        });
+    expect(response).to.have.status(204);
+  });
+  // eslint-disable-next-line no-undef
+  it(`test generateSceneImagesCurrentTime, overlapping previous generation`, async () => {
+    const sceneId = addedScene.id;
+    const lastSceneGenerated = 0;
+    const totalScenes = 6;
+    const chapter = 3;
+    const response = await chai
+        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+        .post("/generateSceneImagesCurrentTime")
+        .set("Content-Type", "application/json")
+        .send({
+          data:
+            {sceneId, currentTime: 30395.1},
+          // Should be Chapter 30 scene 1.
         });
     expect(response).to.have.status(204);
   });

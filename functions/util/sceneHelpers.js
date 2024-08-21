@@ -1,3 +1,5 @@
+const PRECEDING_SCENES = 2;
+const FOLLOWING_SCENES = 10;
 /**
  * Finds the scene that is currently playing based on the current time.
  * @param {Object} fullScenes - The full scenes object.
@@ -39,7 +41,7 @@ function scenesToGenerateFromCurrentTime({currentSceneNumber, currentChapter, fu
   }
 
   // Add 2 scenes before
-  for (let i = 2; i > 0; i--) {
+  for (let i = PRECEDING_SCENES; i > 0; i--) {
     if (currentSceneNumber - i >= 0) {
       addScene(currentChapter, currentSceneNumber - i);
     } else if (currentChapterIndex > 0) {
@@ -53,7 +55,7 @@ function scenesToGenerateFromCurrentTime({currentSceneNumber, currentChapter, fu
   addScene(currentChapter, currentSceneNumber);
 
   // Add 10 scenes after
-  let remainingScenes = 10;
+  let remainingScenes = FOLLOWING_SCENES;
   let nextChapter = currentChapter;
   let nextScene = currentSceneNumber + 1;
 
