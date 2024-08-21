@@ -58,6 +58,16 @@ async function outpaint(request) {
   }
 }
 
+const outpaintTall = async (request) => {
+  const {inputPath, outputPathWithoutExtension, pixels=384} = request;
+  return await outpaint({
+    inputPath,
+    outputPath: `${outputPathWithoutExtension}.9.16.jpg`,
+    up: pixels,
+    down: pixels,
+  });
+};
+
 const outpaintWideAndTall = async (request) => {
   const {inputPath, outputPathWithoutExtension, pixels=384} = request;
   logger.debug(`Outpainting image ${inputPath} to ${outputPathWithoutExtension}`);
@@ -85,5 +95,6 @@ const outpaintWideAndTall = async (request) => {
 
 export {
   outpaint,
+  outpaintTall,
   outpaintWideAndTall,
 };

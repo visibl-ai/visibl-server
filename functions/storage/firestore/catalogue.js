@@ -6,6 +6,7 @@ import {
 import {
   removeUndefinedProperties,
 } from "../firestore.js";
+import {scenesCreateDefaultCatalogueFirestore} from "./scenes.js";
 import {logger} from "firebase-functions/v2";
 
 /**
@@ -119,6 +120,9 @@ async function catalogueBatchAddFirestore(items) {
     data.createdAt = Timestamp.now();
     data.updatedAt = Timestamp.now();
 
+    // Get or create default scene for the item.
+    const defaultScene = await scenesCreateDefaultCatalogueFirestore({catalogueId: docRef.id, sku: data.sku});
+    data.defaultSceneId = defaultScene.id;
     batch.set(docRef, data);
 
     addedItems.push({

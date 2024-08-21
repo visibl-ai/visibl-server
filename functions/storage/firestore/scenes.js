@@ -26,6 +26,11 @@ import {
   getDefaultSceneFilename,
 } from "../storage.js";
 
+import {
+  dispatchTask,
+  dataToBody,
+} from "../../util/dispatch.js";
+
 // Global in this context is that scenes are not unique to users.
 async function getGlobalScenesFirestore(uid, data) {
   const db = getFirestore();
@@ -105,7 +110,7 @@ async function getCatalogueScenesFirestore(uid, data) {
 
 async function scenesCreateItemFirestore(uid, data) {
   const db = getFirestore();
-  let {libraryId, prompt, userDefault} = data;
+  let {libraryId, prompt, userDefault, currentTime} = data;
   let {chapter} = data;
   if (chapter === undefined) {
     chapter = 0;
@@ -132,13 +137,13 @@ async function scenesCreateItemFirestore(uid, data) {
 
   // Check if a scene with the same libraryId and prompt already exists
   const existingSceneQuery = await scenesRef
-      .where("uid", "==", uid)
       .where("catalogueId", "==", catalogueId)
       .where("prompt", "==", prompt)
       .get();
 
   if (!existingSceneQuery.empty) {
-    throw new Error("A scene with the same prompt already exists");
+    logger.warn(`A scene with the same prompt already exists for ${catalogueId} and prompt: ${prompt}`);
+    return {id: existingSceneQuery.docs[0].id, ...existingSceneQuery.docs[0].data()};
   }
   logger.debug(`Creating scene for catalogueId: ${catalogueId}`);
   const {sku: sku} = await catalogueGetFirestore(catalogueId);
@@ -158,18 +163,73 @@ async function scenesCreateItemFirestore(uid, data) {
   if (defaultExist) {
     const defaultScenes = await getCatalogueDefaultScene({sku});
     await storeScenes({sceneId: newSceneRef.id, sceneData: defaultScenes});
-    await imageDispatcher({
-      sceneId: newSceneRef.id,
-      lastSceneGenerated: 0,
-      totalScenes: defaultScenes[chapter].length,
-      chapter: chapter,
-    });
+    // Default scenes exist for this item. Lets start generating images for the current time.
+    if (currentTime) {
+      logger.debug(`New Scene: currentTime found, generating scenes at currentTime: ${currentTime}`);
+      await dispatchTask("generateSceneImagesCurrentTime",
+          dataToBody({data: {sceneId: newSceneRef.id, currentTime}}));
+    } else {
+      logger.debug(`New Scene: No currentTime found, generating full chapter.`);
+      await imageDispatcher({
+        sceneId: newSceneRef.id,
+        lastSceneGenerated: 0,
+        totalScenes: defaultScenes[chapter].length,
+        chapter: chapter,
+      });
+    }
   } else {
     logger.debug(`No default scenes found for sku: ${sku}, skipping for now...`);
   }
   // If userDefault is true, update all existing scenes for this libraryId to false
   if (isUserDefault) {
     await scenesUpdateUserLibraryDefaultFirestore({db, uid, libraryId, sceneId: newSceneRef.id});
+  }
+  return {id: newSceneRef.id, ...newScene};
+}
+
+async function scenesCreateDefaultCatalogueFirestore(data) {
+  const db = getFirestore();
+  const {catalogueId, sku} = data;
+  if (!catalogueId || !sku) {
+    throw new Error("catalogueId and sku are required");
+  }
+  const prompt = "";
+  const uid = "admin";
+  const scenesRef = db.collection("Scenes");
+
+  // Check if a scene with the same libraryId and prompt already exists
+  const existingSceneQuery = await scenesRef
+      .where("catalogueId", "==", catalogueId)
+      .where("globalDefault", "==", true)
+      .get();
+
+  if (!existingSceneQuery.empty) {
+    logger.error(`A global default scene already exists for catalogueId: ${catalogueId} with sceneId: ${existingSceneQuery.docs[0].id}`);
+    return {
+      id: existingSceneQuery.docs[0].id,
+      ...existingSceneQuery.docs[0].data(),
+    };
+  }
+  logger.debug(`Creating scene for catalogueId: ${catalogueId}`);
+
+  const newScene = {
+    uid,
+    prompt,
+    catalogueId,
+    sku,
+    globalDefault: true,
+    createdAt: Timestamp.now(),
+  };
+
+  const newSceneRef = await scenesRef.add(newScene);
+  logger.debug(`Created new scene for catalogueId: ${catalogueId} with id: ${newSceneRef.id}`);
+  // Dispatch long running task to generate scenes..
+  const defaultExist = await fileExists({path: getDefaultSceneFilename({sku})});
+  if (defaultExist) {
+    const defaultScenes = await getCatalogueDefaultScene({sku});
+    await storeScenes({sceneId: newSceneRef.id, sceneData: defaultScenes});
+  } else {
+    logger.debug(`No default scenes found for sku: ${sku}, skipping for now...`);
   }
   return {id: newSceneRef.id, ...newScene};
 }
@@ -271,4 +331,5 @@ export {
   getCatalogueScenesFirestore,
   getSceneFirestore,
   sceneUpdateChapterGeneratedFirestore,
+  scenesCreateDefaultCatalogueFirestore,
 };

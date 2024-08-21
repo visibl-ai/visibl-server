@@ -821,7 +821,7 @@ describe("Full functional tests of visibl api", () => {
     const bucketPath = `Catalogue/Processed/${catalogueBook.sku}/${catalogueBook.sku}-scenes.json`;
     const file = bucket.file(bucketPath);
     try {
-      const stream = fs.createReadStream(`./test/bindings/graph/${catalogueBook.sku}-scenes-graph.json`);
+      const stream = fs.createReadStream(`./test/bindings/scenes/${catalogueBook.sku}-scenes-graph.json`);
 
       await new Promise((resolve, reject) => {
         stream.pipe(file.createWriteStream({}))
@@ -940,7 +940,7 @@ describe("Full functional tests of visibl api", () => {
     // Check properties of each scene
     result.forEach((scene) => {
       expect(scene).to.have.property("id");
-      expect(scene).to.have.property("uid").that.equals(userData.uid);
+      expect(scene).to.have.property("uid").that.equals("admin"); // this is the global default scene.
       expect(scene).to.have.property("catalogueId").that.equals(libraryItem.catalogueId);
       expect(scene).to.have.property("prompt");
       expect(scene).to.have.property("userDefault").that.is.a("boolean");
@@ -1022,6 +1022,40 @@ describe("Full functional tests of visibl api", () => {
     expect(response).to.have.status(204);
   });
   // eslint-disable-next-line no-undef
+  it(`test generateSceneImagesCurrentTime taskQueue`, async () => {
+    const sceneId = addedScene.id;
+    const lastSceneGenerated = 0;
+    const totalScenes = 6;
+    const chapter = 3;
+    const response = await chai
+        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+        .post("/generateSceneImagesCurrentTime")
+        .set("Content-Type", "application/json")
+        .send({
+          data:
+            {sceneId, currentTime: 30320.1},
+          // Should be Chapter 30 scene 1.
+        });
+    expect(response).to.have.status(204);
+  });
+  // eslint-disable-next-line no-undef
+  it(`test generateSceneImagesCurrentTime, overlapping previous generation`, async () => {
+    const sceneId = addedScene.id;
+    const lastSceneGenerated = 0;
+    const totalScenes = 6;
+    const chapter = 3;
+    const response = await chai
+        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+        .post("/generateSceneImagesCurrentTime")
+        .set("Content-Type", "application/json")
+        .send({
+          data:
+            {sceneId, currentTime: 30395.1},
+          // Should be Chapter 30 scene 1.
+        });
+    expect(response).to.have.status(204);
+  });
+  // eslint-disable-next-line no-undef
   it(`test v1getLibraryScenes with a single scene`, async () => {
     const wrapped = firebaseTest.wrap(v1getLibraryScenes);
 
@@ -1043,7 +1077,6 @@ describe("Full functional tests of visibl api", () => {
     expect(result).to.have.property("userDefault").that.is.a("boolean");
     expect(result).to.have.property("createdAt");
   });
-
   // eslint-disable-next-line no-undef
   it(`test v1getLibraryScenes after adding a new scene`, async () => {
     const wrapped = firebaseTest.wrap(v1getLibraryScenes);
@@ -1212,8 +1245,55 @@ describe("Full functional tests of visibl api", () => {
     expect(result[0]).to.have.property("viewpoint");
     expect(result[0].image).to.not.equal(defaultChapterScene.image);
   });
+  // eslint-disable-next-line no-undef
+  it(`test getAi with a sceneId and a currentTime.`, async () => {
+    const wrapped = firebaseTest.wrap(v1getAi);
 
+    // Prepare the data for getting AI content
+    const getAiData = {
+      libraryId: libraryItem.id,
+      currentTime: 20320.1,
+      chapter: 20,
+      sceneId: addedScene.id,
+    };
 
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getAiData,
+    });
+
+    // console.log(result);
+    expect(result).to.exist;
+    expect(result).to.be.an("array");
+    console.log(result[0]);
+    expect(result[0]).to.have.property("scene_number");
+    expect(result[0]).to.have.property("description");
+    expect(result[0]).to.have.property("characters");
+    expect(result[0]).to.have.property("locations");
+    expect(result[0]).to.have.property("viewpoint");
+  });
+  // GET AI WITH currentTime, create scene with current time!
+  // eslint-disable-next-line no-undef
+  it(`test v1addLibraryItemScenes with currentTime`, async () => {
+    const wrapped = firebaseTest.wrap(v1addLibraryItemScenes);
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id,
+        prompt: "Sumi-e",
+        userDefault: true,
+        currentTime: 20320.1,
+      },
+    });
+    console.log(result);
+    expect(result).to.have.property("id");
+    expect(result).to.have.property("prompt", "Sumi-e");
+    addedScene = result;
+  });
   // eslint-disable-next-line no-undef
   it(`test v1getLibrary with includeManifest=true`, async () => {
     const wrapped = firebaseTest.wrap(v1getLibrary);

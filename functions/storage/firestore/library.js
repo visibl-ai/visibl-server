@@ -85,20 +85,8 @@ async function libraryAddItemFirestore(uid, data) {
   const addedDoc = await docRef.get();
 
   // Get the scene with globalDefault: true, or, prompt = "".
-  let defaultSceneId;
-  const scenes = await getCatalogueScenesFirestore(uid, {catalogueId: data.catalogueId});
-  const scene = scenes.find((scene) => scene.globalDefault || scene.prompt === "");
-  if (!scene) {
-    // Otherwise, create one.
-    const sceneData = await scenesCreateItemFirestore(uid, {
-      libraryId: addedDoc.id,
-      prompt: "",
-      globalDefault: true,
-    });
-    defaultSceneId = sceneData.id;
-  } else {
-    defaultSceneId = scene.id;
-  }
+  const defaultSceneId = catalogueItem.defaultSceneId;
+
 
   // Update the library item with the id of the generated Scene
   await docRef.update({
