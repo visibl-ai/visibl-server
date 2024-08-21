@@ -45,6 +45,7 @@ describe("Graph tests", () => {
   it(`Upload bindings to bucket.`, async () => {
     const fileList = [
       `jardethe.png`,
+      `linda.jpg`,
     ];
     const bucket = getStorage(app).bucket();
 
@@ -73,14 +74,28 @@ describe("Graph tests", () => {
     }
   });
   // eslint-disable-next-line no-undef
-  it("should generate images for the chapter", async () => {
+  // it("should outpaint an image", async () => {
+  //   const data = {
+  //     inputPath: `${bucketPath}jardethe.png`,
+  //     outputPathWithoutExtension: `${bucketPath}jardethe`,
+  //   };
+
+  //   const response = await chai.request(APP_URL)
+  //       .post("/v1/admin/ai/outpaint")
+  //       .set("API-KEY", process.env.ADMIN_API_KEY)
+  //       .send(data);
+  //   expect(response).to.have.status(200);
+  // });
+  // eslint-disable-next-line no-undef
+  it("should structure an image", async () => {
     const data = {
-      inputPath: `${bucketPath}jardethe.png`,
-      outputPathWithoutExtension: `${bucketPath}jardethe`,
+      inputPath: `${bucketPath}linda.jpg`,
+      outputPathWithoutExtension: `${bucketPath}linda`,
+      prompt: `Neon punk style`,
     };
 
     const response = await chai.request(APP_URL)
-        .post("/v1/admin/ai/outpaint")
+        .post("/v1/admin/ai/structure")
         .set("API-KEY", process.env.ADMIN_API_KEY)
         .send(data);
     expect(response).to.have.status(200);

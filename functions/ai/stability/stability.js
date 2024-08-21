@@ -12,7 +12,7 @@ import {
   getFileStream,
   uploadStreamAndGetPublicLink,
 } from "../../storage/storage.js";
-import {URL} from "url";
+// import {URL} from "url";
 
 const STABILITY_API_URL = "https://api.stability.ai/v2beta/stable-image";
 
@@ -115,7 +115,7 @@ const outpaintWideAndTall = async (request) => {
 const structure = async (request) => {
   const {
     inputPath,
-    outputPath,
+    outputPathWithoutExtension,
     prompt,
     control_strength=0.35,
     outputFormat="jpeg"} = request;
@@ -125,8 +125,8 @@ const structure = async (request) => {
     output_format: outputFormat,
   }});
   const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/control/structure`, form});
-  logger.debug(`Structuring image complete ${outputPath}`);
-  return await uploadStreamAndGetPublicLink({stream, filename: outputPath});
+  logger.debug(`Structuring image complete ${outputPathWithoutExtension}`);
+  return await uploadStreamAndGetPublicLink({stream, filename: `${outputPathWithoutExtension}.structured.${outputFormat}`});
 };
 export {
   outpaint,

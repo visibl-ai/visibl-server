@@ -96,6 +96,11 @@
         "source": "/v1/admin/ai/outpaint",
         "function": "v1AdminOutpaintImage",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/ai/structure",
+        "function": "v1AdminStructureImage",
+        "region": "europe-west1"
       }
     ]
   }
