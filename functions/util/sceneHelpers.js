@@ -24,7 +24,13 @@ function sceneFromCurrentTime(fullScenes, currentTime) {
  * @param {number} currentChapter - The current chapter.
  * @return {Array} - The list of scenes to generate.
  */
-function scenesToGenerateFromCurrentTime({currentSceneNumber, currentChapter, fullScenes}) {
+function scenesToGenerateFromCurrentTime({
+  currentSceneNumber,
+  currentChapter,
+  fullScenes,
+  precedingScenes = PRECEDING_SCENES,
+  followingScenes = FOLLOWING_SCENES,
+}) {
   const result = [];
   const chapters = Object.keys(fullScenes).map(Number).sort((a, b) => a - b);
   const currentChapterIndex = chapters.indexOf(currentChapter);
@@ -41,7 +47,7 @@ function scenesToGenerateFromCurrentTime({currentSceneNumber, currentChapter, fu
   }
 
   // Add 2 scenes before
-  for (let i = PRECEDING_SCENES; i > 0; i--) {
+  for (let i = precedingScenes; i > 0; i--) {
     if (currentSceneNumber - i >= 0) {
       addScene(currentChapter, currentSceneNumber - i);
     } else if (currentChapterIndex > 0) {
@@ -55,7 +61,7 @@ function scenesToGenerateFromCurrentTime({currentSceneNumber, currentChapter, fu
   addScene(currentChapter, currentSceneNumber);
 
   // Add 10 scenes after
-  let remainingScenes = FOLLOWING_SCENES;
+  let remainingScenes = followingScenes;
   let nextChapter = currentChapter;
   let nextScene = currentSceneNumber + 1;
 

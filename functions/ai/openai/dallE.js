@@ -1,7 +1,7 @@
 /* eslint-disable require-jsdoc */
 import {logger} from "firebase-functions/v2";
 import OpenAI from "openai";
-import {OPENAI_API_KEY} from "../../config/config.js";
+import {OPENAI_API_KEY, ENVIRONMENT} from "../../config/config.js";
 import axios from "axios";
 import {
   uploadStreamAndGetPublicLink,
@@ -273,7 +273,13 @@ async function imageGenCurrentTime(req) {
   if (!sceneId || !currentTime) {
     throw new Error("sceneId and currentTime are required");
   }
-  const fullScenes = await getScene({sceneId});
+  let fullScenes;
+  try {
+    fullScenes = await getScene({sceneId});
+  } catch (error) {
+    logger.error(`Error getting full scenes for ${sceneId}`);
+    return {};
+  }
   const {chapter, sceneNumber} = sceneFromCurrentTime(fullScenes, currentTime) || {};
 
   if (chapter === undefined || sceneNumber === undefined) {
@@ -281,7 +287,19 @@ async function imageGenCurrentTime(req) {
   }
 
   logger.debug(`Found scene: Chapter ${chapter}, Scene ${sceneNumber}`);
-  const scenesToGenerate = scenesToGenerateFromCurrentTime({currentSceneNumber: sceneNumber, currentChapter: chapter, fullScenes});
+  let precedingScenes = 2;
+  let followingScenes = 10;
+  if (ENVIRONMENT.value() === "development") {
+    precedingScenes = 1;
+    followingScenes = 1;
+  }
+  const scenesToGenerate = scenesToGenerateFromCurrentTime({
+    currentSceneNumber: sceneNumber,
+    currentChapter: chapter,
+    fullScenes,
+    precedingScenes,
+    followingScenes,
+  });
   let scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
   const filteredScenes = scenes.filter((scene) => scene.sceneId !== sceneId);
   logger.debug(`Filtered out ${scenes.length - filteredScenes.length} scenes with matching sceneId`);

@@ -26,6 +26,11 @@ import {
   getDefaultSceneFilename,
 } from "../storage.js";
 
+import {
+  dispatchTask,
+  dataToBody,
+} from "../../util/dispatch.js";
+
 // Global in this context is that scenes are not unique to users.
 async function getGlobalScenesFirestore(uid, data) {
   const db = getFirestore();
@@ -105,7 +110,7 @@ async function getCatalogueScenesFirestore(uid, data) {
 
 async function scenesCreateItemFirestore(uid, data) {
   const db = getFirestore();
-  let {libraryId, prompt, userDefault} = data;
+  let {libraryId, prompt, userDefault, currentTime} = data;
   let {chapter} = data;
   if (chapter === undefined) {
     chapter = 0;
@@ -132,13 +137,13 @@ async function scenesCreateItemFirestore(uid, data) {
 
   // Check if a scene with the same libraryId and prompt already exists
   const existingSceneQuery = await scenesRef
-      .where("uid", "==", uid)
       .where("catalogueId", "==", catalogueId)
       .where("prompt", "==", prompt)
       .get();
 
   if (!existingSceneQuery.empty) {
-    throw new Error("A scene with the same prompt already exists");
+    logger.warn(`A scene with the same prompt already exists for ${catalogueId} and prompt: ${prompt}`);
+    return {id: existingSceneQuery.docs[0].id, ...existingSceneQuery.docs[0].data()};
   }
   logger.debug(`Creating scene for catalogueId: ${catalogueId}`);
   const {sku: sku} = await catalogueGetFirestore(catalogueId);
@@ -164,6 +169,11 @@ async function scenesCreateItemFirestore(uid, data) {
       totalScenes: defaultScenes[chapter].length,
       chapter: chapter,
     });
+    // Default scenes exist for this item. Lets start generating images for the current time.
+    if (currentTime) {
+      await dispatchTask("generateSceneImagesCurrentTime",
+          dataToBody({data: {sceneId: newSceneRef.id, currentTime}}));
+    }
   } else {
     logger.debug(`No default scenes found for sku: ${sku}, skipping for now...`);
   }

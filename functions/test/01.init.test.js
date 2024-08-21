@@ -1245,7 +1245,7 @@ describe("Full functional tests of visibl api", () => {
     expect(result[0]).to.have.property("viewpoint");
     expect(result[0].image).to.not.equal(defaultChapterScene.image);
   });
-
+  // GET AI WITH currentTime, create scene with current time!
 
   // eslint-disable-next-line no-undef
   it(`test v1getLibrary with includeManifest=true`, async () => {

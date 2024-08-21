@@ -12,6 +12,12 @@ import {
 } from "./storage.js";
 import {logger} from "firebase-functions/v2";
 import {libraryGetFirestore} from "./firestore/library.js";
+import {catalogueGetFirestore} from "./firestore/catalogue.js";
+
+import {
+  dispatchTask,
+  dataToBody,
+} from "../util/dispatch.js";
 
 /**
  * Adds a new user to the Firestore database.
@@ -115,7 +121,7 @@ function removeUndefinedProperties(data) {
  * @return {Promise<object>} A promise that resolves to the AI-generated content.
  */
 async function getAiFirestore(uid, data) {
-  const {libraryId, sceneId, chapter} = data;
+  let {libraryId, sceneId, chapter, currentTime} = data;
   logger.debug(`Getting AI for ${uid} to libraryId ${libraryId} sceneId ${sceneId} chapter ${chapter}`);
   if (!libraryId) {
     throw new Error("Invalid or missing libraryId");
@@ -138,21 +144,32 @@ async function getAiFirestore(uid, data) {
     throw new Error("CatalogueId not found in library item");
   }
 
+  if (!sceneId && libraryData.defaultSceneId) {
+    logger.debug(`Using default library sceneId ${libraryData.defaultSceneId} for libraryId ${libraryId}`);
+    sceneId = libraryData.defaultSceneId;
+  } else if (!sceneId) {
+    const catalogueItem = await catalogueGetFirestore(catalogueId);
+    logger.debug(`Using default catalogue sceneId ${catalogueItem.defaultSceneId} for catalogueId ${catalogueId}`);
+    sceneId = catalogueItem.defaultSceneId;
+  }
+
   // Retrieve the scenes data for the catalogueId
   let scenes;
   try {
-    scenes = await getUserLibraryScene(uid, libraryId, sceneId, chapter);
+    scenes = await getUserLibraryScene({libraryData, sceneId});
   } catch (error) {
     logger.error(`Error retrieving scenes for libraryId ${libraryId}:`, error);
     throw new Error("Failed to retrieve scenes data");
   }
 
-  if (!scenes) {
+  if (scenes.error) {
     throw new Error("No scenes data found for the given libraryId");
   }
 
-  // Here you would typically process the catalogueManifest and generate AI content
-  // For now, we'll return a placeholder response
+  if (currentTime) {
+    await dispatchTask("generateSceneImagesCurrentTime",
+        dataToBody({data: {sceneId, currentTime}}));
+  }
   logger.debug(`Returning scenes: ${JSON.stringify(scenes).substring(0, 150)}`);
   if (chapter) {
     return scenes[chapter];
@@ -161,48 +178,29 @@ async function getAiFirestore(uid, data) {
   }
 }
 
-async function getUserLibraryScene(uid, libraryId, sceneId) {
-  const db = getFirestore();
-  let sceneToFetch;
-  // We're told what scene to get.
-  if (sceneId) {
-    const sceneRef = db.collection("Scenes").doc(sceneId);
-    const scene = await sceneRef.get();
-
-    if (!scene.exists) {
-      throw new Error("Scene not found");
-    }
-
-    sceneToFetch = sceneId;
-  } else {
-    // No scene Id given. Get the default scene.
-    logger.debug(`Getting default scene for ${uid} to ${libraryId}`);
-    const libraryData = await libraryGetFirestore(uid, libraryId);
-    if (!libraryData) {
-      throw new Error("Library item not found");
-    }
-    sceneToFetch = libraryData.defaultSceneId;
-    const sku = libraryData.sku;
-    // Check if the default scene exists.
-    const exists = await fileExists({path: getSceneFilename(sceneToFetch)});
-    logger.debug(`Default scene ${sceneToFetch} exists: ${exists} ${typeof exists}`);
-    if (!exists) {
-      logger.warn(`Default scene ${sceneToFetch} not found in Firestore, will try to copy now.`);
-      logger.debug(`Checking for catalogue scenes for ${sku}`);
-      const defaultExist = await fileExists({path: getDefaultSceneFilename({sku})});
-      logger.debug(`Catalogue scenes for ${sku} exist: ${defaultExist}`);
-      if (defaultExist) {
-        logger.debug(`Copying default catalogue scenes for ${sku}`);
-        await storeScenes({sceneId: sceneToFetch, sceneData: await getCatalogueDefaultScene({sku})});
-      } else {
-        logger.warn(`Default scene ${sceneToFetch} not found in Firestore, and catalogue scenes not found.`);
-        return {error: "Scenes not found - likely still being generatred"};
-      }
+async function getUserLibraryScene(params) {
+  const {libraryData, sceneId} = params;
+  const sku = libraryData.sku;
+  // Check if the default scene exists.
+  const exists = await fileExists({path: getSceneFilename(sceneId)});
+  logger.debug(`Scenes for ${sceneId} exists: ${exists} ${typeof exists}`);
+  if (!exists) {
+    logger.warn(`Scenes for ${sceneId} not found in Firestore, will try to copy now.`);
+    logger.debug(`Checking for catalogue scenes for ${sku}`);
+    const defaultExist = await fileExists({path: getDefaultSceneFilename({sku})});
+    logger.debug(`Catalogue scenes for ${sku} exist: ${defaultExist}`);
+    if (defaultExist) {
+      logger.debug(`Copying default catalogue scenes for ${sku}`);
+      await storeScenes({sceneId: sceneId, sceneData: await getCatalogueDefaultScene({sku})});
     } else {
-      logger.debug(`Scenes exist for ${sceneToFetch} - will return that.`);
+      logger.warn(`Default scene ${sceneId} not found in Firestore, and catalogue scenes not found.`);
+      return {error: "Scenes not found - likely still being generatred"};
     }
+  } else {
+    logger.debug(`Scenes exist for ${sceneId} - will return that.`);
   }
-  return await getScene({sceneId: sceneToFetch});
+
+  return await getScene({sceneId: sceneId});
 }
 
 export {
