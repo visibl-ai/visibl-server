@@ -1,3 +1,4 @@
+/* eslint-disable camelcase */
 /* eslint-disable require-jsdoc */
 import axios from "axios";
 import FormData from "form-data";
@@ -11,17 +12,11 @@ import {
   getFileStream,
   uploadStreamAndGetPublicLink,
 } from "../../storage/storage.js";
+import {URL} from "url";
 
-async function outpaint(request) {
-  const {
-    inputPath,
-    outputPath,
-    left=0,
-    right=0,
-    down=0,
-    up=0,
-    outputFormat="jpeg"} = request;
+const STABILITY_API_URL = "https://api.stability.ai/v2beta/stable-image";
 
+async function stabilityForm({inputPath, formData}) {
   const imageStream = await getFileStream({path: inputPath});
   const inputFileName = inputPath.split("/").pop();
   const form = new FormData();
@@ -30,13 +25,15 @@ async function outpaint(request) {
         filename: inputFileName, // Adjust as necessary
       },
   );
-  form.append("left", left);
-  form.append("down", down);
-  form.append("up", up);
-  form.append("right", right);
-  form.append("output_format", outputFormat);
+  Object.entries(formData).forEach(([key, value]) => {
+    form.append(key, value);
+  });
+  return form;
+}
+
+async function stabilityRequestToStream({url, form}) {
   const response = await axios.postForm(
-      `https://api.stability.ai/v2beta/stable-image/edit/outpaint`,
+      url,
       form,
       {
         validateStatus: undefined,
@@ -49,13 +46,35 @@ async function outpaint(request) {
       },
   );
   if (response.status === 200) {
-    logger.debug(`Outpainting image compelete ${outputPath}`);
     const buffer = Buffer.from(response.data);
     const stream = Readable.from(buffer);
-    return await uploadStreamAndGetPublicLink({stream, filename: outputPath});
+    return stream;
   } else {
     throw new Error(`${response.status}: ${response.data.toString()}`);
   }
+}
+
+
+async function outpaint(request) {
+  const {
+    inputPath,
+    outputPath,
+    left=0,
+    right=0,
+    down=0,
+    up=0,
+    outputFormat="jpeg"} = request;
+
+  const form = await stabilityForm({inputPath, formData: {
+    left,
+    right,
+    down,
+    up,
+    output_format: outputFormat,
+  }});
+  const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/edit/outpaint`, form});
+  logger.debug(`Outpainting image complete ${outputPath}`);
+  return await uploadStreamAndGetPublicLink({stream, filename: outputPath});
 }
 
 const outpaintTall = async (request) => {
@@ -93,8 +112,25 @@ const outpaintWideAndTall = async (request) => {
   };
 };
 
+const structure = async (request) => {
+  const {
+    inputPath,
+    outputPath,
+    prompt,
+    control_strength=0.35,
+    outputFormat="jpeg"} = request;
+  const form = await stabilityForm({inputPath, formData: {
+    prompt,
+    control_strength,
+    output_format: outputFormat,
+  }});
+  const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/control/structure`, form});
+  logger.debug(`Structuring image complete ${outputPath}`);
+  return await uploadStreamAndGetPublicLink({stream, filename: outputPath});
+};
 export {
   outpaint,
+  structure,
   outpaintTall,
   outpaintWideAndTall,
 };

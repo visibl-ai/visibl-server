@@ -62,9 +62,7 @@ async function generateImages(req) {
     if (sceneId === undefined) {
       throw new Error("generateImages: sceneId is required");
     }
-    const scene = await getSceneFirestore(sceneId);
-    const theme = scene.prompt;
-    let fullScenes = await getScene({sceneId});
+
     // /const scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
     // const scenes = chapterScenes.filter((singleScene, index) => scenesToGenerate.includes(index));
     logger.debug("scenes.length = " + scenes.length);
@@ -76,12 +74,11 @@ async function generateImages(req) {
     logger.info("===Starting DALL-E-3 image generation===");
     const images = await dalle3({
       scenes,
-      theme,
       sceneId,
     });
     logger.info("===ENDING DALL-E-3 image generation===");
     logger.debug(`Reloading scenes before editing.`);
-    fullScenes = await getScene({sceneId});
+    const fullScenes = await getScene({sceneId});
     for (const image of images) {
       // logger.debug(`image = ${JSON.stringify(image)}`);
       if (image.result) {
@@ -125,7 +122,7 @@ async function downloadImage(url, filename) {
 
 async function singleGeneration(request) {
   const {
-    scene, theme, sceneId, retry, openai,
+    scene, sceneId, retry, openai,
   } = request;
   let imageGenResult = false;
   // DALL-E-3 Configs
@@ -145,9 +142,6 @@ async function singleGeneration(request) {
     "viewpoint": scene.viewpoint,
     // "aspect_ratio": "Vertical Aspect Ratio",
   };
-  if (theme !== "") {
-    sceneDescription.theme = `Image theme must be ${theme}`;
-  }
   dallE3Config.prompt = JSON.stringify(sceneDescription);
   logger.debug("image description = " + dallE3Config.prompt.substring(0, 250));
   let gcpURL = "";
@@ -200,12 +194,12 @@ async function singleGeneration(request) {
 
 async function dalle3(request) {
   const {
-    scenes, theme, sceneId, retry = true,
+    scenes, sceneId, retry = true,
   } = request;
   const openai = new OpenAI(OPENAI_API_KEY.value());
   logger.debug(`scenes length = ${scenes.length}`);
   const promises = scenes.map(async (scene) => singleGeneration({
-    scene, theme, sceneId, retry, openai,
+    scene, sceneId, retry, openai,
   }));
   return Promise.all(promises);
 }
@@ -231,6 +225,11 @@ async function imageGenChapterRecursive(req) {
   const fullScenes = await getScene({sceneId});
   const scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
   const startTime = Date.now();
+
+  // const scene = await getSceneFirestore(sceneId);
+  // const style = scene.prompt;
+
+
   await generateImages(
       {
         scenes: scenes,
@@ -304,6 +303,10 @@ async function imageGenCurrentTime(req) {
   const filteredScenes = scenes.filter((scene) => scene.sceneId !== sceneId);
   logger.debug(`Filtered out ${scenes.length - filteredScenes.length} scenes with matching sceneId`);
   scenes = filteredScenes;
+
+  // const scene = await getSceneFirestore(sceneId);
+  // const style = scene.prompt;
+
   const generatedScenes = await generateImages(
       {
         scenes: scenes,
