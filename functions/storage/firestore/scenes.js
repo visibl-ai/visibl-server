@@ -163,16 +163,19 @@ async function scenesCreateItemFirestore(uid, data) {
   if (defaultExist) {
     const defaultScenes = await getCatalogueDefaultScene({sku});
     await storeScenes({sceneId: newSceneRef.id, sceneData: defaultScenes});
-    await imageDispatcher({
-      sceneId: newSceneRef.id,
-      lastSceneGenerated: 0,
-      totalScenes: defaultScenes[chapter].length,
-      chapter: chapter,
-    });
     // Default scenes exist for this item. Lets start generating images for the current time.
     if (currentTime) {
+      logger.debug(`New Scene: currentTime found, generating scenes at currentTime: ${currentTime}`);
       await dispatchTask("generateSceneImagesCurrentTime",
           dataToBody({data: {sceneId: newSceneRef.id, currentTime}}));
+    } else {
+      logger.debug(`New Scene: No currentTime found, generating full chapter.`);
+      await imageDispatcher({
+        sceneId: newSceneRef.id,
+        lastSceneGenerated: 0,
+        totalScenes: defaultScenes[chapter].length,
+        chapter: chapter,
+      });
     }
   } else {
     logger.debug(`No default scenes found for sku: ${sku}, skipping for now...`);
