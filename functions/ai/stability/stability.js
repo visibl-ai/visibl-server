@@ -15,6 +15,7 @@ import {
 // import {URL} from "url";
 
 const STABILITY_API_URL = "https://api.stability.ai/v2beta/stable-image";
+const STABILITY_API_REQUESTS_PER_10_SECONDS = 150;
 
 async function stabilityForm({inputPath, formData}) {
   const imageStream = await getFileStream({path: inputPath});
@@ -112,6 +113,45 @@ const outpaintWideAndTall = async (request) => {
   };
 };
 
+const batchStabilityRequest = async (params) => {
+  const {
+    functionsToCall,
+    paramsForFunctions,
+    requestsPer10Seconds = STABILITY_API_REQUESTS_PER_10_SECONDS,
+  } = params;
+  let startTime = Date.now();
+  const promises = [];
+  let results = [];
+  for (let i = 0; i < functionsToCall.length; i++) {
+    const functionToCall = functionsToCall[i];
+    const paramsForFunction = paramsForFunctions[i];
+    promises.push(
+        (async () => {
+          try {
+            return await functionToCall(paramsForFunction);
+          } catch (error) {
+            logger.error(`Error in function call: ${error.message}`);
+            return {error: error.message};
+          }
+        })(),
+    );
+    if (promises.length >= requestsPer10Seconds) {
+      logger.debug(`STABILITY: Making ${promises.length} requests`);
+      results = results.concat(await Promise.all(promises));
+      promises.length = 0; // clear old promises.
+      const elapsedTime = Date.now() - startTime;
+      if (elapsedTime < 10000) {
+        logger.debug(`Waiting ${10000 - elapsedTime} milliseconds`);
+        await new Promise((resolve) => setTimeout(resolve, 10000 - elapsedTime));
+      }
+      startTime = Date.now();
+    }
+  }
+  logger.debug(`STABILITY: Making final ${promises.length} requests`);
+  results = results.concat(await Promise.all(promises));
+  return results;
+};
+
 const structure = async (request) => {
   const {
     inputPath,
@@ -128,9 +168,30 @@ const structure = async (request) => {
   logger.debug(`Structuring image complete ${outputPathWithoutExtension}`);
   return await uploadStreamAndGetPublicLink({stream, filename: `${outputPathWithoutExtension}.structured.${outputFormat}`});
 };
+
+const testStabilityBatch = async (request) => {
+  const {
+    paramsForFunctions,
+  } = request;
+  logger.debug(JSON.stringify(paramsForFunctions));
+  logger.debug(`Testing stability batch with ${paramsForFunctions.length} requests, ${JSON.stringify(paramsForFunctions)}`);
+  return await batchStabilityRequest({
+    functionsToCall: [
+      outpaintWideAndTall,
+      structure,
+      () => {
+        throw Error("This is a test error");
+      },
+    ],
+    paramsForFunctions,
+  });
+};
+
 export {
   outpaint,
   structure,
   outpaintTall,
   outpaintWideAndTall,
+  batchStabilityRequest,
+  testStabilityBatch,
 };

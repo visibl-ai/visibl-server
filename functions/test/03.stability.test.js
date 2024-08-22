@@ -39,6 +39,8 @@ const APP_URL = `http://127.0.0.1:5002`;
 const SYM_PATH = "./test/bindings/images/";
 const bucketPath = `Images/`;
 
+const DEFAULT_TIMEOUT = 60000;
+const INDIVIDUAL_CALLS = false;
 // eslint-disable-next-line no-undef
 describe("Graph tests", () => {
   // eslint-disable-next-line no-undef
@@ -73,31 +75,63 @@ describe("Graph tests", () => {
       }
     }
   });
+  if (INDIVIDUAL_CALLS) {
   // eslint-disable-next-line no-undef
-  // it("should outpaint an image", async () => {
-  //   const data = {
-  //     inputPath: `${bucketPath}jardethe.png`,
-  //     outputPathWithoutExtension: `${bucketPath}jardethe`,
-  //   };
+    it("should outpaint an image", async function() {
+    // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
+      const data = {
+        inputPath: `${bucketPath}jardethe.png`,
+        outputPathWithoutExtension: `${bucketPath}jardethe`,
+      };
 
-  //   const response = await chai.request(APP_URL)
-  //       .post("/v1/admin/ai/outpaint")
-  //       .set("API-KEY", process.env.ADMIN_API_KEY)
-  //       .send(data);
-  //   expect(response).to.have.status(200);
-  // });
+      const response = await chai.request(APP_URL)
+          .post("/v1/admin/ai/outpaint")
+          .set("API-KEY", process.env.ADMIN_API_KEY)
+          .send(data);
+      expect(response).to.have.status(200);
+    });
+    // eslint-disable-next-line no-undef
+    it("should structure an image", async function() {
+    // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
+      const data = {
+        inputPath: `${bucketPath}linda.jpg`,
+        outputPathWithoutExtension: `${bucketPath}linda`,
+        prompt: `Neon punk style`,
+      };
+
+      const response = await chai.request(APP_URL)
+          .post("/v1/admin/ai/structure")
+          .set("API-KEY", process.env.ADMIN_API_KEY)
+          .send(data);
+      expect(response).to.have.status(200);
+    });
+  }
   // eslint-disable-next-line no-undef
-  it("should structure an image", async () => {
-    const data = {
-      inputPath: `${bucketPath}linda.jpg`,
-      outputPathWithoutExtension: `${bucketPath}linda`,
-      prompt: `Neon punk style`,
+  it("should make batch stability request", async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
+    const data = {paramsForFunctions: [
+      {
+        inputPath: `${bucketPath}jardethe.png`,
+        outputPathWithoutExtension: `${bucketPath}jardethe`,
+      },
+      {
+        inputPath: `${bucketPath}linda.jpg`,
+        outputPathWithoutExtension: `${bucketPath}linda`,
+        prompt: `Neon punk style`,
+      },
+      {
+        expect: "An error.",
+      }],
     };
 
     const response = await chai.request(APP_URL)
-        .post("/v1/admin/ai/structure")
+        .post("/v1/admin/ai/batchStabilityTEST")
         .set("API-KEY", process.env.ADMIN_API_KEY)
         .send(data);
+    console.log(response.body);
     expect(response).to.have.status(200);
   });
 });
