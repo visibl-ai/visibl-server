@@ -123,6 +123,11 @@ describe("Graph tests", () => {
         prompt: `Neon punk style`,
       },
       {
+        inputPath: `${bucketPath}jardethe.png`,
+        outputPathWithoutExtension: `${bucketPath}jardethe`,
+        prompt: `Neon punk style`,
+      },
+      {
         expect: "An error.",
       }],
     resultKeys: [
@@ -135,12 +140,16 @@ describe("Graph tests", () => {
         sceneId: "2",
       },
       {
-        type: "crash",
+        type: "structure",
         sceneId: "3",
       },
+      {
+        type: "crash",
+        sceneId: "4",
+      },
     ],
-    successKeys: ["wideAndTall", "tall", "test"],
-    requestsPer10Seconds: 2,
+    successKeys: ["wideAndTall", "tall", "tall", "test"],
+    requestsPer10Seconds: 3,
     };
 
     const response = await chai.request(APP_URL)

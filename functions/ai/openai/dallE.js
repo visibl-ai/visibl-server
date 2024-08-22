@@ -4,12 +4,13 @@ import OpenAI from "openai";
 import {OPENAI_API_KEY} from "../../config/config.js";
 import {downloadImage} from "../../storage/storage.js";
 
+
+const OPENAI_DALLE_3_IMAGES_PER_MINUTE = 200;
+
 // Generate the seed images for scenes using Dall-E-3.
 // Images are square, so they need to be outpainted to tall late
 // Makes a batch request to singleGeneration
 // Returns an array of image results.
-const OPENAI_DALLE_3_IMAGES_PER_MINUTE = 200;
-
 async function dalle3(request) {
   try {
     const {

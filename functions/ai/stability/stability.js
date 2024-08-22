@@ -16,6 +16,7 @@ import {
 
 const STABILITY_API_URL = "https://api.stability.ai/v2beta/stable-image";
 const STABILITY_API_REQUESTS_PER_10_SECONDS = 150;
+const STABILITY_DEFAULT_CONTROL_STRENGTH = 0.85; // 0.35 is way too low. We might need to increase this.
 
 async function stabilityForm({inputPath, formData}) {
   const imageStream = await getFileStream({path: inputPath});
@@ -172,7 +173,7 @@ const structure = async (request) => {
     inputPath,
     outputPathWithoutExtension,
     prompt,
-    control_strength=0.35,
+    control_strength=STABILITY_DEFAULT_CONTROL_STRENGTH,
     outputFormat="jpeg"} = request;
   const form = await stabilityForm({inputPath, formData: {
     prompt,
@@ -196,6 +197,7 @@ const testStabilityBatch = async (request) => {
   return await batchStabilityRequest({
     functionsToCall: [
       outpaintWideAndTall,
+      structure,
       structure,
       () => {
         throw Error("This is a test error");

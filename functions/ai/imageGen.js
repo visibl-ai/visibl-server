@@ -8,7 +8,7 @@ import {
 } from "../storage/storage.js";
 
 import {
-  // getSceneFirestore,
+  getSceneFirestore,
   sceneUpdateChapterGeneratedFirestore,
 } from "../storage/firestore/scenes.js";
 
@@ -18,6 +18,7 @@ import {
 
 import {
   outpaintTall,
+  structure,
   batchStabilityRequest,
 } from "./stability/stability.js";
 
@@ -109,7 +110,6 @@ async function batchOutpaint(params) {
       const imagePath = `Scenes/${sceneId}/${image.chapter}_scene${image.scene_number}_${timestamp}`;
       successKeys.push("tall");
       resultKeys.push({
-        type: sceneId,
         result: true,
         chapter: image.chapter,
         scene_number: image.scene_number,
@@ -133,6 +133,71 @@ async function batchOutpaint(params) {
   return outpaintedImages;
 }
 
+async function composeScenes(params) {
+  const {scenes, sceneId} = params;
+  const images = await dalle3({
+    scenes: scenes,
+    sceneId: sceneId,
+  });
+  await saveImageResults({
+    images: images,
+    sceneId: sceneId,
+  });
+  const outpaintedImages = await batchOutpaint({
+    images: images,
+    sceneId: sceneId,
+  });
+  const generatedScenes = await saveImageResults({
+    images: outpaintedImages,
+    sceneId: sceneId,
+  });
+  return generatedScenes;
+}
+
+async function styleScenes(params) {
+  let {scenes, sceneId, theme} = params;
+  // Now we need to outpaint the generated images.
+  const resultKeys = [];
+  const functionsToCall = [];
+  const paramsForFunctions = [];
+  const successKeys = [];
+  scenes = scenes.filter((scene) => scene.image !== undefined);
+  logger.debug(`Filtered out scenes without images, there are ${scenes.length} remaining.`);
+  scenes.forEach((scene) => {
+    if (scene.image) {
+      const timestamp = Date.now();
+      const imagePath = `Scenes/${sceneId}/${scene.chapter}_scene${scene.scene_number}_${timestamp}`;
+      successKeys.push("tall");
+      resultKeys.push({
+        result: true,
+        chapter: scene.chapter,
+        scene_number: scene.scene_number,
+        theme,
+      });
+      functionsToCall.push(structure);
+      const bucketPath = `Scenes/${scene.sceneId}/${scene.image.split("/").pop()}`;
+      paramsForFunctions.push({
+        inputPath: bucketPath,
+        outputPathWithoutExtension: imagePath,
+        prompt: theme,
+      });
+    }
+  });
+  logger.debug(`======= STARTING BATCH STYLE WITH STABILITY =========`);
+  const structuredImages = await batchStabilityRequest({
+    functionsToCall: functionsToCall,
+    paramsForFunctions: paramsForFunctions,
+    resultKeys: resultKeys,
+    successKeys: successKeys,
+  });
+  logger.debug(`======= ENDING BATCH STYLE WITH STABILITY =========`);
+  logger.debug(`structuredImages = ${JSON.stringify(structuredImages)}`);
+  return await saveImageResults({
+    images: structuredImages,
+    sceneId: sceneId,
+  });
+}
+
 // Recursively generates images for a chapter.
 // Assumes chapter traversal.
 async function imageGenChapterRecursive(req) {
@@ -145,26 +210,7 @@ async function imageGenChapterRecursive(req) {
   const fullScenes = await getScene({sceneId});
   const scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
   const startTime = Date.now();
-  const images = await dalle3(
-      {
-        scenes: scenes,
-        sceneId: sceneId,
-      },
-  );
-  await saveImageResults({
-    images: images,
-    sceneId: sceneId,
-  });
-  const outpaintedImages = await batchOutpaint({
-    images: images,
-    sceneId: sceneId,
-  });
-  await saveImageResults({
-    images: outpaintedImages,
-    sceneId: sceneId,
-  });
-
-
+  await composeScenes({scenes, sceneId});
   // Calculate the remaining time
   const endTime = Date.now();
   const elapsedTime = endTime - startTime;
@@ -194,7 +240,7 @@ async function imageDispatcher(request, delay) {
   await dispatchTask("generateSceneImages", request, 60 * 5, delay);
 }
 
-// start at 0.
+
 async function imageGenCurrentTime(req) {
   logger.debug(`imageGenChapterRecursive`);
   logger.debug(JSON.stringify(req.body));
@@ -229,30 +275,21 @@ async function imageGenCurrentTime(req) {
     precedingScenes,
     followingScenes,
   });
-  let scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
-  const filteredScenes = scenes.filter((scene) => scene.sceneId !== sceneId);
-  logger.debug(`Filtered out ${scenes.length - filteredScenes.length} scenes with matching sceneId`);
-  scenes = filteredScenes;
+  const startingScenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
+  const filteredScenes = startingScenes.filter((scene) => scene.sceneId !== sceneId);
+  logger.debug(`Filtered out ${startingScenes.length - filteredScenes.length} scenes with matching sceneId`);
 
-  // const scene = await getSceneFirestore(sceneId);
-  // const style = scene.prompt;
 
-  const images = await dalle3({
-    scenes: scenes,
-    sceneId: sceneId,
-  });
-  await saveImageResults({
-    images: images,
-    sceneId: sceneId,
-  });
-  const outpaintedImages = await batchOutpaint({
-    images: images,
-    sceneId: sceneId,
-  });
-  const generatedScenes = await saveImageResults({
-    images: outpaintedImages,
-    sceneId: sceneId,
-  });
+  const scene = await getSceneFirestore(sceneId);
+  let generatedScenes;
+  const style = scene.prompt;
+  if (style && style != "") {
+    logger.debug(`Scene ID ${sceneId} has a style prompt: ${style}, styling ${filteredScenes.length} scenes`);
+    generatedScenes = await styleScenes({scenes: filteredScenes, sceneId, theme: style});
+  } else {
+    logger.debug(`Scene ID ${sceneId} no style prompt, composing images.`);
+    generatedScenes = await composeScenes({scenes: filteredScenes, sceneId});
+  }
 
   return scenesToGenerateFromCurrentTime({currentSceneNumber: sceneNumber, currentChapter: chapter, fullScenes: generatedScenes});
 }

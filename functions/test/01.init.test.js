@@ -11,7 +11,7 @@ import chaiHttp from "chai-http";
 chai.use(chaiHttp);
 const expect = chai.expect;
 
-
+import {Readable} from "stream";
 import {initializeApp} from "firebase-admin/app";
 import {getAuth} from "firebase-admin/auth";
 import {getFirestore} from "firebase-admin/firestore";
@@ -1277,23 +1277,73 @@ describe("Full functional tests of visibl api", () => {
   // GET AI WITH currentTime, create scene with current time!
   // eslint-disable-next-line no-undef
   it(`test v1addLibraryItemScenes with currentTime`, async () => {
-    const wrapped = firebaseTest.wrap(v1addLibraryItemScenes);
-    const result = await wrapped({
+    // First we need to update the default scenes for the chapter with one with images.
+    let wrapped = firebaseTest.wrap(v1getAi);
+    const getAiData = {
+      libraryId: libraryItem.id,
+      sceneId: addedScene.id,
+    };
+
+    let result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getAiData,
+    });
+    const bucket = getStorage(app).bucket();
+    const bucketPath = `Catalogue/Processed/${catalogueBook.sku}/${catalogueBook.sku}-scenes.json`;
+    const file = bucket.file(bucketPath);
+    try {
+      const stream = Readable.from(JSON.stringify(result));
+
+      await new Promise((resolve, reject) => {
+        stream.pipe(file.createWriteStream({}))
+            .on("error", (error) => {
+              console.error("Upload failed:", error);
+              reject(error);
+            })
+            .on("finish", () => {
+              console.log("File uploaded successfully");
+              resolve();
+            });
+      });
+    } catch (error) {
+      console.error("Failed to upload file:", error);
+    }
+
+    const theme = "neon punk style";
+    const time = 66.1;
+    wrapped = firebaseTest.wrap(v1addLibraryItemScenes);
+    result = await wrapped({
       auth: {
         uid: userData.uid,
       },
       data: {
         libraryId: libraryItem.id,
-        prompt: "Sumi-e",
+        prompt: theme,
         userDefault: true,
-        currentTime: 20320.1,
+        currentTime: time,
       },
     });
     console.log(result);
     expect(result).to.have.property("id");
-    expect(result).to.have.property("prompt", "Sumi-e");
+    expect(result).to.have.property("prompt", theme);
     addedScene = result;
+    logger.debug(`Manually calling imageGenCurrentTime as dispatch doesn't work in test.`);
+    const data = {
+      sceneId: result.id,
+      currentTime: time,
+    };
+    const response = await chai
+        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+        .post("/generateSceneImagesCurrentTime")
+        .set("Content-Type", "application/json")
+        .send({
+          data,
+        });
+    expect(response).to.have.status(204);
   });
+
   // eslint-disable-next-line no-undef
   it(`test v1getLibrary with includeManifest=true`, async () => {
     const wrapped = firebaseTest.wrap(v1getLibrary);
