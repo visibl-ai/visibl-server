@@ -3,6 +3,7 @@ import {getStorage, getDownloadURL} from "firebase-admin/storage";
 import {logger} from "firebase-functions/v2";
 import {STORAGE_BUCKET_ID} from "../config/config.js";
 import fs from "fs/promises";
+import axios from "axios";
 import path from "path";
 import app from "../firebase.js";
 // Get a reference to the default storage bucket
@@ -322,6 +323,23 @@ async function getGraph(params) {
   return await getJsonFile({filename});
 }
 
+// Download an image from a URL and upload it to GCP.
+// Returns the public URL.
+async function downloadImage(url, filename) {
+  const response = await axios({
+    method: "GET",
+    url: url,
+    responseType: "stream",
+  });
+  return uploadStreamAndGetPublicLink({stream: response.data, filename}).then(async (publicUrl) => {
+    logger.debug("uploaded to GCP, publicURL is = " + publicUrl);
+    return publicUrl;
+  }).catch((err) => {
+    logger.error("Error uploading file:", err);
+    return "";
+  });
+}
+
 export {
   createUserFolder,
   createCatalogueFolder,
@@ -343,4 +361,5 @@ export {
   getTranscriptions,
   storeGraph,
   getGraph,
+  downloadImage,
 };

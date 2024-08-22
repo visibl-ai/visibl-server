@@ -39,7 +39,7 @@ const APP_URL = `http://127.0.0.1:5002`;
 const SYM_PATH = "./test/bindings/images/";
 const bucketPath = `Images/`;
 
-const DEFAULT_TIMEOUT = 60000;
+const DEFAULT_TIMEOUT = 600000;
 const INDIVIDUAL_CALLS = false;
 // eslint-disable-next-line no-undef
 describe("Graph tests", () => {
@@ -125,6 +125,22 @@ describe("Graph tests", () => {
       {
         expect: "An error.",
       }],
+    resultKeys: [
+      {
+        type: "outpaint",
+        sceneId: "1",
+      },
+      {
+        type: "structure",
+        sceneId: "2",
+      },
+      {
+        type: "crash",
+        sceneId: "3",
+      },
+    ],
+    successKeys: ["wideAndTall", "tall", "test"],
+    requestsPer10Seconds: 2,
     };
 
     const response = await chai.request(APP_URL)

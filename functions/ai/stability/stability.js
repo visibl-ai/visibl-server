@@ -113,32 +113,46 @@ const outpaintWideAndTall = async (request) => {
   };
 };
 
+// Recursively generates images for a chapter.
+// will return a array of results with the resultKeys in each object,
+// and the result in successKeys[i]
 const batchStabilityRequest = async (params) => {
   const {
     functionsToCall,
     paramsForFunctions,
+    resultKeys = [],
+    successKeys = [],
     requestsPer10Seconds = STABILITY_API_REQUESTS_PER_10_SECONDS,
   } = params;
   let startTime = Date.now();
-  const promises = [];
+  let promises = [];
   let results = [];
+
   for (let i = 0; i < functionsToCall.length; i++) {
-    const functionToCall = functionsToCall[i];
-    const paramsForFunction = paramsForFunctions[i];
-    promises.push(
-        (async () => {
-          try {
-            return await functionToCall(paramsForFunction);
-          } catch (error) {
-            logger.error(`Error in function call: ${error.message}`);
-            return {error: error.message};
-          }
-        })(),
-    );
+    resultKeys[i] = resultKeys[i] || {}; // check for empty list.
+    successKeys[i] = successKeys[i] || "result";
+
+    promises.push((async () => {
+      try {
+        const result = await functionsToCall[i](paramsForFunctions[i]);
+        return {
+          ...resultKeys[i],
+          [successKeys[i]]: result,
+        };
+      } catch (error) {
+        logger.error(`Error in function call: ${error.message}`);
+        return {
+          ...resultKeys[i],
+          result: false,
+          [successKeys[i]]: {error: error.message},
+        };
+      }
+    })());
+
     if (promises.length >= requestsPer10Seconds) {
       logger.debug(`STABILITY: Making ${promises.length} requests`);
       results = results.concat(await Promise.all(promises));
-      promises.length = 0; // clear old promises.
+      promises = []; // clear old promises.
       const elapsedTime = Date.now() - startTime;
       if (elapsedTime < 10000) {
         logger.debug(`Waiting ${10000 - elapsedTime} milliseconds`);
@@ -147,6 +161,7 @@ const batchStabilityRequest = async (params) => {
       startTime = Date.now();
     }
   }
+
   logger.debug(`STABILITY: Making final ${promises.length} requests`);
   results = results.concat(await Promise.all(promises));
   return results;
@@ -172,6 +187,9 @@ const structure = async (request) => {
 const testStabilityBatch = async (request) => {
   const {
     paramsForFunctions,
+    resultKeys,
+    requestsPer10Seconds,
+    successKeys,
   } = request;
   logger.debug(JSON.stringify(paramsForFunctions));
   logger.debug(`Testing stability batch with ${paramsForFunctions.length} requests, ${JSON.stringify(paramsForFunctions)}`);
@@ -184,6 +202,9 @@ const testStabilityBatch = async (request) => {
       },
     ],
     paramsForFunctions,
+    resultKeys,
+    requestsPer10Seconds,
+    successKeys,
   });
 };
 

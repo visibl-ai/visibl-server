@@ -17,7 +17,7 @@ import {
 
 import {
   imageDispatcher,
-} from "../../ai/openai/dallE.js";
+} from "../../ai/imageGen.js";
 
 import {
   getCatalogueDefaultScene,

@@ -24,7 +24,7 @@ import {
   dispatchTask,
 } from "../util/dispatch.js";
 
-// /v1/ai/generateImages
+// /v1/ai/dalle3
 
 // Endpoints to use audible-opds-firebase
 export const v1getAAXLoginURL = onCall({region: "europe-west1"}, async (context) => {
