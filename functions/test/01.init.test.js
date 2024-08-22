@@ -943,6 +943,7 @@ describe("Full functional tests of visibl api", () => {
       expect(scene).to.have.property("uid").that.equals("admin"); // this is the global default scene.
       expect(scene).to.have.property("catalogueId").that.equals(libraryItem.catalogueId);
       expect(scene).to.have.property("prompt");
+      expect(scene).to.have.property("title");
       expect(scene).to.have.property("userDefault").that.is.a("boolean");
       expect(scene).to.have.property("createdAt");
     });
@@ -983,7 +984,8 @@ describe("Full functional tests of visibl api", () => {
     });
     console.log(result);
     expect(result).to.have.property("id");
-    expect(result).to.have.property("prompt", "Miyazaki");
+    expect(result.prompt.toLowerCase()).to.contain("miyazaki");
+    expect(result).to.have.property("title");
     addedScene = result;
   });
 
@@ -1074,6 +1076,7 @@ describe("Full functional tests of visibl api", () => {
     expect(result).to.have.property("uid").that.equals(userData.uid);
     expect(result).to.have.property("catalogueId").that.equals(libraryItem.catalogueId);
     expect(result).to.have.property("prompt");
+    expect(result).to.have.property("title");
     expect(result).to.have.property("userDefault").that.is.a("boolean");
     expect(result).to.have.property("createdAt");
   });
@@ -1096,7 +1099,7 @@ describe("Full functional tests of visibl api", () => {
     // Check if the added scene is present
     const addedSceneInResult = result.find((scene) => scene.id === addedScene.id);
     expect(addedSceneInResult).to.exist;
-    expect(addedSceneInResult.prompt).to.equal("Miyazaki");
+    expect(addedSceneInResult.prompt.toLowerCase()).to.contain("miyazaki");
     expect(addedSceneInResult.userDefault).to.be.true;
 
     // Check if the original scene is no longer the default
@@ -1291,7 +1294,8 @@ describe("Full functional tests of visibl api", () => {
     });
     console.log(result);
     expect(result).to.have.property("id");
-    expect(result).to.have.property("prompt", "Sumi-e");
+    expect(result.prompt.toLowerCase()).to.contain("sumi-e");
+    expect(result).to.have.property("title");
     addedScene = result;
   });
   // eslint-disable-next-line no-undef
