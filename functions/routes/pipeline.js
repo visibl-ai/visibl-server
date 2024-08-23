@@ -13,7 +13,7 @@ import {
 import {
   imageGenChapterRecursive,
   imageGenCurrentTime,
-} from "../ai/openai/dallE.js";
+} from "../ai/imageGen.js";
 
 import {
   processRawPublicItem,

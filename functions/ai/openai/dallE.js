@@ -1,72 +1,27 @@
 /* eslint-disable require-jsdoc */
-import {logger} from "firebase-functions/v2";
+import logger from "firebase-functions/logger";
 import OpenAI from "openai";
-import {OPENAI_API_KEY, ENVIRONMENT} from "../../config/config.js";
-import axios from "axios";
-import {
-  uploadStreamAndGetPublicLink,
-  getScene,
-  storeScenes,
-} from "../../storage/storage.js";
+import {OPENAI_API_KEY} from "../../config/config.js";
+import {downloadImage} from "../../storage/storage.js";
 
-import {
-  getSceneFirestore,
-  sceneUpdateChapterGeneratedFirestore,
-} from "../../storage/firestore/scenes.js";
 
-import {
-  dispatchTask,
-} from "../../util/dispatch.js";
+const OPENAI_DALLE_3_IMAGES_PER_MINUTE = 200;
 
-import {
-  outpaintTall,
-} from "../stability/stability.js";
-
-import {
-  OPENAI_DALLE_3_IMAGES_PER_MINUTE,
-} from "./openaiLimits.js";
-
-import {
-  sceneFromCurrentTime,
-  scenesToGenerateFromCurrentTime,
-} from "../../util/sceneHelpers.js";
-
-const TIMEOUT = 60000;
-
-function formatScenesForGeneration(fullScenes, scenesToGenerate) {
-  const scenes = [];
-  for (const sceneToGenerate of scenesToGenerate) {
-    const sceneToAdd = fullScenes[sceneToGenerate.chapter].find(
-        (scene) => scene.scene_number === sceneToGenerate.scene_number,
-    );
-    if (sceneToAdd) {
-      sceneToAdd.chapter = sceneToGenerate.chapter;
-      scenes.push(sceneToAdd);
-    } else {
-      logger.warn(`Scene ${sceneToGenerate.scene_number} not found in chapter ${sceneToGenerate.chapter}`);
-    }
-  }
-  return scenes;
-}
-
-async function generateImages(req) {
+// Generate the seed images for scenes using Dall-E-3.
+// Images are square, so they need to be outpainted to tall late
+// Makes a batch request to singleGeneration
+// Returns an array of image results.
+async function dalle3(request) {
   try {
-    // Scenes to generate is a [5,6,7,8] . Maximum 5.
     const {
-      scenes,
-      sceneId} = req;
-
+      scenes, sceneId, retry = true,
+    } = request;
     if (scenes.length > OPENAI_DALLE_3_IMAGES_PER_MINUTE) {
       throw new Error(`Maximum ${OPENAI_DALLE_3_IMAGES_PER_MINUTE} scenes per request`);
     }
     if (sceneId === undefined) {
-      throw new Error("generateImages: sceneId is required");
+      throw new Error("dalle3: sceneId is required");
     }
-    const scene = await getSceneFirestore(sceneId);
-    const theme = scene.prompt;
-    let fullScenes = await getScene({sceneId});
-    // /const scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
-    // const scenes = chapterScenes.filter((singleScene, index) => scenesToGenerate.includes(index));
     logger.debug("scenes.length = " + scenes.length);
     logger.info("scenes = " + JSON.stringify(scenes).substring(0, 100));
     if (!scenes) {
@@ -74,61 +29,29 @@ async function generateImages(req) {
     }
     // Now we save the scenes to the chapter.
     logger.info("===Starting DALL-E-3 image generation===");
-    const images = await dalle3({
-      scenes,
-      theme,
-      sceneId,
-    });
-    logger.info("===ENDING DALL-E-3 image generation===");
-    logger.debug(`Reloading scenes before editing.`);
-    fullScenes = await getScene({sceneId});
-    for (const image of images) {
-      // logger.debug(`image = ${JSON.stringify(image)}`);
-      if (image.result) {
-        const sceneIndex = fullScenes[image.chapter].findIndex((s) => s.scene_number === image.scene_number);
-        logger.debug(`chapter ${image.chapter}, sceneIndex ${sceneIndex}, sceneNumber ${image.scene_number}`);
-        if (sceneIndex !== -1) {
-          fullScenes[image.chapter][sceneIndex].image = image.tall;
-          fullScenes[image.chapter][sceneIndex].square = image.square;
-          fullScenes[image.chapter][sceneIndex].tall = image.tall;
-          fullScenes[image.chapter][sceneIndex].prompt = image.description;
-          fullScenes[image.chapter][sceneIndex].sceneId = sceneId;
-          logger.info("fullScenes[image.chapter][sceneIndex].image = " + fullScenes[image.chapter][sceneIndex].image);
-        }
-      }
-    }
 
-    // fullScenes[chapter] = chapterScenes;
-    await storeScenes({sceneId, sceneData: fullScenes});
-    logger.debug(`Stored updated scenes.`);
-    return fullScenes;
+    const openai = new OpenAI(OPENAI_API_KEY.value());
+    logger.debug(`scenes length = ${scenes.length}`);
+    const promises = scenes.map(async (scene) => singleGeneration({
+      scene, sceneId, retry, openai,
+    }));
+    const images = await Promise.all(promises);
+    logger.info("===ENDING DALL-E-3 image generation===");
+    return images;
   } catch (error) {
     logger.error(error);
     throw error;
   }
 }
 
-async function downloadImage(url, filename) {
-  const response = await axios({
-    method: "GET",
-    url: url,
-    responseType: "stream",
-  });
-  return uploadStreamAndGetPublicLink({stream: response.data, filename}).then(async (publicUrl) => {
-    logger.debug("uploaded to GCP, publicURL is = " + publicUrl);
-    return publicUrl;
-  }).catch((err) => {
-    logger.error("Error uploading file:", err);
-    return "";
-  });
-}
-
+// Generate a single image for a scene using Dall-E-3.
+// Returns the image URL.
+// Retrys a single time if there is an error on the first try.
 async function singleGeneration(request) {
   const {
-    scene, theme, sceneId, retry, openai,
+    scene, sceneId, retry, openai,
   } = request;
   let imageGenResult = false;
-  // DALL-E-3 Configs
   const dallE3Config = {
     model: "dall-e-3",
     quality: "hd",
@@ -137,7 +60,6 @@ async function singleGeneration(request) {
     n: 1,
     response_format: "url",
   };
-  // dallE3Config.prompt = imageTheme + ' ' + scene.description;
   const sceneDescription = {
     "description": scene.description,
     "characters": scene.characters,
@@ -145,12 +67,10 @@ async function singleGeneration(request) {
     "viewpoint": scene.viewpoint,
     // "aspect_ratio": "Vertical Aspect Ratio",
   };
-  if (theme !== "") {
-    sceneDescription.theme = `Image theme must be ${theme}`;
-  }
   dallE3Config.prompt = JSON.stringify(sceneDescription);
   logger.debug("image description = " + dallE3Config.prompt.substring(0, 250));
   let gcpURL = "";
+  let squareImagePath;
   let outpaintResult;
   let imageResponse;
   let description = "";
@@ -164,17 +84,15 @@ async function singleGeneration(request) {
     // const imagePath = `${imageDir}/${i + 1}.jpg`;
     const timestamp = Date.now();
     const imagePath = `Scenes/${sceneId}/${scene.chapter}_scene${scene.scene_number}_${timestamp}`;
-    const squareImagePath = `${imagePath}.4.3.jpg`;
+    squareImagePath = `${imagePath}.4.3.jpg`;
     // logger.debug("imageName = " + imageName);
     gcpURL = await downloadImage(imageUrl, squareImagePath);
     imageGenResult = true;
-    logger.debug(`Outpainting ${squareImagePath} with Stability.`);
-    outpaintResult = await outpaintTall({
-      inputPath: squareImagePath,
-      outputPathWithoutExtension: imagePath,
-    });
-
-    // logger.debug("gcpURL = " + gcpURL);
+    // logger.debug(`Outpainting ${squareImagePath} with Stability.`);
+    // outpaintResult = await outpaintTall({
+    //   inputPath: squareImagePath,
+    //   outputPathWithoutExtension: imagePath,
+    // });
   } catch (error) {
     logger.error(`Error generating image: ${scene.scene_number} ${scene.chapter} ${sceneId} ${JSON.stringify(sceneDescription)} ${error.toString()}`);
     if (retry) {
@@ -190,7 +108,8 @@ async function singleGeneration(request) {
     result: imageGenResult,
     url: outpaintResult,
     square: gcpURL,
-    tall: outpaintResult,
+    squareBucketPath: squareImagePath,
+    // tall: outpaintResult,
     description: description,
     scene_number: scene.scene_number,
     chapter: scene.chapter,
@@ -198,124 +117,6 @@ async function singleGeneration(request) {
   };
 }
 
-async function dalle3(request) {
-  const {
-    scenes, theme, sceneId, retry = true,
-  } = request;
-  const openai = new OpenAI(OPENAI_API_KEY.value());
-  logger.debug(`scenes length = ${scenes.length}`);
-  const promises = scenes.map(async (scene) => singleGeneration({
-    scene, theme, sceneId, retry, openai,
-  }));
-  return Promise.all(promises);
-}
-
-function getScenesToGenerate(lastSceneGenerated, totalScenes, chapter) {
-  const scenesToGenerate = [];
-  const i = lastSceneGenerated;
-  for (let j = i; j < i + OPENAI_DALLE_3_IMAGES_PER_MINUTE && j < totalScenes; j++) {
-    scenesToGenerate.push({scene_number: j, chapter: chapter});
-  }
-  return scenesToGenerate;
-}
-
-// start at 0.
-async function imageGenChapterRecursive(req) {
-  logger.debug(`imageGenChapterRecursive`);
-  logger.debug(JSON.stringify(req.body));
-  const {sceneId, lastSceneGenerated, totalScenes, chapter} = req.body;
-
-  await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, false, Date.now());
-  const scenesToGenerate = getScenesToGenerate(lastSceneGenerated, totalScenes, chapter);
-  logger.debug(`scenesToGenerate = ${JSON.stringify(scenesToGenerate)}`);
-  const fullScenes = await getScene({sceneId});
-  const scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
-  const startTime = Date.now();
-  await generateImages(
-      {
-        scenes: scenes,
-        sceneId: sceneId,
-      },
-  );
-  const endTime = Date.now();
-  const elapsedTime = endTime - startTime;
-  const remainingTime = Math.max(TIMEOUT - elapsedTime, 0);
-  logger.debug(`Elapsed time: ${elapsedTime}ms, remaining time: ${remainingTime}ms`);
-  const remainingTimeSeconds = Math.ceil(remainingTime / 1000);
-  logger.debug(`imageGen complete for ${JSON.stringify(scenesToGenerate)} starting at ${lastSceneGenerated}.`);
-  const nextSceneToGenerate = scenesToGenerate.pop().scene_number + 1;
-  if (isNaN(nextSceneToGenerate) ||nextSceneToGenerate >= totalScenes) {
-    logger.debug(`No more scenes to generate for ${sceneId} chapter ${chapter}`);
-    await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, true, Date.now());
-    return;
-  } else {
-    await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, false, Date.now());
-    logger.debug(`Dispatching imageGenDispatcher with: delay ${remainingTimeSeconds}, lastSceneGenerated ${nextSceneToGenerate}, totalScenes ${totalScenes}, chapter ${chapter}`);
-    // Dispatch with delay of remainingTime
-    await imageDispatcher({
-      sceneId: sceneId,
-      lastSceneGenerated: nextSceneToGenerate,
-      totalScenes: totalScenes,
-      chapter: chapter,
-    }, remainingTimeSeconds);
-  }
-}
-
-async function imageDispatcher(request, delay) {
-  await dispatchTask("generateSceneImages", request, 60 * 5, delay);
-}
-
-// start at 0.
-async function imageGenCurrentTime(req) {
-  logger.debug(`imageGenChapterRecursive`);
-  logger.debug(JSON.stringify(req.body));
-  const {sceneId, currentTime} = req.body;
-  if (!sceneId || !currentTime) {
-    throw new Error("sceneId and currentTime are required");
-  }
-  let fullScenes;
-  try {
-    fullScenes = await getScene({sceneId});
-  } catch (error) {
-    logger.error(`Error getting full scenes for ${sceneId}`);
-    return {};
-  }
-  const {chapter, sceneNumber} = sceneFromCurrentTime(fullScenes, currentTime) || {};
-
-  if (chapter === undefined || sceneNumber === undefined) {
-    throw new Error("No matching scene found for the given currentTime");
-  }
-
-  logger.debug(`Found scene: Chapter ${chapter}, Scene ${sceneNumber}`);
-  let precedingScenes = 2;
-  let followingScenes = 10;
-  if (ENVIRONMENT.value() === "development") {
-    precedingScenes = 1;
-    followingScenes = 1;
-  }
-  const scenesToGenerate = scenesToGenerateFromCurrentTime({
-    currentSceneNumber: sceneNumber,
-    currentChapter: chapter,
-    fullScenes,
-    precedingScenes,
-    followingScenes,
-  });
-  let scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
-  const filteredScenes = scenes.filter((scene) => scene.sceneId !== sceneId);
-  logger.debug(`Filtered out ${scenes.length - filteredScenes.length} scenes with matching sceneId`);
-  scenes = filteredScenes;
-  const generatedScenes = await generateImages(
-      {
-        scenes: scenes,
-        sceneId: sceneId,
-      },
-  );
-  return scenesToGenerateFromCurrentTime({currentSceneNumber: sceneNumber, currentChapter: chapter, fullScenes: generatedScenes});
-}
-
 export {
-  generateImages,
-  imageGenChapterRecursive,
-  imageDispatcher,
-  imageGenCurrentTime,
+  dalle3,
 };

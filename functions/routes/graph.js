@@ -18,6 +18,8 @@ import {
 
 import {
   outpaintWideAndTall,
+  structure,
+  testStabilityBatch,
 } from "../ai/stability/stability.js";
 
 import {
@@ -28,6 +30,16 @@ import {
 export const v1AdminOutpaintImage = onRequest({region: "europe-west1"}, async (req, res) => {
   await validateOnRequestAdmin(req);
   res.status(200).send(await outpaintWideAndTall(req.body));
+});
+
+export const v1AdminStructureImage = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await structure(req.body));
+});
+
+export const v1AdminBatchStabilityTEST = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await testStabilityBatch(req.body));
 });
 
 // Dispatch Tasks.
