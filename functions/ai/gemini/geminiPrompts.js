@@ -1,4 +1,129 @@
 const prompts = {
+  augmentScenes: {
+    model: "gemini-1.5-pro-exp-0801",
+    systemInstruction: `
+  You are tasked with improving draft scenes for a part of a novel. You will be provided with an entire chapter of the novel in CSV form and specific scenes in JSON format. Your goal is to enhance all the fields in the scenes to better illustrate exactly what is happening at that time based on the entire context of the chapter.
+
+Here is the scene JSON data that needs improvement:
+%SCENES_JSON%
+
+To complete this task, follow these steps:
+
+1. Analyze the chapter CSV data:
+   - The CSV is formatted as "id","startTime","text"
+   - Pay close attention to entries with startTime values between the scene's startTime and endTime
+   - Also consider entries before and after the scene's time range for context
+
+2. Improve each field in the scene JSON:
+   - description: Expand this to provide a more vivid and detailed summary of the scene
+   - characters: If a relevant character is missing, add them. If a character is incorrectly included, remove them. Add more depth to the characters description, including any new information from the chapter. 
+   - locations: If the locations is incorrect, correct it. Enhance the description of the locations, adding sensory details and atmosphere. 
+   - startTime and endTime: Do not edit the startTime or endTime under any circumstances.
+   - scene_number: Do not edit the scene_number under any circumstances.
+   - viewpoint: make minor changes as needed
+
+3. Output the improved scene:
+   - Maintain the JSON structure
+   - Ensure all improvements are consistent with the original scene and the chapter context
+   - Provide more detailed and vivid descriptions in each field
+  `,
+    generationConfig: {
+      temperature: 1,
+      topP: 0.95,
+      topK: 64,
+      maxOutputTokens: 8192,
+      responseMimeType: "application/json",
+      responseSchema: {
+        "type": "object",
+        "properties": {
+          "scenes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string",
+                },
+                "characters": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                      },
+                      "description": {
+                        "type": "string",
+                      },
+                    },
+                  },
+                },
+                "locations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                      },
+                      "description": {
+                        "type": "string",
+                      },
+                    },
+                  },
+                },
+                "startTime": {
+                  "type": "number",
+                },
+                "viewpoint": {
+                  "type": "object",
+                  "properties": {
+                    "setting": {
+                      "type": "string",
+                    },
+                    "placement": {
+                      "type": "string",
+                    },
+                    "shot type": {
+                      "type": "string",
+                    },
+                    "mood": {
+                      "type": "string",
+                    },
+                    "technical": {
+                      "type": "string",
+                    },
+                  },
+                  "required": [
+                    "setting",
+                    "placement",
+                    "shot type",
+                    "mood",
+                    "technical",
+                  ],
+                },
+                "endTime": {
+                  "type": "number",
+                },
+                "scene_number": {
+                  "type": "integer",
+                },
+              },
+              "required": [
+                "description",
+                "characters",
+                "locations",
+                "startTime",
+                "viewpoint",
+                "endTime",
+                "scene_number",
+              ],
+            },
+          },
+        },
+      },
+    },
+  },
   getCharacters: {
     model: "gemini-1.5-pro-exp-0801",
     systemInstruction: `
