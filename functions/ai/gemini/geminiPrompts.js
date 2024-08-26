@@ -418,6 +418,71 @@ Remember to only include locations from the provided list that actually appear i
       },
     },
   },
+  convertThemeToPrompt: {
+    model: "gemini-1.5-pro-exp-0801",
+    systemInstruction: `
+You will be given a description of a theme for an image. Your task is to summarize this theme into two parts:
+1. A 1-2 word title
+2. A 1-3 word description which will precede the word "style" (This will be given to a diffusion model to structure an image)
+
+To create the title:
+- Capture the essence of the theme in 1-2 words
+- Make it concise and memorable
+- If possible, use words from the original description
+
+To create the prompt:
+- Summarize the key elements of the theme in 1-3 words
+- These words should precede "style" in the final prompt
+- Choose words that best represent the visual elements or artistic style described
+- It is perfectly okay for the title and the prompt to be identical
+
+Example:
+Noir Style, make it black and white. Scenes must be dark and mysterious
+
+Title: Mysterious Noir
+Prompt: Mysterious Noir style
+
+Example:
+Create images in the style of Andy Warhol's paintings, featuring bright colors, bold linework, references to people and products in popular culture, and repetitive compositions
+
+Title: Andy Warhol
+Prompt: Warhol Bright Linework Style
+
+Example:
+Miami Retro 80s Vibe, vibrant colors and nostalgia
+
+Title: Miami Vice
+Prompt: 80s Miami vice style
+
+Example:
+Steampunk and Medieval-Inspired Style
+
+Title: Steampunk
+Prompt: Medieval Steampunk Style 
+    `,
+    generationConfig: {
+      temperature: 1,
+      topP: 0.95,
+      topK: 64,
+      maxOutputTokens: 8192,
+      responseMimeType: "application/json",
+      responseSchema: {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string",
+          },
+          "prompt": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "title",
+          "prompt",
+        ],
+      },
+    },
+  },
 };
 
 export default prompts;

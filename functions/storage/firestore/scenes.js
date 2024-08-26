@@ -31,6 +31,10 @@ import {
   dataToBody,
 } from "../../util/dispatch.js";
 
+import {
+  geminiRequest,
+} from "../../ai/gemini/gemini.js";
+
 // Global in this context is that scenes are not unique to users.
 async function getGlobalScenesFirestore(uid, data) {
   const db = getFirestore();
@@ -129,6 +133,14 @@ async function scenesCreateItemFirestore(uid, data) {
   if (libraryId === undefined) {
     throw new Error("libraryId must be specified");
   }
+
+  const sanitizedPrompt = await geminiRequest({
+    prompt: "convertThemeToPrompt",
+    message: prompt,
+    replacements: [],
+  });
+  logger.debug(`Sanitized prompt ${sanitizedPrompt.title}:${sanitizedPrompt.prompt} from ${prompt}`);
+
   const {catalogueId: catalogueId} = await libraryGetFirestore(uid, libraryId);
   // Ensure userDefault is a boolean
   const isUserDefault = Boolean(userDefault);
@@ -150,7 +162,8 @@ async function scenesCreateItemFirestore(uid, data) {
 
   const newScene = {
     uid,
-    prompt,
+    prompt: sanitizedPrompt.prompt,
+    title: sanitizedPrompt.title,
     catalogueId,
     sku,
     createdAt: Timestamp.now(),
@@ -167,7 +180,7 @@ async function scenesCreateItemFirestore(uid, data) {
     if (currentTime) {
       logger.debug(`New Scene: currentTime found, generating scenes at currentTime: ${currentTime}`);
       await dispatchTask("generateSceneImagesCurrentTime",
-          dataToBody({data: {sceneId: newSceneRef.id, currentTime}}));
+          {data: {sceneId: newSceneRef.id, currentTime}});
     } else {
       logger.debug(`New Scene: No currentTime found, generating full chapter.`);
       await imageDispatcher({
@@ -194,6 +207,7 @@ async function scenesCreateDefaultCatalogueFirestore(data) {
     throw new Error("catalogueId and sku are required");
   }
   const prompt = "";
+  const title = "Origin";
   const uid = "admin";
   const scenesRef = db.collection("Scenes");
 
@@ -215,6 +229,7 @@ async function scenesCreateDefaultCatalogueFirestore(data) {
   const newScene = {
     uid,
     prompt,
+    title,
     catalogueId,
     sku,
     globalDefault: true,

@@ -16,7 +16,7 @@ import {catalogueGetFirestore} from "./firestore/catalogue.js";
 
 import {
   dispatchTask,
-  dataToBody,
+  // dataToBody,
 } from "../util/dispatch.js";
 
 /**
@@ -168,7 +168,8 @@ async function getAiFirestore(uid, data) {
 
   if (currentTime) {
     await dispatchTask("generateSceneImagesCurrentTime",
-        dataToBody({data: {sceneId, currentTime}}));
+        {data: {sceneId, currentTime}},
+    );
   }
   logger.debug(`Returning scenes: ${JSON.stringify(scenes).substring(0, 150)}`);
   if (chapter) {
