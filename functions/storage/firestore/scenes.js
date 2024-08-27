@@ -180,7 +180,7 @@ async function scenesCreateItemFirestore(uid, data) {
     if (currentTime) {
       logger.debug(`New Scene: currentTime found, generating scenes at currentTime: ${currentTime}`);
       await dispatchTask("generateSceneImagesCurrentTime",
-          {data: {sceneId: newSceneRef.id, currentTime}});
+          {sceneId: newSceneRef.id, currentTime});
     } else {
       logger.debug(`New Scene: No currentTime found, generating full chapter.`);
       await imageDispatcher({

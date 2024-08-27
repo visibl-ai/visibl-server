@@ -24,7 +24,11 @@ export const v1generateSceneImages = onRequest({region: "europe-west1", cors: tr
   res.status(200).send({dispatched: true});
 });
 
-export const v1getAi = onCall({region: "europe-west1"}, async (context) => {
+export const v1getAi = onCall({
+  region: "europe-west1",
+  minInstances: 1,
+  concurrency: 1,
+}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await getAiFirestore(uid, data);
 });

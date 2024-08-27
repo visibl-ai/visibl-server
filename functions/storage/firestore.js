@@ -122,7 +122,7 @@ function removeUndefinedProperties(data) {
  */
 async function getAiFirestore(uid, data) {
   let {libraryId, sceneId, chapter, currentTime} = data;
-  logger.debug(`Getting AI for ${uid} to libraryId ${libraryId} sceneId ${sceneId} chapter ${chapter}`);
+  logger.debug(`Getting AI for ${uid} to libraryId ${libraryId} sceneId ${sceneId} chapter ${chapter} and currentTime ${currentTime}`);
   if (!libraryId) {
     throw new Error("Invalid or missing libraryId");
   }
@@ -167,8 +167,9 @@ async function getAiFirestore(uid, data) {
   }
 
   if (currentTime) {
+    logger.debug(`Generating scenes starting at currentTime: ${currentTime}`);
     await dispatchTask("generateSceneImagesCurrentTime",
-        {data: {sceneId, currentTime}},
+        {sceneId, currentTime},
     );
   }
   logger.debug(`Returning scenes: ${JSON.stringify(scenes).substring(0, 150)}`);
