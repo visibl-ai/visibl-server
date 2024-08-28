@@ -458,6 +458,70 @@ async function graphLocationDescriptionsOAI(params) {
   return locationDescriptions;
 }
 
+function filterScenes(scenes) {
+  return scenes.map((scene) => {
+    return {
+      scene_number: scene.scene_number,
+      startTime: scene.startTime,
+      description: scene.description,
+      characters: scene.characters,
+      locations: scene.locations,
+      viewpoint: scene.viewpoint,
+      endTime: scene.endTime,
+    };
+  });
+}
+
+async function augmentScenes(params) {
+  const {uid, sku, visiblity, chapter} = params;
+  const currentScenes = await getGraph({uid, sku, visiblity, type: "scenes"});
+  const chapterScenes = currentScenes[chapter];
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const chapterJson = transcriptions[chapter];
+  chapterJson.forEach((item) => {
+    if (typeof item.startTime === "number") {
+      item.startTime = item.startTime.toFixed(1);
+    }
+  });
+  const csvText = csv(chapterJson);
+  const BATCH_SIZE = 10;
+  const augmentedScenes = [];
+  const scenesLength = chapterScenes.length;
+  logger.debug(`scenesLength: ${scenesLength}`);
+  const sceneToStart = 0;
+  for (let i = sceneToStart; i < scenesLength; i += BATCH_SIZE) {
+    const endIndex = Math.min(i + BATCH_SIZE, scenesLength);
+    logger.debug(`Augmenting scenes ${i} to ${endIndex}`);
+    let batch = chapterScenes.slice(i, endIndex);
+    // Filter each item in the batch to keep only specified keys
+    batch = filterScenes(batch);
+    // Process the batch
+    const processedBatch = await geminiRequest({
+      prompt: "augmentScenes",
+      message: csvText,
+      replacements: [
+        {
+          key: "%SCENES_JSON%",
+          value: JSON.stringify(batch),
+        },
+      ],
+    });
+    // logger.debug(`processedBatch: ${JSON.stringify(processedBatch)}`);
+    augmentedScenes.push(...processedBatch.scenes);
+
+    // If this was the last batch, break the loop
+    if (endIndex === scenesLength) {
+      break;
+    }
+  }
+
+  // Update the scenes in the graph
+  currentScenes[chapter] = augmentedScenes;
+  await storeGraph({uid, sku, visiblity, data: currentScenes, type: "augmentedScenes"});
+
+  return augmentedScenes;
+}
+
 
 export {
   graphCharacters,
@@ -469,4 +533,5 @@ export {
   graphScenes16k,
   graphCharacterDescriptionsOAI,
   graphLocationDescriptionsOAI,
+  augmentScenes,
 };

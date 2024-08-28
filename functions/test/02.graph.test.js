@@ -51,6 +51,7 @@ const GENERATE_LOCATION_DESCRIPTIONS_OAI = false;
 const SUMMARIZE_DESCRIPTIONS = false;
 const GENERATE_SCENES = false;
 const GENERATE_SCENES_16K = false;
+const GENERATE_AUGMENT_SCENES = false;
 
 const SYM_PATH = "./test/bindings/graph/";
 const GRAPH_PATH = fs.realpathSync(SYM_PATH);
@@ -254,6 +255,24 @@ describe("Graph tests", () => {
       const response = await chai
           .request(`${APP_URL}${APP_ID}/us-central1`)
           .post("/generateGraphScenes16k")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+    });
+  }
+
+  if (GENERATE_AUGMENT_SCENES) {
+    // eslint-disable-next-line no-undef
+    it(`test generateAugmentScenes`, async () => {
+      const data = {
+        uid: "admin",
+        sku: process.env.PUBLIC_SKU1,
+        visiblity: "public",
+        chapter: 3,
+      };
+      const response = await chai
+          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .post("/generateAugmentScenes")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
       expect(response).to.have.status(204);

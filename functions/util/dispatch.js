@@ -70,7 +70,7 @@ function microDispatchInstance() {
       maxConcurrentDispatches: 1,
     },
     region: "us-central1",
-    memory: "128MiB",
+    // memory: "128MiB",
     timeoutSeconds: 3600,
   };
 }
