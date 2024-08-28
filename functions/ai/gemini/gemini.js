@@ -58,7 +58,7 @@ async function geminiRequest(request) {
     history: history,
   });
   logger.debug(`Sending message to Gemini.`);
-  logger.debug(`Instruction: ${instruction}`);
+  logger.debug(`Instruction: ${instruction.substring(0, 200)}`);
   const result = await chatSession.sendMessage(message);
   logger.debug(`Gemini response received.`);
 
