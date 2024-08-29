@@ -42,23 +42,6 @@ async function getUser(uid) {
 }
 
 /**
- * Creates a new pipeline in the Firestore database.
- *
- * @param {object} data - The data of the pipeline to be stored.
- * @return {Promise<object>} A promise that resolves to the full document data of the newly created pipeline.
- */
-async function createPipelineFirestore(data) {
-  // Remove any undefined properties from data
-  data = removeUndefinedProperties(data);
-  const docRef = getFirestore().collection("Pipelines").doc(); // Create a document reference
-  await docRef.set({...data}); // Set the data
-  const snapshot = await docRef.get(); // Get the document snapshot
-  const r = snapshot.data();
-  r.id = snapshot.id; // Add the document ID to the data
-  return r; // Return the full document data with ID
-}
-
-/**
  * Retrieves a pipeline from the Firestore database based on the provided UID and pipeline data.
  *
  * @param {string} uid - The unique identifier of the user.
@@ -75,22 +58,6 @@ async function getPipelineFirestore(uid, data) {
   } else {
     return {error: "Pipeline not found"}; // Return error if there is no match
   }
-}
-
-/**
- * Creates a new pipeline in the Firestore database.
- *
- * @param {string} id - The unique identifier of the pipeline to be updated.
- * @param {object} data - The data of the pipeline to be stored.
- * @return {Promise<object>} A promise that resolves to the full document data of the newly created pipeline.
- */
-async function updatePipelineFirestore(id, data) {
-  const docRef = getFirestore().collection("Pipelines").doc(id); // Create a document reference
-  await docRef.update(data); // Update the data
-  const snapshot = await docRef.get(); // Get the document snapshot
-  const r = snapshot.data();
-  r.id = snapshot.id; // Add the document ID to the data
-  return r; // Return the full document data with ID
 }
 
 /**
@@ -172,10 +139,12 @@ async function getAiFirestore(uid, data) {
         {sceneId, currentTime},
     );
   }
-  logger.debug(`Returning scenes: ${JSON.stringify(scenes).substring(0, 150)}`);
-  if (chapter) {
+
+  if (chapter !== undefined && scenes[chapter]) {
+    logger.debug(`Returning chapter ${chapter} of scenes: ${JSON.stringify(scenes[chapter]).substring(0, 150)}`);
     return scenes[chapter];
   } else {
+    logger.debug(`Returning all scenes: ${JSON.stringify(scenes).substring(0, 150)}`);
     return scenes;
   }
 }
@@ -208,8 +177,6 @@ async function getUserLibraryScene(params) {
 export {
   saveUser,
   getUser,
-  createPipelineFirestore,
-  updatePipelineFirestore,
   getPipelineFirestore,
   getAiFirestore,
   removeUndefinedProperties,

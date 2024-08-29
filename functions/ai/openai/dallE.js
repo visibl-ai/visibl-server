@@ -3,6 +3,19 @@ import logger from "firebase-functions/logger";
 import OpenAI from "openai";
 import {OPENAI_API_KEY} from "../../config/config.js";
 import {downloadImage} from "../../storage/storage.js";
+import {
+  queueGetEntries,
+  queueSetItemsToProcessing,
+  queueSetItemsToComplete,
+} from "../../storage/firestore/queue.js";
+
+import {
+  saveImageResultsMultipleScenes,
+  outpaintWithQueue,
+} from "../imageGen.js";
+
+import {geminiRequest} from "../gemini/gemini.js";
+import {queueAddEntries} from "../../storage/firestore/queue.js";
 
 
 const OPENAI_DALLE_3_IMAGES_PER_MINUTE = 200;
@@ -14,12 +27,12 @@ const OPENAI_DALLE_3_IMAGES_PER_MINUTE = 200;
 async function dalle3(request) {
   try {
     const {
-      scenes, sceneId, retry = true,
+      scenes, sceneIds, retries = [],
     } = request;
     if (scenes.length > OPENAI_DALLE_3_IMAGES_PER_MINUTE) {
       throw new Error(`Maximum ${OPENAI_DALLE_3_IMAGES_PER_MINUTE} scenes per request`);
     }
-    if (sceneId === undefined) {
+    if (sceneIds === undefined) {
       throw new Error("dalle3: sceneId is required");
     }
     logger.debug("scenes.length = " + scenes.length);
@@ -32,8 +45,8 @@ async function dalle3(request) {
 
     const openai = new OpenAI(OPENAI_API_KEY.value());
     logger.debug(`scenes length = ${scenes.length}`);
-    const promises = scenes.map(async (scene) => singleGeneration({
-      scene, sceneId, retry, openai,
+    const promises = scenes.map(async (scene, i) => singleGeneration({
+      scene, sceneId: sceneIds[i], retry: retries[i] || true, openai,
     }));
     const images = await Promise.all(promises);
     logger.info("===ENDING DALL-E-3 image generation===");
@@ -95,13 +108,7 @@ async function singleGeneration(request) {
     // });
   } catch (error) {
     logger.error(`Error generating image: ${scene.scene_number} ${scene.chapter} ${sceneId} ${JSON.stringify(sceneDescription)} ${error.toString()}`);
-    if (retry) {
-      logger.warn(`Going to retry image generation for scene ${scene.scene_number} in chapter ${scene.chapter} for scene ${sceneId}`);
-      request.retry = false;
-      return await singleGeneration(request);
-    } else {
-      logger.warn(`Not retrying image generation for scene ${scene.scene_number} in chapter ${scene.chapter} for scene ${sceneId}, returning default object.`);
-    }
+    await handleDalle3Error({scene, sceneId, retry, error});
   }
   return {
     type: "image",
@@ -117,6 +124,98 @@ async function singleGeneration(request) {
   };
 }
 
+async function handleDalle3Error(params) {
+  let {scene, sceneId, retry, error} = params;
+  if (retry) {
+    retry = false;
+    logger.warn(`Going to retry image generation for scene ${scene.scene_number} in chapter ${scene.chapter} for scene ${sceneId}`);
+    if (error.message.includes("safety") || error.message.includes("filter")) {
+      logger.warn(`Safety error, moderating scene description once.`);
+      scene = await moderateSceneDescription({scene, sceneId});
+    } else {
+      logger.warn(`Unkown error, lets retry once.`);
+    }
+    await addSceneToQueue({scene, sceneId, retry});
+  } else {
+    logger.warn(`Not retrying image generation for scene ${scene.scene_number} in chapter ${scene.chapter} for scene ${sceneId}, returning default object.`);
+  }
+}
+
+async function moderateSceneDescription(params) {
+  const {scene, sceneId} = params;
+  const result = await geminiRequest({
+    prompt: "moderateScene",
+    message: JSON.stringify(scene),
+    replacements: [],
+  });
+  if (result.scene) {
+    const moderatedScene = {
+      ...scene,
+      ...result.scene,
+    };
+    return moderatedScene;
+  } else {
+    logger.error(`Failed to moderate scene description for scene ${scene.scene_number} in chapter ${scene.chapter} for scene ${sceneId}`);
+    return scene;
+  }
+}
+
+async function addSceneToQueue(params) {
+  const {scene, sceneId, retry} = params;
+  const types = ["dalle"];
+  const entryTypes = ["dalle3"];
+  const entryParams = [{scene, sceneId, retry}];
+  await queueAddEntries({
+    types,
+    entryTypes,
+    entryParams,
+  });
+}
+
+// This function is the main entry point for the dalle queue.
+// It will get the pending items from the queue, process them, and then update the queue.
+// It will also handle the case where there are more items in the queue than can be processed in a single call.
+// It will recursively call itself until all items are processed.
+const dalleQueue = async () => {
+  // 1. get pending items from the queue.
+  let queue = await queueGetEntries({type: "dalle", status: "pending", limit: OPENAI_DALLE_3_IMAGES_PER_MINUTE});
+  logger.debug(`dalleQueue: ${queue.length} items in the queue`);
+  if (queue.length === 0) {
+    logger.debug("dalleQueue: No items in the queue");
+    return;
+  }
+  // 2. set those items to processing.
+  await queueSetItemsToProcessing({queue});
+  // 3. process the items.
+  const scenes = [];
+  const sceneIds = [];
+  const retries = [];
+  for (let i = 0; i < queue.length; i++) {
+    scenes.push(queue[i].params.scene);
+    sceneIds.push(queue[i].params.sceneId);
+    retries.push(queue[i].params.retry);
+  }
+  const startTime = Date.now();
+  const results = await dalle3({scenes, sceneIds, retries});
+  logger.debug(`dalleQueue results: ${JSON.stringify(results)}`);
+  const endTime = Date.now();
+  // 4. save results as required
+  await saveImageResultsMultipleScenes({results});
+  await outpaintWithQueue({results});
+  // 5. update items to completed.
+  await queueSetItemsToComplete({queue});
+  // 6. if there remaining items in the queue, initiate the next batch.
+  queue = await queueGetEntries({type: "dalle", status: "pending", limit: OPENAI_DALLE_3_IMAGES_PER_MINUTE});
+  if (queue.length > 0) {
+    // Wait the apropriate amount of time due to the rate limit.
+    const waitTime = 60000 - (endTime - startTime);
+    logger.debug(`Waiting ${waitTime}ms due to rate limit`);
+    await new Promise((resolve) => setTimeout(resolve, waitTime));
+    await dalleQueue();
+  }
+};
+
 export {
   dalle3,
+  dalleQueue,
 };

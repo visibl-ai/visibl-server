@@ -124,6 +124,108 @@ To complete this task, follow these steps:
       },
     },
   },
+  moderateScene: {
+    model: "gemini-1.5-flash-exp-0827",
+    systemInstruction: `
+You are tasked with moderating a draft scene from a novel to ensure it will not trigger content filters in an image diffusion model. Your goal is to modify the scene as minimally as possible while removing or altering any content that might be flagged by such filters.
+
+When moderating the scene, keep in mind that image diffusion models often have filters for the following types of content:
+
+1. Explicit sexual content or nudity
+2. Graphic violence or gore
+3. Hate speech or extreme political content
+4. Illegal activities
+5. Personal information or real individuals' names
+6. Copyrighted characters or properties
+
+Analyze the provided scene for any content that might fall into these categories or otherwise be potentially problematic for an image diffusion model. If specific words are offensive, use a less offensive word for the same subject.
+
+After your analysis, provide a moderated version of the scene. Make only the changes necessary to avoid triggering content filters. Preserve the overall narrative and tone of the scene as much as possible.
+
+Remember, your goal is to make the minimum necessary changes to ensure the scene won't trigger content filters in an image diffusion model while preserving the original narrative as much as possible.
+  `,
+    generationConfig: {
+      temperature: 0.5,
+      topP: 0.95,
+      topK: 64,
+      maxOutputTokens: 8192,
+      responseMimeType: "application/json",
+      responseSchema: {
+        "type": "object",
+        "properties": {
+          "scene": {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string",
+              },
+              "characters": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                    },
+                    "description": {
+                      "type": "string",
+                    },
+                  },
+                },
+              },
+              "locations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                    },
+                    "description": {
+                      "type": "string",
+                    },
+                  },
+                },
+              },
+              "viewpoint": {
+                "type": "object",
+                "properties": {
+                  "setting": {
+                    "type": "string",
+                  },
+                  "placement": {
+                    "type": "string",
+                  },
+                  "shot type": {
+                    "type": "string",
+                  },
+                  "mood": {
+                    "type": "string",
+                  },
+                  "technical": {
+                    "type": "string",
+                  },
+                },
+                "required": [
+                  "setting",
+                  "placement",
+                  "shot type",
+                  "mood",
+                  "technical",
+                ],
+              },
+            },
+            "required": [
+              "description",
+              "characters",
+              "locations",
+              "viewpoint",
+            ],
+          },
+        },
+      },
+    },
+  },
   getCharacters: {
     model: "gemini-1.5-pro-exp-0801",
     systemInstruction: `

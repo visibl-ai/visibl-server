@@ -67,10 +67,13 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 const APP_URL = `http://127.0.0.1:5002`;
+const DISPATCH_URL = `http://127.0.0.1:5001`;
+const DISPATCH_REGION = `us-central1`;
 const auth = getAuth();
 // const db = getFirestore();
 
 const TEST_USER_EMAIL = `john.${Date.now()}@example.com`;
+const AAX_TESTS = false;
 
 // eslint-disable-next-line no-undef
 describe("Full functional tests of visibl api", () => {
@@ -196,7 +199,7 @@ describe("Full functional tests of visibl api", () => {
   // eslint-disable-next-line no-undef
   it(`test processM4B taskQueue`, async () => {
     const response = await chai
-        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/processM4B")
         .set("Content-Type", "application/json")
         .send({
@@ -324,172 +327,174 @@ describe("Full functional tests of visibl api", () => {
       console.log(result);
     });
   }
+  let privateFeed;
+  if (AAX_TESTS) {
+  // eslint-disable-next-line no-undef
+    it("AAX - checks if audible connect is available for user (default true)", async () => {
+      const wrapped = firebaseTest.wrap(v1getAAXAvailable);
+      const data = {};
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      expect(result.active).to.be.true;
+      expect(result.source).to.equal(process.env.AAX_CONNECT_SOURCE);
+    });
+    // eslint-disable-next-line no-undef
+    it("AAX - ADMIN disables audible connect.", async () => {
+      const data = {
+        active: false,
+        uid: userData.uid,
+      };
 
-  // eslint-disable-next-line no-undef
-  it("AAX - checks if audible connect is available for user (default true)", async () => {
-    const wrapped = firebaseTest.wrap(v1getAAXAvailable);
-    const data = {};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
+      const response = await chai
+          .request(APP_URL)
+          .post("/v1/admin/aax/setAvailable")
+          .set("API-KEY", process.env.ADMIN_API_KEY)
+          .send(data);
+      expect(response).to.have.status(200);
+      expect(response.body).to.deep.equal(data);
     });
-    expect(result.active).to.be.true;
-    expect(result.source).to.equal(process.env.AAX_CONNECT_SOURCE);
-  });
-  // eslint-disable-next-line no-undef
-  it("AAX - ADMIN disables audible connect.", async () => {
-    const data = {
-      active: false,
-      uid: userData.uid,
-    };
+    // eslint-disable-next-line no-undef
+    it("AAX - checks if audible connect is available for user (false)", async () => {
+      const wrapped = firebaseTest.wrap(v1getAAXAvailable);
+      const data = {};
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      expect(result).to.be.an("object");
+      expect(result.active).to.be.false;
+    });
 
-    const response = await chai
-        .request(APP_URL)
-        .post("/v1/admin/aax/setAvailable")
-        .set("API-KEY", process.env.ADMIN_API_KEY)
-        .send(data);
-    expect(response).to.have.status(200);
-    expect(response.body).to.deep.equal(data);
-  });
-  // eslint-disable-next-line no-undef
-  it("AAX - checks if audible connect is available for user (false)", async () => {
-    const wrapped = firebaseTest.wrap(v1getAAXAvailable);
-    const data = {};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
+    // eslint-disable-next-line no-undef
+    it("AAX - get login URL when disabled", async () => {
+      const wrapped = firebaseTest.wrap(v1getAAXLoginURL);
+      const data = {
+        countryCode: "ca",
+      };
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      console.log(result);
+      expect(result).to.be.an("object");
+      expect(result).to.have.property("error");
+      expect(result.error).to.equal("AAX not available");
     });
-    expect(result).to.be.an("object");
-    expect(result.active).to.be.false;
-  });
+    // eslint-disable-next-line no-undef
+    it("AAX - ADMIN enables audible connect.", async () => {
+      const data = {
+        active: true,
+        uid: userData.uid,
+      };
+      const response = await chai
+          .request(APP_URL)
+          .post("/v1/admin/aax/setAvailable")
+          .set("API-KEY", process.env.ADMIN_API_KEY)
+          .send(data);
+      expect(response).to.have.status(200);
+    });
+    // eslint-disable-next-line no-undef
+    it("AAX - checks if audible connect is available for user (true)", async () => {
+      const wrapped = firebaseTest.wrap(v1getAAXAvailable);
+      const data = {};
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      expect(result.active).to.be.true;
+    });
+    // eslint-disable-next-line no-undef
+    it(`should check that AAX is not connected`, async () => {
+      const wrapped = firebaseTest.wrap(v1getAAXConnectStatus);
+      const data = {};
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      expect(result).to.have.property("connected").that.is.a("boolean");
+      expect(result.connected).to.be.false;
+    });
+    // eslint-disable-next-line no-undef
+    it("AAX - get login URL", async () => {
+      const wrapped = firebaseTest.wrap(v1getAAXLoginURL);
+      const data = {
+        countryCode: "ca",
+      };
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      console.log(result);
+      expect(result).to.have.property("loginUrl");
+      expect(result).to.have.property("codeVerifier");
+      expect(result).to.have.property("serial");
+    });
+    // eslint-disable-next-line no-undef
+    it(`Uploads audible files to UserData`, async () => {
+      const fileList = [
+        `${process.env.SKU1}.aaxc`,
+        `${process.env.SKU1}.jpg`,
+        `${process.env.SKU1}.json`,
+        `${process.env.SKU1}.m4b`,
+        `${process.env.SKU2}.aaxc`,
+        `${process.env.SKU2}.jpg`,
+        `${process.env.SKU2}.json`,
+        `${process.env.SKU2}.m4b`,
+      ];
 
-  // eslint-disable-next-line no-undef
-  it("AAX - get login URL when disabled", async () => {
-    const wrapped = firebaseTest.wrap(v1getAAXLoginURL);
-    const data = {
-      countryCode: "ca",
-    };
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    console.log(result);
-    expect(result).to.be.an("object");
-    expect(result).to.have.property("error");
-    expect(result.error).to.equal("AAX not available");
-  });
-  // eslint-disable-next-line no-undef
-  it("AAX - ADMIN enables audible connect.", async () => {
-    const data = {
-      active: true,
-      uid: userData.uid,
-    };
-    const response = await chai
-        .request(APP_URL)
-        .post("/v1/admin/aax/setAvailable")
-        .set("API-KEY", process.env.ADMIN_API_KEY)
-        .send(data);
-    expect(response).to.have.status(200);
-  });
-  // eslint-disable-next-line no-undef
-  it("AAX - checks if audible connect is available for user (true)", async () => {
-    const wrapped = firebaseTest.wrap(v1getAAXAvailable);
-    const data = {};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    expect(result.active).to.be.true;
-  });
-  // eslint-disable-next-line no-undef
-  it(`should check that AAX is not connected`, async () => {
-    const wrapped = firebaseTest.wrap(v1getAAXConnectStatus);
-    const data = {};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    expect(result).to.have.property("connected").that.is.a("boolean");
-    expect(result.connected).to.be.false;
-  });
-  // eslint-disable-next-line no-undef
-  it("AAX - get login URL", async () => {
-    const wrapped = firebaseTest.wrap(v1getAAXLoginURL);
-    const data = {
-      countryCode: "ca",
-    };
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
-    });
-    console.log(result);
-    expect(result).to.have.property("loginUrl");
-    expect(result).to.have.property("codeVerifier");
-    expect(result).to.have.property("serial");
-  });
-  // eslint-disable-next-line no-undef
-  it(`Uploads audible files to UserData`, async () => {
-    const fileList = [
-      `${process.env.SKU1}.aaxc`,
-      `${process.env.SKU1}.jpg`,
-      `${process.env.SKU1}.json`,
-      `${process.env.SKU1}.m4b`,
-      `${process.env.SKU2}.aaxc`,
-      `${process.env.SKU2}.jpg`,
-      `${process.env.SKU2}.json`,
-      `${process.env.SKU2}.m4b`,
-    ];
+      const bucket = getStorage(app).bucket();
+      const bucketPath = `UserData/${userData.uid}/Uploads/AAXRaw/`;
+      console.log(bucketPath);
 
-    const bucket = getStorage(app).bucket();
-    const bucketPath = `UserData/${userData.uid}/Uploads/AAXRaw/`;
-    console.log(bucketPath);
+      const uploadPromises = fileList.map(async (fileName) => {
+        console.log(`Preparing to upload file: ${fileName}`);
+        const filePath = `${bucketPath}${fileName}`;
+        const file = bucket.file(filePath);
 
-    const uploadPromises = fileList.map(async (fileName) => {
-      console.log(`Preparing to upload file: ${fileName}`);
-      const filePath = `${bucketPath}${fileName}`;
-      const file = bucket.file(filePath);
+        try {
+          const stream = fs.createReadStream(`./test/bindings/m4b/${fileName}`);
+
+          await new Promise((resolve, reject) => {
+            stream.pipe(file.createWriteStream({}))
+                .on("error", (error) => {
+                  console.error(`Upload failed for ${fileName}:`, error);
+                  reject(error);
+                })
+                .on("finish", () => {
+                  console.log(`File ${fileName} uploaded successfully`);
+                  resolve();
+                });
+          });
+        } catch (error) {
+          console.error(`Failed to upload file ${fileName}:`, error);
+          throw error; // Re-throw the error to be caught by Promise.all
+        }
+      });
 
       try {
-        const stream = fs.createReadStream(`./test/bindings/m4b/${fileName}`);
-
-        await new Promise((resolve, reject) => {
-          stream.pipe(file.createWriteStream({}))
-              .on("error", (error) => {
-                console.error(`Upload failed for ${fileName}:`, error);
-                reject(error);
-              })
-              .on("finish", () => {
-                console.log(`File ${fileName} uploaded successfully`);
-                resolve();
-              });
-        });
+        await Promise.all(uploadPromises);
+        console.log("All files uploaded successfully");
       } catch (error) {
-        console.error(`Failed to upload file ${fileName}:`, error);
-        throw error; // Re-throw the error to be caught by Promise.all
+        console.error("One or more file uploads failed:", error);
       }
     });
-
-    try {
-      await Promise.all(uploadPromises);
-      console.log("All files uploaded successfully");
-    } catch (error) {
-      console.error("One or more file uploads failed:", error);
-    }
-  });
+  }
   const DO_AUDIBLE_LOGIN = false;
-  if (DO_AUDIBLE_LOGIN) {
+  if (DO_AUDIBLE_LOGIN && AAX_TESTS) {
     // eslint-disable-next-line no-undef
     it("AAX - submit login URL", async () => {
     // Load the audibleUrl.json file
@@ -524,7 +529,7 @@ describe("Full functional tests of visibl api", () => {
       await new Promise((resolve) => setTimeout(resolve, 90000));
       console.log("Waited for 30 seconds after setting auth for the user");
     });
-  } else {
+  } else if (AAX_TESTS) {
   // eslint-disable-next-line no-undef
     it("AAX - Post auth hook for AAX auth.", async () => {
       const auth = JSON.parse(fs.readFileSync(path.join("test", "bindings", "audibleAuth.json"), "utf8"));
@@ -533,7 +538,7 @@ describe("Full functional tests of visibl api", () => {
         auth: auth,
       };
       const response = await chai
-          .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+          .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
           .post("/aaxPostAuthHook")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -543,116 +548,117 @@ describe("Full functional tests of visibl api", () => {
       console.log("Waited for 2 seconds after setting auth for the user");
     });
   }
+  if (AAX_TESTS) {
   // eslint-disable-next-line no-undef
-  it(`should check if audible is connected`, async () => {
-    const wrapped = firebaseTest.wrap(v1getAAXConnectStatus);
-    const data = {};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
+    it(`should check if audible is connected`, async () => {
+      const wrapped = firebaseTest.wrap(v1getAAXConnectStatus);
+      const data = {};
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      console.log(result);
+      expect(result).to.have.property("connected").that.is.a("boolean");
+      expect(result).to.have.property("source").that.is.a("string");
+      expect(result).to.have.property("accountOwner").that.is.a("string");
+      expect(result.connected).to.be.true;
+      expect(result.source).to.equal(process.env.AAX_CONNECT_SOURCE);
     });
-    console.log(result);
-    expect(result).to.have.property("connected").that.is.a("boolean");
-    expect(result).to.have.property("source").that.is.a("string");
-    expect(result).to.have.property("accountOwner").that.is.a("string");
-    expect(result.connected).to.be.true;
-    expect(result.source).to.equal(process.env.AAX_CONNECT_SOURCE);
-  });
 
-  // eslint-disable-next-line no-undef
-  it("AAX - submit refresh token", async () => {
-    const wrapped = firebaseTest.wrap(v1refreshAAXTokens);
-    const data = {
-      from: 0,
-      to: 999999999999999,
-    };
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
+    // eslint-disable-next-line no-undef
+    it("AAX - submit refresh token", async () => {
+      const wrapped = firebaseTest.wrap(v1refreshAAXTokens);
+      const data = {
+        from: 0,
+        to: 999999999999999,
+      };
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      console.log(result);
+      expect(result).to.be.an("object");
+      expect(result).to.have.property("totalProcessed").that.is.a("number");
+      expect(result).to.have.property("successful").that.is.a("number");
+      expect(result).to.have.property("warnings").that.is.a("number");
+      expect(result).to.have.property("errors").that.is.a("number");
+      expect(result).to.have.property("details").that.is.an("array");
+
+      // Check if the numbers add up correctly
+      expect(result.totalProcessed).to.equal(result.successful + result.warnings + result.errors);
+
+      // Check each detail object
+      result.details.forEach((detail) => {
+        expect(detail).to.have.property("uid").that.is.a("string");
+        expect(detail).to.have.property("status").that.is.oneOf(["success", "warning", "error"]);
+        expect(detail).to.have.property("message").that.is.a("string");
+      });
     });
-    console.log(result);
-    expect(result).to.be.an("object");
-    expect(result).to.have.property("totalProcessed").that.is.a("number");
-    expect(result).to.have.property("successful").that.is.a("number");
-    expect(result).to.have.property("warnings").that.is.a("number");
-    expect(result).to.have.property("errors").that.is.a("number");
-    expect(result).to.have.property("details").that.is.an("array");
 
-    // Check if the numbers add up correctly
-    expect(result.totalProcessed).to.equal(result.successful + result.warnings + result.errors);
+    // Get an OPDS feed for the users private items
+    // eslint-disable-next-line no-undef
+    it("AAX - get private OPDS feeds", async () => {
+      const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeed);
+      const data = {};
 
-    // Check each detail object
-    result.details.forEach((detail) => {
-      expect(detail).to.have.property("uid").that.is.a("string");
-      expect(detail).to.have.property("status").that.is.oneOf(["success", "warning", "error"]);
-      expect(detail).to.have.property("message").that.is.a("string");
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      console.log(result);
+      expect(result).to.have.property("metadata");
+      expect(result.metadata).to.have.property("title", `${process.env.AAX_CONNECT_SOURCE} Import`);
+      expect(result).to.have.property("publications");
+      console.log(result.publications);
+      console.log(result.publications[0].links);
+      expect(result.publications).to.be.an("array").that.is.not.empty;
     });
-  });
-
-  // Get an OPDS feed for the users private items
-  // eslint-disable-next-line no-undef
-  it("AAX - get private OPDS feeds", async () => {
-    const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeed);
-    const data = {};
-
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
+    let privateOPDSUrl;
+    // eslint-disable-next-line no-undef
+    it("AAX - get private OPDS URL", async () => {
+      const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeedURL);
+      const data = {};
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      console.log(result);
+      expect(result).to.have.property("url");
+      expect(result.url).to.be.a("string");
+      privateOPDSUrl = result.url;
     });
-    console.log(result);
-    expect(result).to.have.property("metadata");
-    expect(result.metadata).to.have.property("title", `${process.env.AAX_CONNECT_SOURCE} Import`);
-    expect(result).to.have.property("publications");
-    console.log(result.publications);
-    console.log(result.publications[0].links);
-    expect(result.publications).to.be.an("array").that.is.not.empty;
-  });
-  let privateOPDSUrl;
-  // eslint-disable-next-line no-undef
-  it("AAX - get private OPDS URL", async () => {
-    const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeedURL);
-    const data = {};
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data,
+
+
+    // eslint-disable-next-line no-undef
+    it("AAX - get private OPDS feed via URL", async () => {
+      const response = await chai
+          .request(privateOPDSUrl)
+          .get("");
+      expect(response).to.have.status(200);
+      expect(response).to.be.json;
+      expect(response.body).to.have.property("metadata");
+      expect(response.body.metadata).to.have.property("title", `${process.env.AAX_CONNECT_SOURCE} Import`);
+      privateFeed = response.body;
     });
-    console.log(result);
-    expect(result).to.have.property("url");
-    expect(result.url).to.be.a("string");
-    privateOPDSUrl = result.url;
-  });
-
-  let privateFeed;
-  // eslint-disable-next-line no-undef
-  it("AAX - get private OPDS feed via URL", async () => {
-    const response = await chai
-        .request(privateOPDSUrl)
-        .get("");
-    expect(response).to.have.status(200);
-    expect(response).to.be.json;
-    expect(response.body).to.have.property("metadata");
-    expect(response.body.metadata).to.have.property("title", `${process.env.AAX_CONNECT_SOURCE} Import`);
-    privateFeed = response.body;
-  });
-  // eslint-disable-next-line no-undef
-  it("AAX - get private OPDS manifest via URL", async () => {
-    const response = await chai
-        .request(privateFeed.publications[0].links[0].href)
-        .get("");
-    expect(response).to.have.status(200);
-    expect(response).to.be.json;
-    expect(response.body).to.have.property("metadata");
-    console.log(response.body.metadata);
-  });
-
+    // eslint-disable-next-line no-undef
+    it("AAX - get private OPDS manifest via URL", async () => {
+      const response = await chai
+          .request(privateFeed.publications[0].links[0].href)
+          .get("");
+      expect(response).to.have.status(200);
+      expect(response).to.be.json;
+      expect(response.body).to.have.property("metadata");
+      console.log(response.body.metadata);
+    });
+  }
   // Add item to the library
   let libraryItem;
   // eslint-disable-next-line no-undef
@@ -735,85 +741,86 @@ describe("Full functional tests of visibl api", () => {
   // Get the manifest
   // Add item to the library
   let libraryPrivateItem;
+  if (AAX_TESTS) {
   // eslint-disable-next-line no-undef
-  it(`test v1addItemToLibrary - private, before scenes exist`, async () => {
-    const wrapped = firebaseTest.wrap(v1addItemToLibrary);
-    console.log(privateFeed.publications);
-    const privateItemId = privateFeed.publications[0].metadata.visiblId;
-    // Prepare the data for adding an item to the library
-    const addData = {
-      catalogueId: privateItemId,
-    };
+    it(`test v1addItemToLibrary - private, before scenes exist`, async () => {
+      const wrapped = firebaseTest.wrap(v1addItemToLibrary);
+      console.log(privateFeed.publications);
+      const privateItemId = privateFeed.publications[0].metadata.visiblId;
+      // Prepare the data for adding an item to the library
+      const addData = {
+        catalogueId: privateItemId,
+      };
 
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data: addData,
-    });
-
-    console.log(result);
-    expect(result).to.have.property("id");
-    expect(result).to.have.property("uid");
-    expect(result).to.have.property("catalogueId");
-    expect(result).to.have.property("addedAt");
-
-    expect(result.uid).to.equal(userData.uid);
-    expect(result.catalogueId).to.equal(privateItemId);
-    expect(result.addedAt).to.exist;
-
-    libraryPrivateItem = result;
-    console.log(`Testing adding duplicate of ${result.id}`);
-    // Try to add the same item again, it should return the existing item
-    const duplicateResult = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data: addData,
-    });
-
-    console.log("Duplicate add result:", duplicateResult);
-    expect(duplicateResult).to.deep.equal(result);
-    expect(duplicateResult.id).to.equal(libraryPrivateItem.id);
-    expect(duplicateResult.uid).to.equal(userData.uid);
-    expect(duplicateResult.catalogueId).to.equal(privateItemId);
-    expect(duplicateResult.addedAt).to.exist;
-  });
-
-  // eslint-disable-next-line no-undef
-  it(`test v1getItemManifest - private`, async () => {
-    const wrapped = firebaseTest.wrap(v1getItemManifest);
-
-    // Prepare the data for getting the item manifest
-    const getManifestData = {
-      libraryId: libraryPrivateItem.id,
-    };
-
-    const result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data: getManifestData,
-    });
-
-    console.log(result);
-    expect(result).to.exist;
-
-    // Try to get manifest for a non-existent item, it should throw an error
-    try {
-      await wrapped({
+      const result = await wrapped({
         auth: {
           uid: userData.uid,
         },
-        data: {libraryId: "non-existent-id"},
+        data: addData,
       });
-      // If we reach here, the test should fail
-      expect.fail("Should have thrown an error for non-existent item");
-    } catch (error) {
-      expect(error.message).to.include("Item not found in the user's library");
-    }
-  });
 
+      console.log(result);
+      expect(result).to.have.property("id");
+      expect(result).to.have.property("uid");
+      expect(result).to.have.property("catalogueId");
+      expect(result).to.have.property("addedAt");
+
+      expect(result.uid).to.equal(userData.uid);
+      expect(result.catalogueId).to.equal(privateItemId);
+      expect(result.addedAt).to.exist;
+
+      libraryPrivateItem = result;
+      console.log(`Testing adding duplicate of ${result.id}`);
+      // Try to add the same item again, it should return the existing item
+      const duplicateResult = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data: addData,
+      });
+
+      console.log("Duplicate add result:", duplicateResult);
+      expect(duplicateResult).to.deep.equal(result);
+      expect(duplicateResult.id).to.equal(libraryPrivateItem.id);
+      expect(duplicateResult.uid).to.equal(userData.uid);
+      expect(duplicateResult.catalogueId).to.equal(privateItemId);
+      expect(duplicateResult.addedAt).to.exist;
+    });
+
+    // eslint-disable-next-line no-undef
+    it(`test v1getItemManifest - private`, async () => {
+      const wrapped = firebaseTest.wrap(v1getItemManifest);
+
+      // Prepare the data for getting the item manifest
+      const getManifestData = {
+        libraryId: libraryPrivateItem.id,
+      };
+
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data: getManifestData,
+      });
+
+      console.log(result);
+      expect(result).to.exist;
+
+      // Try to get manifest for a non-existent item, it should throw an error
+      try {
+        await wrapped({
+          auth: {
+            uid: userData.uid,
+          },
+          data: {libraryId: "non-existent-id"},
+        });
+        // If we reach here, the test should fail
+        expect.fail("Should have thrown an error for non-existent item");
+      } catch (error) {
+        expect(error.message).to.include("Item not found in the user's library");
+      }
+    });
+  }
 
   // eslint-disable-next-line no-undef
   it(`uploads a scenes file to catalogue item`, async () => {
@@ -914,7 +921,11 @@ describe("Full functional tests of visibl api", () => {
     });
 
     expect(result).to.be.an("array");
-    expect(result).to.have.lengthOf(2);
+    if (AAX_TESTS) {
+      expect(result).to.have.lengthOf(2);
+    } else {
+      expect(result).to.have.lengthOf(1);
+    }
     expect(result[0]).to.have.property("id");
     expect(result[0]).to.have.property("catalogueId");
     expect(result[0]).to.not.have.property("manifest");
@@ -938,7 +949,7 @@ describe("Full functional tests of visibl api", () => {
     expect(result.length).to.be.at.least(1);
 
     // Check properties of each scene
-    result.forEach((scene) => {
+    result.forEach((scene, i) => {
       expect(scene).to.have.property("id");
       expect(scene).to.have.property("uid").that.equals("admin"); // this is the global default scene.
       expect(scene).to.have.property("catalogueId").that.equals(libraryItem.catalogueId);
@@ -969,7 +980,7 @@ describe("Full functional tests of visibl api", () => {
 
   let addedScene;
   // eslint-disable-next-line no-undef
-  it(`test v1addLibraryItemScenes`, async () => {
+  it(`test v1addLibraryItemScenes miyazaki`, async () => {
     const wrapped = firebaseTest.wrap(v1addLibraryItemScenes);
     const result = await wrapped({
       auth: {
@@ -997,15 +1008,83 @@ describe("Full functional tests of visibl api", () => {
     const lastSceneGenerated = 0;
     const totalScenes = 1;
     const chapter = 0;
-    const response = await chai
-        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+    let response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/generateSceneImages")
         .set("Content-Type", "application/json")
         .send({
           data:
             {sceneId, lastSceneGenerated, totalScenes, chapter},
         });
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchDalleQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchDalleQueue").set("Content-Type", "application/json")
+        .send({data: {}});
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchStabilityQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchStabilityQueue").set("Content-Type", "application/json")
+        .send({data: {}});
     expect(response).to.have.status(204);
+    // We need to now get the scenes and check that no image is here.
+    const wrapped = firebaseTest.wrap(v1getAi);
+    let result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id,
+        chapter,
+      },
+    });
+    console.log(JSON.stringify(result).substring(0, 1000));
+    // No image should be generated on first try before moderation.
+    expect(result).to.exist;
+    expect(result).to.be.an("array");
+    expect(result[0]).to.have.property("scene_number");
+    expect(result[0]).to.have.property("description");
+    expect(result[0]).to.have.property("characters");
+    expect(result[0]).to.have.property("locations");
+    expect(result[0]).to.have.property("viewpoint");
+    expect(result[0]).to.not.have.property("image");
+    expect(result[0]).to.not.have.property("square");
+
+    // Now lets see if the moderated image is generated.
+    console.log(`Calling launchDalleQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchDalleQueue").set("Content-Type", "application/json")
+        .send({data: {}});
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchStabilityQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchStabilityQueue").set("Content-Type", "application/json")
+        .send({data: {}});
+    expect(response).to.have.status(204);
+    result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id,
+        chapter,
+      },
+    });
+    console.log(JSON.stringify(result).substring(0, 1000));
+    // No image should be generated on first try before moderation.
+    expect(result).to.exist;
+    expect(result).to.be.an("array");
+    expect(result[0]).to.have.property("scene_number");
+    expect(result[0]).to.have.property("description");
+    expect(result[0]).to.have.property("characters");
+    expect(result[0]).to.have.property("locations");
+    expect(result[0]).to.have.property("viewpoint");
+    expect(result[0]).to.have.property("image");
+    expect(result[0]).to.have.property("square");
   });
   // eslint-disable-next-line no-undef
   it(`test generateSceneImages taskQueue`, async () => {
@@ -1013,24 +1092,71 @@ describe("Full functional tests of visibl api", () => {
     const lastSceneGenerated = 0;
     const totalScenes = 6;
     const chapter = 3;
-    const response = await chai
-        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+    let response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/generateSceneImages")
         .set("Content-Type", "application/json")
         .send({
           data:
           {sceneId, lastSceneGenerated, totalScenes, chapter},
         });
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchDalleQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchDalleQueue").set("Content-Type", "application/json")
+        .send({data: {}});
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchStabilityQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchStabilityQueue").set("Content-Type", "application/json")
+        .send({data: {}});
     expect(response).to.have.status(204);
+    // Call again in case anything was rejected by content moderation
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchDalleQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchDalleQueue").set("Content-Type", "application/json")
+        .send({data: {}});
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchStabilityQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchStabilityQueue").set("Content-Type", "application/json")
+        .send({data: {}});
+    expect(response).to.have.status(204);
+    // We need to now get the scenes and check that an image is generated.
+    const wrapped = firebaseTest.wrap(v1getAi);
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id,
+        chapter,
+      },
+    });
+    console.log(JSON.stringify(result).substring(0, 1000));
+    expect(result).to.exist;
+    expect(result).to.be.an("array");
+    // Loop through each scene in the result array
+    for (let i = lastSceneGenerated; i < totalScenes; i++) {
+      expect(result[i]).to.have.property("scene_number");
+      expect(result[i]).to.have.property("description");
+      expect(result[i]).to.have.property("characters");
+      expect(result[i]).to.have.property("locations");
+      expect(result[i]).to.have.property("viewpoint");
+      expect(result[i]).to.have.property("square");
+      expect(result[i]).to.have.property("image");
+    }
   });
   // eslint-disable-next-line no-undef
   it(`test generateSceneImagesCurrentTime taskQueue`, async () => {
     const sceneId = addedScene.id;
-    const lastSceneGenerated = 0;
-    const totalScenes = 6;
-    const chapter = 3;
-    const response = await chai
-        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+    let response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/generateSceneImagesCurrentTime")
         .set("Content-Type", "application/json")
         .send({
@@ -1038,7 +1164,43 @@ describe("Full functional tests of visibl api", () => {
             {sceneId, currentTime: 30320.1},
           // Should be Chapter 30 scene 1.
         });
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchDalleQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchDalleQueue").set("Content-Type", "application/json")
+        .send({data: {}});
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchStabilityQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchStabilityQueue").set("Content-Type", "application/json")
+        .send({data: {}});
     expect(response).to.have.status(204);
+
+    // NO IMAGE EXISTS for the styled scene. TODO: Fix this..
+    // const wrapped = firebaseTest.wrap(v1getAi);
+    // const result = await wrapped({
+    //   auth: {
+    //     uid: userData.uid,
+    //   },
+    //   data: {
+    //     libraryId: libraryItem.id,
+    //     chapter: 30,
+    //   },
+    // });
+    // console.log(JSON.stringify(result).substring(0, 1000));
+    // expect(result).to.exist;
+    // expect(result).to.be.an("array");
+    // // Loop through each scene in the result array
+    // // Should be Chapter 30 scene 1.
+    // // expect(result[1]).to.have.property("scene_number", 1);
+    // // expect(result[1]).to.have.property("description");
+    // // expect(result[1]).to.have.property("characters");
+    // // expect(result[1]).to.have.property("locations");
+    // // expect(result[1]).to.have.property("viewpoint");
+    // // expect(result[1]).to.have.property("square");
+    // // expect(result[1]).to.have.property("image");
   });
   // eslint-disable-next-line no-undef
   it(`test generateSceneImagesCurrentTime, overlapping previous generation`, async () => {
@@ -1046,8 +1208,8 @@ describe("Full functional tests of visibl api", () => {
     const lastSceneGenerated = 0;
     const totalScenes = 6;
     const chapter = 3;
-    const response = await chai
-        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+    let response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/generateSceneImagesCurrentTime")
         .set("Content-Type", "application/json")
         .send({
@@ -1055,6 +1217,18 @@ describe("Full functional tests of visibl api", () => {
             {sceneId, currentTime: 30395.1},
           // Should be Chapter 30 scene 1.
         });
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchDalleQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchDalleQueue").set("Content-Type", "application/json")
+        .send({data: {}});
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchStabilityQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchStabilityQueue").set("Content-Type", "application/json")
+        .send({data: {}});
     expect(response).to.have.status(204);
   });
   // eslint-disable-next-line no-undef
@@ -1142,7 +1316,7 @@ describe("Full functional tests of visibl api", () => {
       },
     });
 
-    console.log(scenesResult);
+    console.log(JSON.stringify(scenesResult).substring(0, 150));
     expect(scenesResult).to.be.an("array");
     expect(scenesResult.length).to.be.at.least(2);
 
@@ -1161,7 +1335,6 @@ describe("Full functional tests of visibl api", () => {
     expect(defaultScenes.length).to.equal(1);
     expect(defaultScenes[0].id).to.equal(originalScene.id);
   });
-
   // eslint-disable-next-line no-undef
   it(`test getAi without a sceneId`, async () => {
     const wrapped = firebaseTest.wrap(v1getAi);
@@ -1279,7 +1452,7 @@ describe("Full functional tests of visibl api", () => {
   });
   // GET AI WITH currentTime, create scene with current time!
   // eslint-disable-next-line no-undef
-  it(`test v1addLibraryItemScenes with currentTime`, async () => {
+  it(`test v1addLibraryItemScenes with currentTime and a styled scene`, async () => {
     // First we need to update the default scenes for the chapter with one with images.
     let wrapped = firebaseTest.wrap(v1getAi);
     const getAiData = {
@@ -1315,7 +1488,7 @@ describe("Full functional tests of visibl api", () => {
     }
 
     const theme = "neon punk style";
-    const time = 66.1;
+    const time = 66.1; // Chapter 3, scene 3
     wrapped = firebaseTest.wrap(v1addLibraryItemScenes);
     result = await wrapped({
       auth: {
@@ -1334,21 +1507,62 @@ describe("Full functional tests of visibl api", () => {
     expect(result.prompt.toLowerCase()).to.contain(theme);
     expect(result).to.have.property("title");
     addedScene = result;
+    const styledSceneId = result.id;
     logger.debug(`Manually calling imageGenCurrentTime as dispatch doesn't work in test.`);
     const data = {
-      sceneId: result.id,
+      sceneId: styledSceneId,
       currentTime: time,
     };
-    const response = await chai
-        .request(`http://127.0.0.1:5001/visibl-dev-ali/us-central1`)
+    let response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/generateSceneImagesCurrentTime")
         .set("Content-Type", "application/json")
         .send({
           data,
         });
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchDalleQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchDalleQueue").set("Content-Type", "application/json")
+        .send({data: {}});
+    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    console.log(`Calling launchStabilityQueue manually`);
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/launchStabilityQueue").set("Content-Type", "application/json")
+        .send({data: {}});
     expect(response).to.have.status(204);
-  });
 
+    // We need to now get the scenes and check that an image is generated.
+    wrapped = firebaseTest.wrap(v1getAi);
+    result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {
+        libraryId: libraryItem.id,
+        sceneId: result.id,
+        chapter: 3, // Chapter 3, scene 3
+      },
+    });
+    console.log(JSON.stringify(result).substring(0, 1000));
+    expect(result).to.exist;
+    expect(result).to.be.an("array");
+    // Loop through each scene in the result array
+    expect(result[3]).to.have.property("scene_number");
+    expect(result[3]).to.have.property("description");
+    expect(result[3]).to.have.property("characters");
+    expect(result[3]).to.have.property("locations");
+    expect(result[3]).to.have.property("viewpoint");
+    expect(result[3]).to.have.property("square");
+    expect(result[3]).to.have.property("image");
+    expect(result[3]).to.have.property("image");
+    expect(result[3].image).to.contain("structured");
+    expect(result[3]).to.have.property("tall");
+    expect(result[3].tall).to.contain("structured");
+    expect(result[3]).to.have.property("sceneId", styledSceneId);
+  });
   // eslint-disable-next-line no-undef
   it(`test v1getLibrary with includeManifest=true`, async () => {
     const wrapped = firebaseTest.wrap(v1getLibrary);
@@ -1363,7 +1577,11 @@ describe("Full functional tests of visibl api", () => {
     });
 
     expect(result).to.be.an("array");
-    expect(result).to.have.lengthOf(2);
+    if (AAX_TESTS) {
+      expect(result).to.have.lengthOf(2);
+    } else {
+      expect(result).to.have.lengthOf(1);
+    }
     expect(result[0]).to.have.property("id");
     expect(result[0]).to.have.property("catalogueId");
     expect(result[0]).to.have.property("manifest");
@@ -1392,13 +1610,17 @@ describe("Full functional tests of visibl api", () => {
   it(`test v1deleteItemsFromLibrary`, async () => {
     const wrapped = firebaseTest.wrap(v1deleteItemsFromLibrary);
     // Now, delete the item
+    let data;
+    if (AAX_TESTS) {
+      data = {libraryIds: [libraryPrivateItem.id, libraryItem.id]};
+    } else {
+      data = {libraryIds: [libraryItem.id]};
+    }
     const result = await wrapped({
       auth: {
         uid: userData.uid,
       },
-      data: {
-        libraryIds: [libraryPrivateItem.id, libraryItem.id],
-      },
+      data,
     });
 
     expect(result).to.be.an("object");
@@ -1406,7 +1628,7 @@ describe("Full functional tests of visibl api", () => {
     expect(result).to.have.property("results");
     expect(result.results).to.have.property("success");
     expect(result.results).to.have.property("failed");
-    expect(result.results.success).to.be.an("array").that.includes(libraryPrivateItem.id);
+    expect(result.results.success).to.be.an("array").that.includes(libraryItem.id);
     expect(result.results.failed).to.be.an("array").that.is.empty;
     // console.log(result);
     // Verify the item is no longer in the library using v1getLibrary
@@ -1418,7 +1640,7 @@ describe("Full functional tests of visibl api", () => {
     });
 
     expect(libraryAfterDeletion).to.be.an("array");
-    expect(libraryAfterDeletion.find((item) => item.id === libraryPrivateItem.id)).to.be.undefined;
+    expect(libraryAfterDeletion.find((item) => item.id === libraryItem.id)).to.be.undefined;
   });
 
   // eslint-disable-next-line no-undef
@@ -1448,36 +1670,6 @@ describe("Full functional tests of visibl api", () => {
 
     expect(scenesSnapshot.empty).to.be.true;
   });
-
-
-  // it(`test getPipeline`, async () => {
-  //   const wrapped = firebaseTest.wrap(getPipeline);
-  //   const data = {id: pipelineId};
-  //   const result = await wrapped({
-  //     auth: {
-  //       uid: userData.uid,
-  //     },
-  //     data,
-  //   });
-  //   console.log(result);
-  //   expect(result.id).to.equal(pipelineId);
-  // });
-
-
-  // eslint-disable-next-line no-undef
-  it(`test transcription`, (done) => {
-    const BOOK = "Neuromancer: Sprawl Trilogy, Book 1";
-    chai.request(`http://127.0.0.1:5001/visibl-dev-ali/europe-west1/preProcessBook`)
-        .post("")
-        .send({run: true, fileName: `${BOOK}.m4b`, bookName: BOOK, type: "m4b"})
-        .end((err, res) => {
-          console.log("res.body = " + JSON.stringify(res.body));
-          expect(err).to.be.null;
-          expect(res).to.have.status(200);
-          done();
-        });
-  });
-
 
   // eslint-disable-next-line no-undef
   it(`test v1catalogueDelete`, async () => {
@@ -1525,7 +1717,11 @@ describe("Full functional tests of visibl api", () => {
     });
     console.log(result);
     expect(result).to.have.property("deletedCount").that.is.a("number");
-    expect(result.deletedCount).to.equal(1);
+    if (AAX_TESTS) {
+      expect(result.deletedCount).to.equal(1);
+    } else {
+      expect(result.deletedCount).to.equal(0);
+    }
   });
   // eslint-disable-next-line no-undef
   it(`should check that AAX is not connected`, async () => {

@@ -28,6 +28,10 @@ const safetySettings = [
     category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
     threshold: HarmBlockThreshold.BLOCK_NONE,
   },
+  // { // Not yet implemented on google side.
+  //   category: HarmCategory.HARM_CATEGORY_CIVIC_INTEGRITY,
+  //   threshold: HarmBlockThreshold.BLOCK_NONE,
+  // },
 ];
 
 

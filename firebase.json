@@ -106,6 +106,26 @@
         "source": "/v1/admin/ai/batchStabilityTEST",
         "function": "v1AdminBatchStabilityTEST",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/queue/add",
+        "function": "v1queueAdd",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/queue/get",
+        "function": "v1queueGet",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/queue/update",
+        "function": "v1queueUpdate",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/queue/nuke",
+        "function": "v1queueNuke",
+        "region": "europe-west1"
       }
     ]
   }
