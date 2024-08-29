@@ -76,6 +76,24 @@ function microDispatchInstance() {
 }
 
 /**
+ * @return {Object} An object with a 'body' property containing the request data.
+ */
+function mediumDispatchInstance() {
+  return {
+    retryConfig: {
+      maxAttempts: 1,
+      minBackoffSeconds: 1,
+    },
+    rateLimits: {
+      maxConcurrentDispatches: 1,
+    },
+    region: "us-central1",
+    memory: "4GiB",
+    timeoutSeconds: 3600,
+  };
+}
+
+/**
  * @param {string} functionName
  * @param {Object} data
  * @param {number} deadline
@@ -102,5 +120,6 @@ export {
   dataToBody,
   largeDispatchInstance,
   microDispatchInstance,
+  mediumDispatchInstance,
   dispatchTask,
 };

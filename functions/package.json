@@ -15,7 +15,7 @@
   },
   "main": "index.js",
   "dependencies": {
-    "@google/generative-ai": "^0.16.0",
+    "@google/generative-ai": "^0.17.1",
     "@json2csv/plainjs": "^7.0.6",
     "axios": "^1.7.2",
     "firebase-admin": "^11.8.0",

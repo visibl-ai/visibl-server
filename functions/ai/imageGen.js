@@ -17,12 +17,6 @@ import {
 } from "../util/dispatch.js";
 
 import {
-  outpaintTall,
-  structure,
-  batchStabilityRequest,
-} from "./stability/stability.js";
-
-import {
   OPENAI_DALLE_3_IMAGES_PER_MINUTE,
 } from "./openai/openaiLimits.js";
 
@@ -32,8 +26,8 @@ import {
 } from "../util/sceneHelpers.js";
 
 import {
-  dalle3,
-} from "./openai/dallE.js";
+  queueAddEntries,
+} from "../storage/firestore/queue.js";
 
 const TIMEOUT = 60000;
 
@@ -53,6 +47,18 @@ function formatScenesForGeneration(fullScenes, scenesToGenerate) {
     }
   }
   return scenes;
+}
+
+async function saveImageResultsMultipleScenes(params) {
+  const {results} = params;
+  const groupedResults = groupResultsBySceneId(results);
+  for (const [sceneId, sceneResults] of Object.entries(groupedResults)) {
+    logger.debug(`Saving image results for sceneId ${sceneId}`);
+    await saveImageResults({
+      images: sceneResults,
+      sceneId: sceneId,
+    });
+  }
 }
 
 // saves image results. Expects an output from dalle3 or batchStabilityRequest.
@@ -97,109 +103,118 @@ function getScenesToGenerate(lastSceneGenerated, totalScenes, chapter) {
   return scenesToGenerate;
 }
 
-async function batchOutpaint(params) {
-  const {images, sceneId} = params;
-  // Now we need to outpaint the generated images.
-  const resultKeys = [];
-  const functionsToCall = [];
-  const paramsForFunctions = [];
-  const successKeys = [];
-  images.forEach((image) => {
-    if (image.square) {
-      const timestamp = Date.now();
-      const imagePath = `Scenes/${sceneId}/${image.chapter}_scene${image.scene_number}_${timestamp}`;
-      successKeys.push("tall");
-      resultKeys.push({
-        result: true,
-        chapter: image.chapter,
-        scene_number: image.scene_number,
-        // TODO: We need to update tallBucketPath here somehow!
-      });
-      functionsToCall.push(outpaintTall);
-      paramsForFunctions.push({
-        inputPath: image.squareBucketPath,
-        outputPathWithoutExtension: imagePath,
-      });
+function groupResultsBySceneId(results) {
+  return results.reduce((acc, result) => {
+    if (!acc[result.sceneId]) {
+      acc[result.sceneId] = [];
     }
-  });
-  logger.debug(`======= STARTING BATCH OUTPAINT WITH STABILITY =========`);
-  const outpaintedImages = await batchStabilityRequest({
-    functionsToCall: functionsToCall,
-    paramsForFunctions: paramsForFunctions,
-    resultKeys: resultKeys,
-    successKeys: successKeys,
-  });
-  logger.debug(`======= ENDING BATCH OUTPAINT WITH STABILITY =========`);
-  return outpaintedImages;
+    acc[result.sceneId].push(result);
+    return acc;
+  }, {});
 }
 
-async function composeScenes(params) {
+async function outpaintWithQueue(params) {
+  const {results} = params;
+  // First we group results by sceneId.
+  const groupedResults = groupResultsBySceneId(results);
+  // For each sceneId group, we batch add the outpaint requests to the queue.
+  for (const [sceneId, sceneResults] of Object.entries(groupedResults)) {
+  // Now we need to outpaint the generated images.
+    const types = [];
+    const entryTypes = [];
+    const entryParams = [];
+    sceneResults.forEach((image) => {
+      if (image.square) {
+        const timestamp = Date.now();
+        const imagePath = `Scenes/${sceneId}/${image.chapter}_scene${image.scene_number}_${timestamp}`;
+        types.push("stability");
+        entryTypes.push("outpaintTall");
+        entryParams.push({
+          inputPath: image.squareBucketPath,
+          outputPathWithoutExtension: imagePath,
+          sceneId: sceneId,
+          chapter: image.chapter,
+          scene_number: image.scene_number,
+        });
+      }
+    });
+    await queueAddEntries({
+      types,
+      entryTypes,
+      entryParams,
+    });
+  }
+  // Now we dispatch the queue.
+  await dispatchTask("launchStabilityQueue",
+      {},
+  );
+}
+
+async function composeScenesWithQueue(params) {
   const {scenes, sceneId} = params;
-  const images = await dalle3({
-    scenes: scenes,
-    sceneId: sceneId,
+  // Simply add to the queue, and dispatch the queue.
+  const types = [];
+  const entryTypes = [];
+  const entryParams = [];
+  scenes.forEach((scene) => {
+    types.push("dalle");
+    entryTypes.push("dalle3");
+    entryParams.push({
+      scene,
+      sceneId,
+      retry: true,
+    });
   });
-  await saveImageResults({
-    images: images,
-    sceneId: sceneId,
+  await queueAddEntries({
+    types,
+    entryTypes,
+    entryParams,
   });
-  const outpaintedImages = await batchOutpaint({
-    images: images,
-    sceneId: sceneId,
-  });
-  const generatedScenes = await saveImageResults({
-    images: outpaintedImages,
-    sceneId: sceneId,
-  });
-  return generatedScenes;
+  await dispatchTask("launchDalleQueue",
+      {},
+  );
+  return;
 }
 
-async function styleScenes(params) {
+// Add scenes to the queue for styling and launch queue.
+async function styleScenesWithQueue(params) {
   let {scenes, sceneId, theme} = params;
   // Now we need to outpaint the generated images.
-  const resultKeys = [];
-  const functionsToCall = [];
-  const paramsForFunctions = [];
-  const successKeys = [];
+  const types = [];
+  const entryTypes = [];
+  const entryParams = [];
   scenes = scenes.filter((scene) => scene.image !== undefined);
   logger.debug(`Filtered out scenes without images, there are ${scenes.length} remaining.`);
   scenes.forEach((scene) => {
     if (scene.image) {
       const timestamp = Date.now();
-      const imagePath = `Scenes/${sceneId}/${scene.chapter}_scene${scene.scene_number}_${timestamp}`;
-      successKeys.push("tall");
-      resultKeys.push({
-        result: true,
-        chapter: scene.chapter,
-        scene_number: scene.scene_number,
-        theme,
-      });
-      functionsToCall.push(structure);
       const bucketPath = `Scenes/${scene.sceneId}/${scene.image.split("/").pop()}`;
-      paramsForFunctions.push({
+      const imagePath = `Scenes/${sceneId}/${scene.chapter}_scene${scene.scene_number}_${timestamp}`;
+      types.push("stability");
+      entryTypes.push("structure");
+      entryParams.push({
         inputPath: bucketPath,
         outputPathWithoutExtension: imagePath,
         prompt: theme,
+        sceneId: sceneId,
+        chapter: scene.chapter,
+        scene_number: scene.scene_number,
       });
     }
   });
-  logger.debug(`======= STARTING BATCH STYLE WITH STABILITY =========`);
-  const structuredImages = await batchStabilityRequest({
-    functionsToCall: functionsToCall,
-    paramsForFunctions: paramsForFunctions,
-    resultKeys: resultKeys,
-    successKeys: successKeys,
+  await queueAddEntries({
+    types,
+    entryTypes,
+    entryParams,
   });
-  logger.debug(`======= ENDING BATCH STYLE WITH STABILITY =========`);
-  logger.debug(`structuredImages = ${JSON.stringify(structuredImages)}`);
-  return await saveImageResults({
-    images: structuredImages,
-    sceneId: sceneId,
-  });
+  await dispatchTask("launchStabilityQueue",
+      {},
+  );
 }
 
-// Recursively generates images for a chapter.
-// Assumes chapter traversal.
+// This function was written before the queue was implemented.
+// Therefore it should be simplified to just add everything to the queue at once.
+// But I'm busy, so I just removed the delay and let it run.
 async function imageGenChapterRecursive(req) {
   logger.debug(`imageGenChapterRecursive`);
   logger.debug(JSON.stringify(req.body));
@@ -210,13 +225,13 @@ async function imageGenChapterRecursive(req) {
   const fullScenes = await getScene({sceneId});
   const scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
   const startTime = Date.now();
-  await composeScenes({scenes, sceneId});
+  await composeScenesWithQueue({scenes, sceneId});
   // Calculate the remaining time
   const endTime = Date.now();
   const elapsedTime = endTime - startTime;
   const remainingTime = Math.max(TIMEOUT - elapsedTime, 0);
   logger.debug(`Elapsed time: ${elapsedTime}ms, remaining time: ${remainingTime}ms`);
-  const remainingTimeSeconds = Math.ceil(remainingTime / 1000);
+  // const remainingTimeSeconds = Math.ceil(remainingTime / 1000);
   logger.debug(`imageGen complete for ${JSON.stringify(scenesToGenerate)} starting at ${lastSceneGenerated}.`);
   const nextSceneToGenerate = scenesToGenerate.pop().scene_number + 1;
   if (isNaN(nextSceneToGenerate) ||nextSceneToGenerate >= totalScenes) {
@@ -225,14 +240,14 @@ async function imageGenChapterRecursive(req) {
     return;
   } else {
     await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, false, Date.now());
-    logger.debug(`Dispatching imageGenDispatcher with: delay ${remainingTimeSeconds}, lastSceneGenerated ${nextSceneToGenerate}, totalScenes ${totalScenes}, chapter ${chapter}`);
+    logger.debug(`Dispatching imageGenDispatcher with: lastSceneGenerated ${nextSceneToGenerate}, totalScenes ${totalScenes}, chapter ${chapter}`);
     // Dispatch with delay of remainingTime
     await imageDispatcher({
       sceneId: sceneId,
       lastSceneGenerated: nextSceneToGenerate,
       totalScenes: totalScenes,
       chapter: chapter,
-    }, remainingTimeSeconds);
+    }, 0);// remainingTimeSeconds);
   }
 }
 
@@ -258,7 +273,8 @@ async function imageGenCurrentTime(req) {
   const {chapter, sceneNumber} = sceneFromCurrentTime(fullScenes, currentTime) || {};
 
   if (chapter === undefined || sceneNumber === undefined) {
-    throw new Error("No matching scene found for the given currentTime");
+    logger.warn(`No matching scene found for the given currentTime`);
+    return;
   }
 
   logger.debug(`Found scene: Chapter ${chapter}, Scene ${sceneNumber}`);
@@ -281,21 +297,23 @@ async function imageGenCurrentTime(req) {
 
 
   const scene = await getSceneFirestore(sceneId);
-  let generatedScenes;
+
   const style = scene.prompt;
   if (style && style != "") {
     logger.debug(`Scene ID ${sceneId} has a style prompt: ${style}, styling ${filteredScenes.length} scenes`);
-    generatedScenes = await styleScenes({scenes: filteredScenes, sceneId, theme: style});
+    return await styleScenesWithQueue({scenes: filteredScenes, sceneId, theme: style});
   } else {
     logger.debug(`Scene ID ${sceneId} no style prompt, composing images.`);
-    generatedScenes = await composeScenes({scenes: filteredScenes, sceneId});
+    await composeScenesWithQueue({scenes: filteredScenes, sceneId});
   }
-
-  return scenesToGenerateFromCurrentTime({currentSceneNumber: sceneNumber, currentChapter: chapter, fullScenes: generatedScenes});
+  return;
 }
 
 export {
   imageGenChapterRecursive,
   imageDispatcher,
   imageGenCurrentTime,
+  saveImageResults,
+  saveImageResultsMultipleScenes,
+  outpaintWithQueue,
 };

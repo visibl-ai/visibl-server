@@ -33,7 +33,9 @@ export const v1getAi = onCall({
   return await getAiFirestore(uid, data);
 });
 
-export const v1getLibraryScenes = onCall({region: "europe-west1"}, async (context) => {
+export const v1getLibraryScenes = onCall({
+  region: "europe-west1",
+  minInstances: 1}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await getGlobalScenesFirestore(uid, data);
 });
