@@ -1,3 +1,4 @@
+/* eslint-disable camelcase */
 /* eslint-disable require-jsdoc */
 import {
   getFirestore} from "firebase-admin/firestore";
@@ -21,12 +22,70 @@ async function queueNuke() {
   return {success: true, deletedCount: snapshot.size};
 }
 
+function stabilityQueueToUnique(params) {
+  const {type, entryType, sceneId, chapter, scene_number} = params;
+  // Check if any of the required parameters are undefined
+  if (type === undefined || entryType === undefined || sceneId === undefined ||
+      chapter === undefined || scene_number === undefined) {
+    throw new Error("All parameters (type, entryType, sceneId, chapter, scene_number) must be defined");
+  }
+
+  // If all parameters are defined, return a unique identifier
+  return `${type}_${entryType}_${sceneId}_${chapter}_${scene_number}`;
+}
+
+function dalleQueueToUnique(params) {
+  const {type, entryType, sceneId, chapter, scene_number, retry = false} = params;
+  // Check if any of the required parameters are undefined
+  if (type === undefined || entryType === undefined || sceneId === undefined ||
+      chapter === undefined || scene_number === undefined) {
+    throw new Error("All parameters (type, entryType, sceneId, chapter, scene_number) must be defined");
+  }
+
+  // If all parameters are defined, return a unique identifier
+  const retryString = retry ? "_retry" : "";
+  return `${type}_${entryType}_${sceneId}_${chapter}_${scene_number}${retryString}`;
+}
+
+function deduplicateEntries(params) {
+  const {types, entryTypes, entryParams, uniques, statuses = [], traces = []} = params;
+  // Ensure that types, entryTypes, entryParams and unique are not null
+  if (!types || !entryTypes || !entryParams || !uniques) {
+    throw new Error("types, entryTypes, entryParams, and unique must not be null");
+  }
+  // Check for duplicates in uniques and remove them along with corresponding entries
+  const uniqueSet = new Set();
+  const indicesToRemove = [];
+
+  for (let i = uniques.length - 1; i >= 0; i--) {
+    if (uniqueSet.has(uniques[i])) {
+      indicesToRemove.push(i);
+    } else {
+      uniqueSet.add(uniques[i]);
+    }
+  }
+
+  for (const index of indicesToRemove) {
+    types.splice(index, 1);
+    entryTypes.splice(index, 1);
+    entryParams.splice(index, 1);
+    uniques.splice(index, 1);
+    if (statuses.length > 0) statuses.splice(index, 1);
+    if (traces.length > 0) traces.splice(index, 1);
+  }
+
+  if (indicesToRemove.length > 0) {
+    logger.debug(`Removed ${indicesToRemove.length} duplicate entries`);
+  }
+  return {types, entryTypes, entryParams, uniques, statuses, traces};
+}
+
 async function queueAddEntries(params) {
-  const {types, entryTypes, entryParams, statuses = [], traces = []} = params;
+  const {types, entryTypes, entryParams, uniques, statuses = [], traces = []} = deduplicateEntries(params);
   const db = getFirestore();
   const queueRef = db.collection("Queue");
   const batch = db.batch();
-
+  let entriesAdded = 0;
   for (let i = 0; i < types.length; i++) {
     const now = Date.now();
     const entry = {
@@ -38,11 +97,17 @@ async function queueAddEntries(params) {
       timeRequested: now,
       timeUpdated: now,
     };
-    const docRef = queueRef.doc();
-    batch.set(docRef, entry);
+    const docRef = queueRef.doc(uniques[i]);
+    const docSnapshot = await docRef.get();
+    if (!docSnapshot.exists) {
+      batch.create(docRef, entry);
+      entriesAdded++;
+    } else {
+      logger.debug(`Entry ${uniques[i]} already exists in the queue, not re-adding.`);
+    }
   }
   await batch.commit();
-  logger.debug(`Added ${types.length} entries to the queue`);
+  logger.debug(`Added ${entriesAdded} entries to the queue`);
   return {success: true};
 }
 
@@ -120,4 +185,6 @@ export {
   queueNuke,
   queueSetItemsToProcessing,
   queueSetItemsToComplete,
+  stabilityQueueToUnique,
+  dalleQueueToUnique,
 };

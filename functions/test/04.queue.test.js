@@ -94,6 +94,7 @@ describe("Queue Tests", () => {
     this.timeout(DEFAULT_TIMEOUT);
     const types = ["stability", "stability"];
     const entryTypes = ["outpaint", "structure"];
+    const uniques = ["stability_outpaint_01_1_2", "stability_structure_01_1_2"];
     const entryParams = [
       {
         inputPath: `${bucketImagePath}jardethe.png`,
@@ -113,6 +114,7 @@ describe("Queue Tests", () => {
           types,
           entryTypes,
           entryParams,
+          uniques,
         });
     expect(response).to.have.status(200);
     expect(response.body).to.have.property("success", true);
@@ -200,12 +202,220 @@ describe("Queue Tests", () => {
     expect(response).to.have.status(200);
     expect(response.body).to.have.property("success", true);
   });
+  // eslint-disable-next-line no-undef
+  it("add two identical items to the queue in same request, make sure duplicates are rejected.", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
+    const types = ["dalle", "stability", "dalle", "stability"];
+    const entryTypes = ["dalle3", "structure", "dalle3", "structure"];
+    const uniques = ["dalle_dalle3_01_1_2", "stability_structure_01_1_2", "dalle_dalle3_01_1_2", "stability_structure_01_1_2"];
+    const scene = JSON.parse(fs.readFileSync(`${SYM_PATH}scenes.json`, "utf8"));
+    scene["1"][0].chapter = 1;
+    const entryParams = [
+      {
+        scene: scene["1"][0],
+        sceneId: "01",
+        retry: true,
+      },
+      {
+        inputPath: `${bucketImagePath}linda.jpg`,
+        outputPathWithoutExtension: `${bucketImagePath}linda02`,
+        sceneId: "02",
+        chapter: 3,
+        scene_number: 4,
+        prompt: `Neon punk style`,
+      },
+      {
+        scene: scene["1"][0],
+        sceneId: "01",
+        retry: true,
+      },
+      {
+        inputPath: `${bucketImagePath}linda.jpg`,
+        outputPathWithoutExtension: `${bucketImagePath}linda02`,
+        sceneId: "02",
+        chapter: 3,
+        scene_number: 4,
+        prompt: `Neon punk style`,
+      },
+    ];
+    let response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/add")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({
+          types,
+          entryTypes,
+          entryParams,
+          uniques,
+        });
+    expect(response).to.have.status(200);
+    expect(response.body).to.have.property("success", true);
+    response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/get")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({
+          type: "stability",
+          status: "pending",
+          limit: 200,
+        });
+    expect(response).to.have.status(200);
+    console.log(response.body);
+    expect(response.body).to.have.lengthOf(1);
+    response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/get")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({
+          type: "dalle",
+          status: "pending",
+          limit: 200,
+        });
+    expect(response).to.have.status(200);
+    console.log(response.body);
+    expect(response.body).to.have.lengthOf(1);
+  });
+  // eslint-disable-next-line no-undef
+  it("add two identical items to the queue in new request, make sure duplicates are rejected.", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
+    const types = ["dalle", "stability", "dalle", "stability"];
+    const entryTypes = ["dalle3", "structure", "dalle3", "structure"];
+    const uniques = ["dalle_dalle3_01_1_2", "stability_structure_01_1_2", "dalle_dalle3_04_1_2", "stability_structure_04_1_2"];
+    const scene = JSON.parse(fs.readFileSync(`${SYM_PATH}scenes.json`, "utf8"));
+    scene["1"][0].chapter = 1;
+    const entryParams = [
+      {
+        scene: scene["1"][0],
+        sceneId: "01",
+        retry: true,
+      },
+      {
+        inputPath: `${bucketImagePath}linda.jpg`,
+        outputPathWithoutExtension: `${bucketImagePath}linda02`,
+        sceneId: "02",
+        chapter: 3,
+        scene_number: 4,
+        prompt: `Neon punk style`,
+      },
+      {
+        scene: scene["1"][0],
+        sceneId: "04",
+        retry: true,
+      },
+      {
+        inputPath: `${bucketImagePath}linda.jpg`,
+        outputPathWithoutExtension: `${bucketImagePath}linda02`,
+        sceneId: "04",
+        chapter: 3,
+        scene_number: 4,
+        prompt: `Neon punk style`,
+      },
+    ];
+    let response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/add")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({
+          types,
+          entryTypes,
+          entryParams,
+          uniques,
+        });
+    expect(response).to.have.status(200);
+    expect(response.body).to.have.property("success", true);
+    response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/get")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({
+          type: "stability",
+          status: "pending",
+          limit: 200,
+        });
+    expect(response).to.have.status(200);
+    console.log(response.body);
+    expect(response.body).to.have.lengthOf(2);
+    response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/get")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({
+          type: "dalle",
+          status: "pending",
+          limit: 200,
+        });
+    expect(response).to.have.status(200);
+    console.log(response.body);
+    expect(response.body).to.have.lengthOf(2);
+  });
+  // eslint-disable-next-line no-undef
+  it("add only items already in the queue, make sure nothing bad happens.", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
+    const types = ["dalle", "stability"];
+    const entryTypes = ["dalle3", "structure"];
+    const uniques = ["dalle_dalle3_01_1_2", "stability_structure_01_1_2"];
+    const scene = JSON.parse(fs.readFileSync(`${SYM_PATH}scenes.json`, "utf8"));
+    scene["1"][0].chapter = 1;
+    const entryParams = [
+      {
+        scene: scene["1"][0],
+        sceneId: "01",
+        retry: true,
+      },
+      {
+        inputPath: `${bucketImagePath}linda.jpg`,
+        outputPathWithoutExtension: `${bucketImagePath}linda02`,
+        sceneId: "02",
+        chapter: 3,
+        scene_number: 4,
+        prompt: `Neon punk style`,
+      },
+    ];
+    let response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/add")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({
+          types,
+          entryTypes,
+          entryParams,
+          uniques,
+        });
+    expect(response).to.have.status(200);
+    expect(response.body).to.have.property("success", true);
+    response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/get")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({
+          type: "stability",
+          status: "pending",
+          limit: 200,
+        });
+    expect(response).to.have.status(200);
+    console.log(response.body);
+    expect(response.body).to.have.lengthOf(2);
+    response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/get")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({
+          type: "dalle",
+          status: "pending",
+          limit: 200,
+        });
+    expect(response).to.have.status(200);
+    console.log(response.body);
+    expect(response.body).to.have.lengthOf(2);
+  });
+  // eslint-disable-next-line no-undef
+  it("clear the queue again", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
 
+    const response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/nuke")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({});
+    expect(response).to.have.status(200);
+    expect(response.body).to.have.property("success", true);
+  });
   // eslint-disable-next-line no-undef
   it("add two items to the dalle queue", async function() {
     this.timeout(DEFAULT_TIMEOUT);
     const types = ["dalle", "dalle"];
     const entryTypes = ["dalle3", "dalle3"];
+    const uniques = ["dalle_dalle3_01_1_2", "dalle_dalle3_02_3_0"];
     const scene = JSON.parse(fs.readFileSync(`${SYM_PATH}scenes.json`, "utf8"));
     scene["1"][0].chapter = 1;
     scene["3"][0].chapter = 3;
@@ -228,6 +438,7 @@ describe("Queue Tests", () => {
           types,
           entryTypes,
           entryParams,
+          uniques,
         });
     expect(response).to.have.status(200);
     expect(response.body).to.have.property("success", true);
@@ -246,11 +457,12 @@ describe("Queue Tests", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it("add four items to the queue collection again", async function() {
+  it("add four (1 duplicate) items to the queue collection again", async function() {
     // eslint-disable-next-line no-invalid-this
     this.timeout(DEFAULT_TIMEOUT);
     const types = ["stability", "stability", "stability", "stability"];
     const entryTypes = ["outpaintTall", "structure", "outpaintTall", "structure"];
+    const uniques = ["stability_outpaintTall_01_1_2", "stability_structure_01_3_4", "stability_outpaintTall_02_1_2", "stability_structure_02_3_4"];
     const entryParams = [
       {
         inputPath: `${bucketImagePath}jardethe.png`,
@@ -292,6 +504,7 @@ describe("Queue Tests", () => {
           types,
           entryTypes,
           entryParams,
+          uniques,
         });
     expect(response).to.have.status(200);
     expect(response.body).to.have.property("success", true);
@@ -309,7 +522,7 @@ describe("Queue Tests", () => {
     // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
   });
   // eslint-disable-next-line no-undef
-  it("get the four items from the queue and make sure they're completed.", async function() {
+  it("get the items from the queue and make sure they're completed.", async function() {
     // eslint-disable-next-line no-invalid-this
     this.timeout(DEFAULT_TIMEOUT);
     const response = await chai.request(APP_URL)
@@ -322,7 +535,7 @@ describe("Queue Tests", () => {
         });
     expect(response).to.have.status(200);
     console.log(response.body);
-    expect(response.body).to.have.lengthOf(6);
+    expect(response.body).to.have.lengthOf(5);
     for (const entry of response.body) {
       expect(entry).to.have.property("type", "stability");
       expect(entry).to.have.property("status", "complete");

@@ -1,3 +1,4 @@
+/* eslint-disable require-jsdoc */
 
 /* eslint-disable no-unused-vars */
 /* eslint-disable max-len */
@@ -74,6 +75,25 @@ const auth = getAuth();
 
 const TEST_USER_EMAIL = `john.${Date.now()}@example.com`;
 const AAX_TESTS = false;
+
+
+async function callStabilityQueue() {
+  console.log(`Calling launchStabilityQueue manually`);
+  const response = await chai
+      .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+      .post("/launchStabilityQueue").set("Content-Type", "application/json")
+      .send({data: {}});
+  return response;
+}
+
+async function callDalleQueue() {
+  console.log(`Calling launchDalleQueue manually`);
+  const response = await chai
+      .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+      .post("/launchDalleQueue").set("Content-Type", "application/json")
+      .send({data: {}});
+  return response;
+}
 
 // eslint-disable-next-line no-undef
 describe("Full functional tests of visibl api", () => {
@@ -1008,7 +1028,7 @@ describe("Full functional tests of visibl api", () => {
     const lastSceneGenerated = 0;
     const totalScenes = 1;
     const chapter = 0;
-    let response = await chai
+    const response = await chai
         .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/generateSceneImages")
         .set("Content-Type", "application/json")
@@ -1016,19 +1036,9 @@ describe("Full functional tests of visibl api", () => {
           data:
             {sceneId, lastSceneGenerated, totalScenes, chapter},
         });
-    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchDalleQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchDalleQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchStabilityQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchStabilityQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    expect(response).to.have.status(204);
+
+    await callDalleQueue();
+    expect(await callStabilityQueue()).to.have.status(204);
     // We need to now get the scenes and check that no image is here.
     const wrapped = firebaseTest.wrap(v1getAi);
     let result = await wrapped({
@@ -1053,18 +1063,8 @@ describe("Full functional tests of visibl api", () => {
     expect(result[0]).to.not.have.property("square");
 
     // Now lets see if the moderated image is generated.
-    console.log(`Calling launchDalleQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchDalleQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchStabilityQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchStabilityQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    expect(response).to.have.status(204);
+    await callDalleQueue();
+    expect(await callStabilityQueue()).to.have.status(204);
     result = await wrapped({
       auth: {
         uid: userData.uid,
@@ -1092,7 +1092,7 @@ describe("Full functional tests of visibl api", () => {
     const lastSceneGenerated = 0;
     const totalScenes = 6;
     const chapter = 3;
-    let response = await chai
+    const response = await chai
         .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/generateSceneImages")
         .set("Content-Type", "application/json")
@@ -1100,33 +1100,11 @@ describe("Full functional tests of visibl api", () => {
           data:
           {sceneId, lastSceneGenerated, totalScenes, chapter},
         });
-    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchDalleQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchDalleQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchStabilityQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchStabilityQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    expect(response).to.have.status(204);
+    await callDalleQueue();
+    expect(await callStabilityQueue()).to.have.status(204);
     // Call again in case anything was rejected by content moderation
-    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchDalleQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchDalleQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchStabilityQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchStabilityQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    expect(response).to.have.status(204);
+    await callDalleQueue();
+    expect(await callStabilityQueue()).to.have.status(204);
     // We need to now get the scenes and check that an image is generated.
     const wrapped = firebaseTest.wrap(v1getAi);
     const result = await wrapped({
@@ -1155,7 +1133,7 @@ describe("Full functional tests of visibl api", () => {
   // eslint-disable-next-line no-undef
   it(`test generateSceneImagesCurrentTime taskQueue`, async () => {
     const sceneId = addedScene.id;
-    let response = await chai
+    const response = await chai
         .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/generateSceneImagesCurrentTime")
         .set("Content-Type", "application/json")
@@ -1165,18 +1143,8 @@ describe("Full functional tests of visibl api", () => {
           // Should be Chapter 30 scene 1.
         });
     // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchDalleQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchDalleQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchStabilityQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchStabilityQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    expect(response).to.have.status(204);
+    await callDalleQueue();
+    expect(await callStabilityQueue()).to.have.status(204);
 
     // NO IMAGE EXISTS for the styled scene. TODO: Fix this..
     // const wrapped = firebaseTest.wrap(v1getAi);
@@ -1208,7 +1176,7 @@ describe("Full functional tests of visibl api", () => {
     const lastSceneGenerated = 0;
     const totalScenes = 6;
     const chapter = 3;
-    let response = await chai
+    const response = await chai
         .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/generateSceneImagesCurrentTime")
         .set("Content-Type", "application/json")
@@ -1218,18 +1186,8 @@ describe("Full functional tests of visibl api", () => {
           // Should be Chapter 30 scene 1.
         });
     // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchDalleQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchDalleQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchStabilityQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchStabilityQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    expect(response).to.have.status(204);
+    await callDalleQueue();
+    expect(await callStabilityQueue()).to.have.status(204);
   });
   // eslint-disable-next-line no-undef
   it(`test v1getLibraryScenes with a single scene`, async () => {
@@ -1513,7 +1471,7 @@ describe("Full functional tests of visibl api", () => {
       sceneId: styledSceneId,
       currentTime: time,
     };
-    let response = await chai
+    const response = await chai
         .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/generateSceneImagesCurrentTime")
         .set("Content-Type", "application/json")
@@ -1521,18 +1479,8 @@ describe("Full functional tests of visibl api", () => {
           data,
         });
     // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchDalleQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchDalleQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
-    console.log(`Calling launchStabilityQueue manually`);
-    response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/launchStabilityQueue").set("Content-Type", "application/json")
-        .send({data: {}});
-    expect(response).to.have.status(204);
+    await callDalleQueue();
+    expect(await callStabilityQueue()).to.have.status(204);
 
     // We need to now get the scenes and check that an image is generated.
     wrapped = firebaseTest.wrap(v1getAi);
