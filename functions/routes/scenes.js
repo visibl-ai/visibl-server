@@ -18,10 +18,19 @@ import {
   dispatchTask,
 } from "../util/dispatch.js";
 
+import {
+  compressImage,
+} from "../util/sharp.js";
+
 export const v1generateSceneImages = onRequest({region: "europe-west1", cors: true}, async (req, res) => {
   await validateOnRequestAdmin(req);
   await dispatchTask("generateSceneImages", req.body, 60 * 5, 1);
   res.status(200).send({dispatched: true});
+});
+
+export const v1compressImage = onRequest({region: "europe-west1", cors: true}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await compressImage(req.body));
 });
 
 export const v1getAi = onCall({
