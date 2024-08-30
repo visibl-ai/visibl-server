@@ -208,7 +208,7 @@ async function styleScenesWithQueue(params) {
   scenes = scenes.filter((scene) => scene.image !== undefined);
   logger.debug(`Filtered out scenes without images, there are ${scenes.length} remaining.`);
   scenes.forEach((scene) => {
-    if (scene.image) {
+    if (scene.tall) {
       const timestamp = Date.now();
       const bucketPath = `Scenes/${scene.sceneId}/${scene.tall.split("/").pop()}`; // Tall is not compressed.
       const imagePath = `Scenes/${sceneId}/${scene.chapter}_scene${scene.scene_number}_${timestamp}`;
