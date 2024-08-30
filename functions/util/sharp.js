@@ -35,7 +35,7 @@ async function compressImage({sourceFilePath, destinationFilePath, quality=90}) 
     stream: webpStream({sourceStream, quality}),
     filename: destinationFilePath,
   });
-  console.log(`Compressed image saved to ${publicUrl}`);
+  logger.debug(`Compressed image saved to ${publicUrl}`);
   return {publicUrl};
 }
 
