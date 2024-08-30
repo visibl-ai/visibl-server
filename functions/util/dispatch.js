@@ -77,15 +77,16 @@ function microDispatchInstance() {
 
 /**
  * @return {Object} An object with a 'body' property containing the request data.
+ * @param {number} concurrency - The number of concurrent dispatches.
  */
-function mediumDispatchInstance() {
+function mediumDispatchInstance(concurrency=1) {
   return {
     retryConfig: {
       maxAttempts: 1,
       minBackoffSeconds: 1,
     },
     rateLimits: {
-      maxConcurrentDispatches: 1,
+      maxConcurrentDispatches: concurrency,
     },
     region: "us-central1",
     memory: "4GiB",

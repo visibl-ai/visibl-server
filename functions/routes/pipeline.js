@@ -39,7 +39,7 @@ export const processM4B = onTaskDispatched(
 );
 
 export const generateSceneImages = onTaskDispatched(
-    mediumDispatchInstance(),
+    mediumDispatchInstance(50),
     async (req) => {
       logger.debug(`generateSceneImages: ${JSON.stringify(req.data)}`);
       return await imageGenChapterRecursive(dataToBody(req));
@@ -47,7 +47,7 @@ export const generateSceneImages = onTaskDispatched(
 );
 
 export const generateSceneImagesCurrentTime = onTaskDispatched(
-    mediumDispatchInstance(),
+    mediumDispatchInstance(50),
     async (req) => {
       logger.debug(`generateSceneImagesCurrentTime: ${JSON.stringify(req.data)}`);
       return await imageGenCurrentTime(dataToBody(req));

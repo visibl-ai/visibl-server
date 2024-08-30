@@ -27,6 +27,8 @@ import {
 
 import {
   queueAddEntries,
+  stabilityQueueToUnique,
+  dalleQueueToUnique,
 } from "../storage/firestore/queue.js";
 
 const TIMEOUT = 60000;
@@ -123,6 +125,7 @@ async function outpaintWithQueue(params) {
     const types = [];
     const entryTypes = [];
     const entryParams = [];
+    const uniques = [];
     sceneResults.forEach((image) => {
       if (image.square) {
         const timestamp = Date.now();
@@ -136,12 +139,20 @@ async function outpaintWithQueue(params) {
           chapter: image.chapter,
           scene_number: image.scene_number,
         });
+        uniques.push(stabilityQueueToUnique({
+          type: "stability",
+          entryType: "outpaintTall",
+          sceneId: sceneId,
+          chapter: image.chapter,
+          scene_number: image.scene_number,
+        }));
       }
     });
     await queueAddEntries({
       types,
       entryTypes,
       entryParams,
+      uniques,
     });
   }
   // Now we dispatch the queue.
@@ -156,6 +167,7 @@ async function composeScenesWithQueue(params) {
   const types = [];
   const entryTypes = [];
   const entryParams = [];
+  const uniques = [];
   scenes.forEach((scene) => {
     types.push("dalle");
     entryTypes.push("dalle3");
@@ -164,11 +176,20 @@ async function composeScenesWithQueue(params) {
       sceneId,
       retry: true,
     });
+    uniques.push(dalleQueueToUnique({
+      type: "dalle",
+      entryType: "dalle3",
+      sceneId,
+      chapter: scene.chapter,
+      scene_number: scene.scene_number,
+      retry: true,
+    }));
   });
   await queueAddEntries({
     types,
     entryTypes,
     entryParams,
+    uniques,
   });
   await dispatchTask("launchDalleQueue",
       {},
@@ -183,6 +204,7 @@ async function styleScenesWithQueue(params) {
   const types = [];
   const entryTypes = [];
   const entryParams = [];
+  const uniques = [];
   scenes = scenes.filter((scene) => scene.image !== undefined);
   logger.debug(`Filtered out scenes without images, there are ${scenes.length} remaining.`);
   scenes.forEach((scene) => {
@@ -200,12 +222,20 @@ async function styleScenesWithQueue(params) {
         chapter: scene.chapter,
         scene_number: scene.scene_number,
       });
+      uniques.push(stabilityQueueToUnique({
+        type: "stability",
+        entryType: "structure",
+        sceneId: sceneId,
+        chapter: scene.chapter,
+        scene_number: scene.scene_number,
+      }));
     }
   });
   await queueAddEntries({
     types,
     entryTypes,
     entryParams,
+    uniques,
   });
   await dispatchTask("launchStabilityQueue",
       {},

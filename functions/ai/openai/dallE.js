@@ -15,7 +15,10 @@ import {
 } from "../imageGen.js";
 
 import {geminiRequest} from "../gemini/gemini.js";
-import {queueAddEntries} from "../../storage/firestore/queue.js";
+import {
+  queueAddEntries,
+  dalleQueueToUnique,
+} from "../../storage/firestore/queue.js";
 
 
 const OPENAI_DALLE_3_IMAGES_PER_MINUTE = 200;
@@ -165,10 +168,19 @@ async function addSceneToQueue(params) {
   const types = ["dalle"];
   const entryTypes = ["dalle3"];
   const entryParams = [{scene, sceneId, retry}];
+  const uniques = [dalleQueueToUnique({
+    type: "dalle",
+    entryType: "dalle3",
+    sceneId,
+    chapter: scene.chapter,
+    scene_number: scene.scene_number,
+    retry,
+  })];
   await queueAddEntries({
     types,
     entryTypes,
     entryParams,
+    uniques,
   });
 }
 
