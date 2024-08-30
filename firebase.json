@@ -126,6 +126,11 @@
         "source": "/v1/admin/queue/nuke",
         "function": "v1queueNuke",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/scenes/compress",
+        "function": "v1compressImage",
+        "region": "europe-west1"
       }
     ]
   }
