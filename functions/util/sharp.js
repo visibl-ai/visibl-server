@@ -1,4 +1,5 @@
 import sharp from "sharp";
+import logger from "firebase-functions/logger";
 import {
   getFileStream,
   uploadStreamAndGetPublicLink,
@@ -37,5 +38,6 @@ async function compressImage({sourceFilePath, destinationFilePath, quality=90}) 
   console.log(`Compressed image saved to ${publicUrl}`);
   return {publicUrl};
 }
+
 
 export {webpStream, compressImage};

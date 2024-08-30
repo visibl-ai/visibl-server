@@ -23,6 +23,10 @@ import {
   saveImageResultsMultipleScenes,
 } from "../imageGen.js";
 
+import {
+  webpStream,
+} from "../../util/sharp.js";
+
 const STABILITY_API_URL = "https://api.stability.ai/v2beta/stable-image";
 const STABILITY_API_REQUESTS_PER_10_SECONDS = 150;
 const STABILITY_DEFAULT_CONTROL_STRENGTH = 0.85; // 0.35 is way too low. We might need to increase this.
@@ -85,14 +89,14 @@ async function outpaint(request) {
   }});
   const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/edit/outpaint`, form});
   logger.debug(`Outpainting image complete ${outputPath}`);
-  return await uploadStreamAndGetPublicLink({stream, filename: outputPath});
+  return await uploadStreamAndGetPublicLink({stream: webpStream({sourceStream: stream}), filename: outputPath});
 }
 
 const outpaintTall = async (request) => {
   const {inputPath, outputPathWithoutExtension, pixels=384} = request;
   return await outpaint({
     inputPath,
-    outputPath: `${outputPathWithoutExtension}.9.16.jpg`,
+    outputPath: `${outputPathWithoutExtension}.9.16.webp`,
     up: pixels,
     down: pixels,
   });
@@ -103,14 +107,14 @@ const outpaintWideAndTall = async (request) => {
   logger.debug(`Outpainting image ${inputPath} to ${outputPathWithoutExtension}`);
   const tallPromise = outpaint({
     inputPath,
-    outputPath: `${outputPathWithoutExtension}.9.16.jpg`,
+    outputPath: `${outputPathWithoutExtension}.9.16.webp`,
     up: pixels,
     down: pixels,
   });
 
   const widePromise = outpaint({
     inputPath,
-    outputPath: `${outputPathWithoutExtension}.16.9.jpg`,
+    outputPath: `${outputPathWithoutExtension}.16.9.webp`,
     left: pixels,
     right: pixels,
   });
@@ -202,7 +206,7 @@ const structure = async (request) => {
   }});
   const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/control/structure`, form});
   logger.debug(`Structuring image complete ${outputPathWithoutExtension}`);
-  return await uploadStreamAndGetPublicLink({stream, filename: `${outputPathWithoutExtension}.structured.${outputFormat}`});
+  return await uploadStreamAndGetPublicLink({stream: webpStream({sourceStream: stream}), filename: `${outputPathWithoutExtension}.structured.webp`});
 };
 
 const testStabilityBatch = async (request) => {

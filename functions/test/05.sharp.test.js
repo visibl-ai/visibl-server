@@ -36,7 +36,6 @@ process.env.FIREBASE_AUTH_EMULATOR_HOST = "127.0.0.1:9099";
 process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 const APP_URL = `http://127.0.0.1:5002`;
-const DISPATCH_URL = `http://127.0.0.1:5001/`;
 const SYM_PATH = "./test/bindings/images/";
 const bucketImagePath = `Images/`;
 // eslint-disable-next-line no-undef

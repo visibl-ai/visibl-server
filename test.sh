@@ -30,6 +30,7 @@ mocha test/01.init.test.js --timeout 99999999999 --bail --reporter spec || TEST_
 mocha test/02.graph.test.js --timeout 99999999999 --bail --reporter spec || TEST_FAILED=true
 # mocha test/03.stability.test.js --timeout 99999999999 --bail --reporter spec || TEST_FAILED=true
 mocha test/04.queue.test.js --timeout 99999999999 --bail --reporter spec || TEST_FAILED=true
+mocha test/05.sharp.test.js --timeout 99999999999 --bail --reporter spec || TEST_FAILED=true
 
 # Stop the logs stream
 kill $LOGS_PID

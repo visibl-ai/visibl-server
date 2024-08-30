@@ -100,7 +100,7 @@ async function singleGeneration(request) {
     // const imagePath = `${imageDir}/${i + 1}.jpg`;
     const timestamp = Date.now();
     const imagePath = `Scenes/${sceneId}/${scene.chapter}_scene${scene.scene_number}_${timestamp}`;
-    squareImagePath = `${imagePath}.4.3.jpg`;
+    squareImagePath = `${imagePath}.4.3.png`;
     // logger.debug("imageName = " + imageName);
     gcpURL = await downloadImage(imageUrl, squareImagePath);
     imageGenResult = true;
