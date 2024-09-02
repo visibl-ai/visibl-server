@@ -245,7 +245,7 @@ async function graphScenes(params) {
       Object.entries(locationDescription).map(([key, value]) => [key.toLowerCase(), value]),
   );
   // Loop
-  const SLICE_SIZE = 35;
+  const SLICE_SIZE = 15;
   // const promises = [];
 
   const prompt = "transcribe_film_director_prompt";
