@@ -205,10 +205,10 @@ async function styleScenesWithQueue(params) {
   const entryTypes = [];
   const entryParams = [];
   const uniques = [];
-  scenes = scenes.filter((scene) => scene.image !== undefined);
+  scenes = scenes.filter((scene) => scene.tall !== undefined);
   logger.debug(`Filtered out scenes without images, there are ${scenes.length} remaining.`);
   scenes.forEach((scene) => {
-    if (scene.tall) {
+    if (scene.tall && sceneId) {
       const timestamp = Date.now();
       const bucketPath = `Scenes/${scene.sceneId}/${scene.tall.split("/").pop()}`; // Tall is not compressed.
       const imagePath = `Scenes/${sceneId}/${scene.chapter}_scene${scene.scene_number}_${timestamp}`;

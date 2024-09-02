@@ -85,7 +85,7 @@ async function queueAddEntries(params) {
   const db = getFirestore();
   const queueRef = db.collection("Queue");
   const batch = db.batch();
-  let entriesAdded = 0;
+  const entriesAdded = [];
   for (let i = 0; i < types.length; i++) {
     const now = Date.now();
     const entry = {
@@ -101,14 +101,19 @@ async function queueAddEntries(params) {
     const docSnapshot = await docRef.get();
     if (!docSnapshot.exists) {
       batch.create(docRef, entry);
-      entriesAdded++;
+      entriesAdded.push(entry);
     } else {
       logger.debug(`Entry ${uniques[i]} already exists in the queue, not re-adding.`);
     }
   }
-  await batch.commit();
-  logger.debug(`Added ${entriesAdded} entries to the queue`);
-  return {success: true};
+  try {
+    await batch.commit();
+    logger.debug(`Added ${entriesAdded.length} entries to the queue`);
+    return {success: true};
+  } catch (error) {
+    logger.error(`Failed to commit batch: ${error.message} ${JSON.stringify(entriesAdded)}`);
+    return {success: false};
+  }
 }
 
 

@@ -249,6 +249,25 @@ const queueEntryTypeToFunction = (entryType) => {
   }
 };
 
+function validateQueueEntry(queueEntry) {
+  // Check that mandatory params are present.
+  if (queueEntry.inputPath === undefined || queueEntry.outputPathWithoutExtension === undefined ||
+      queueEntry.sceneId === undefined || queueEntry.chapter === undefined ||
+      queueEntry.scene_number === undefined) {
+    const missingEntries = [];
+    if (queueEntry.inputPath === undefined) missingEntries.push("inputPath");
+    if (queueEntry.outputPathWithoutExtension === undefined) missingEntries.push("outputPathWithoutExtension");
+    if (queueEntry.sceneId === undefined) missingEntries.push("sceneId");
+    if (queueEntry.chapter === undefined) missingEntries.push("chapter");
+    if (queueEntry.scene_number === undefined) missingEntries.push("scene_number");
+    if (missingEntries.length > 0) {
+      logger.warn(`stabilityQueue: Missing mandatory params for queue item: ${missingEntries.join(", ")}`);
+    }
+    return false;
+  }
+  return true;
+}
+
 // This function is the main entry point for the stability queue.
 // It will get the pending items from the queue, process them, and then update the queue.
 // It will also handle the case where there are more items in the queue than can be processed in a single call.
@@ -269,6 +288,10 @@ const stabilityQueue = async () => {
   const resultKeys = [];
   const successKeys = [];
   for (let i = 0; i < queue.length; i++) {
+    if (!validateQueueEntry(queue[i].params)) {
+      logger.warn(`stabilityQueue: queueEntry: ${JSON.stringify(queue[i])}`);
+      continue;
+    }
     functionsToCall.push(queueEntryTypeToFunction(queue[i].entryType));
     paramsForFunctions.push({
       inputPath: queue[i].params.inputPath,

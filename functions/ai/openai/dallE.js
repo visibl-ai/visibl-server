@@ -184,6 +184,19 @@ async function addSceneToQueue(params) {
   });
 }
 
+function validateQueueEntry(queueEntry) {
+  if (!queueEntry.scene || !queueEntry.sceneId ) {
+    const missingEntries = [];
+    if (!queueEntry.scene) missingEntries.push("scene");
+    if (!queueEntry.sceneId) missingEntries.push("sceneId");
+    if (missingEntries.length > 0) {
+      logger.warn(`dalleQueue: Missing mandatory params for queue item: ${missingEntries.join(", ")}`);
+    }
+    return false;
+  }
+  return true;
+}
+
 // This function is the main entry point for the dalle queue.
 // It will get the pending items from the queue, process them, and then update the queue.
 // It will also handle the case where there are more items in the queue than can be processed in a single call.
@@ -203,6 +216,9 @@ const dalleQueue = async () => {
   const sceneIds = [];
   const retries = [];
   for (let i = 0; i < queue.length; i++) {
+    if (!validateQueueEntry(queue[i].params)) {
+      continue;
+    }
     scenes.push(queue[i].params.scene);
     sceneIds.push(queue[i].params.sceneId);
     retries.push(queue[i].params.retry);
