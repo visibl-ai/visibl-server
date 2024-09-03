@@ -4,6 +4,7 @@ import prompts from "./prompts.js";
 import logger from "firebase-functions/logger";
 import tokenHelper from "./tokens.js";
 import {OPENAI_API_KEY} from "../../config/config.js";
+import globalPrompts from "../prompts/globalPrompts.js";
 
 
 const DEFAULT_TEMP = 0.1;
@@ -45,6 +46,34 @@ async function defaultCompletion(params) {
   }
 }
 
+async function globalCompletion({
+  messages,
+  prompt,
+  retry = true,
+}) {
+  logger.debug(`OpenAI request with ${tokenHelper.countTokens(JSON.stringify(messages))} prompt tokens`);
+  const openai = new OpenAI(OPENAI_API_KEY.value());
+  const {data: completion, response: raw} = await openai.chat.completions.create({
+    ...prompt.openAIGenerationConfig,
+    messages: messages,
+    model: prompt.openAIModel,
+  }).withResponse();
+  if (completion.choices[0].finish_reason === "content_filter") {
+    if (retry) {
+      logger.error(`Content filter triggered on request. Will retry once.`);
+      return await defaultCompletion({messages, prompt, retry: false});
+    } else {
+      if (prompt.openAIGenerationConfig.response_format === "json_schema") return {};
+      else return "";
+    }
+  }
+  if (prompt.openAIGenerationConfig.response_format === "json_schema") {
+    return parseJsonFromOpenAIResponse(completion, raw);
+  } else {
+    return completion.choices[0].message.content;
+  }
+}
+
 
 function parseJsonFromOpenAIResponse(completion, raw) {
   let response;
@@ -78,6 +107,14 @@ function parseJsonFromOpenAIResponse(completion, raw) {
   }
   logger.debug(`OpenAI tokens used: ${completion.usage.total_tokens} remaining tokens: ${raw.headers.get("x-ratelimit-remaining-tokens")}`);
   return response;
+}
+
+function flattenResults({results, responseKey}) {
+  const flattenedResults = {};
+  results.forEach((result, index) => {
+    flattenedResults[responseKey[index]] = result;
+  });
+  return flattenedResults;
 }
 
 
@@ -309,59 +346,194 @@ const nerFunctions = {
     const {responseKey, prompt, paramsList, textList, tokensPerMinute, temp=DEFAULT_TEMP, maxTokens = DEFAULT_MAX_TOKENS, format="json_object", model = DEFAULT_MODEL} = params;
     // Generate the content for the prompt so we can calcualte tokens.
     logger.debug(`Batch request for ${prompt} with ${textList.length} texts and tokensPerMinute=${tokensPerMinute}, format=${format}`);
-    const promptList = [];
-    paramsList.forEach((params) => {
-      let content = prompts[prompt];
-      params.forEach((param) => {
-        content = content.replaceAll(`%${param.name}%`, param.value);
-      });
-      promptList.push(content);
-    });
-
-    let tokensUsed = 0;
-    const promises = [];
-    let startTime = Date.now();
-    let results = [];
+    const promptList = promptListFromParamsList({paramsList, systemInstruction: prompts[prompt]});
     // Loop through the textList.
-    for (let i = 0; i < textList.length; i++) {
-      const text = textList[i];
-      const userContent = typeof text === "object" ? JSON.stringify(text, null, 2) : text;
-      const messages = [
-        {
-          role: "system",
-          content: promptList[i],
-        },
-        {role: "user", content: userContent},
-      ];
-      const tokens = tokenHelper.countTokens(JSON.stringify(messages));
-      // This checks if the tokens in the current chunk takes us over the limit.
-      if ( (tokensUsed + tokens + maxTokens) > tokensPerMinute) {
-        // store results in a list.
-        logger.debug(`Making ${promises.length} parallel requests with ${tokensUsed} max tokens`);
-        results = results.concat(await Promise.all(promises));
-        promises.length = 0; // clear old promises.
-        tokensUsed = 0;
-        const elapsedTime = Date.now() - startTime;
-        // Make sure we wait 60 serconds between batches.
-        if (elapsedTime < 60000) {
-          logger.debug(`Waiting ${60000 - elapsedTime} milliseconds`);
-          await new Promise((resolve) => setTimeout(resolve, 60000 - elapsedTime));
-        }
-        startTime = Date.now();
-      }
-      tokensUsed += (tokens + maxTokens);
-      promises.push(defaultCompletion({messages, temperature: temp, format, model}));
-    }
-    // Run the final batch.
-    logger.debug(`Making final ${promises.length} requests with ${tokensUsed} max tokens`);
-    results = results.concat(await Promise.all(promises));
-    // Flatten the results
-    const flattenedResults = {};
-    results.forEach((result, index) => {
-      flattenedResults[responseKey[index]] = result;
+    const {messages, tokens} = messagesFromPromptListAndTextList({promptList, textList});
+    const results = await legacyRateLimitedBatchRequest({messages, tokens, tokensPerMinute, maxTokens, temp, format, model});
+    return flattenResults({results, responseKey});
+  },
+  globalBatchRequestMultiPrompt: async (params) => {
+    const {responseKey, prompt, paramsList, textList, tokensPerMinute} = params;
+    // Generate the content for the prompt so we can calcualte tokens.
+    logger.debug(`Batch request for ${prompt} with ${textList.length} texts and tokensPerMinute=${tokensPerMinute}`);
+    let startTime = Date.now();
+
+    const globalPrompt = globalPrompts[prompt];
+    logger.debug(`Time to get globalPrompt: ${Date.now() - startTime}ms`);
+    startTime = Date.now();
+    const maxTokens = globalPrompt.openAIGenerationConfig.max_tokens;
+    logger.debug(`Time to get maxTokens: ${Date.now() - startTime}ms`);
+    startTime = Date.now();
+    const promptList = promptListFromParamsList({paramsList, systemInstruction: globalPrompt.systemInstruction});
+    logger.debug(`Time to create promptList: ${Date.now() - startTime}ms`);
+    startTime = Date.now();
+    const {messages, tokens} = messagesFromPromptListAndTextList({promptList, textList});
+    logger.debug(`Time to create messages and tokens: ${Date.now() - startTime}ms`);
+    logger.debug(`Completed batch construction.`);
+    const results = await rateLimitedBatchRequest({
+      messages,
+      tokens,
+      tokensPerMinute,
+      maxTokens,
+      prompt: formatGlobalPrompt({globalPrompt},
+      ),
     });
-    return flattenedResults;
+    return flattenResults({results, responseKey});
+  },
+  batchRequestStaticText: async (params) => {
+    const {responseKey, prompt, paramsList, staticText, tokensPerMinute} = params;
+    // Generate the content for the prompt so we can calcualte tokens.
+    logger.debug(`Batch request for ${prompt} with ${paramsList.length} texts and tokensPerMinute=${tokensPerMinute}`);
+    let startTime = Date.now();
+
+    const globalPrompt = globalPrompts[prompt];
+    logger.debug(`Time to get globalPrompt: ${Date.now() - startTime}ms`);
+    startTime = Date.now();
+    const maxTokens = globalPrompt.openAIGenerationConfig.max_tokens;
+    logger.debug(`Time to get maxTokens: ${Date.now() - startTime}ms`);
+    startTime = Date.now();
+    const promptList = promptListFromParamsList({paramsList, systemInstruction: globalPrompt.systemInstruction});
+    logger.debug(`Time to create promptList: ${Date.now() - startTime}ms`);
+    startTime = Date.now();
+    const {messages, tokens} = messagesFromPromptListStaticText({promptList, staticText});
+    logger.debug(`Time to create messages and tokens: ${Date.now() - startTime}ms`);
+    logger.debug(`Completed batch construction.`);
+    const results = await rateLimitedBatchRequest({
+      messages,
+      tokens,
+      tokensPerMinute,
+      maxTokens,
+      prompt: formatGlobalPrompt({globalPrompt},
+      ),
+    });
+    return flattenResults({results, responseKey});
   },
 };
+
+// Format the schema into the response_format.
+function formatGlobalPrompt({globalPrompt}) {
+  if (globalPrompt.openAIGenerationConfig.response_format.type === "json_schema") {
+    globalPrompt.openAIGenerationConfig.response_format.json_schema.schema = globalPrompt.responseSchema;
+  }
+  return globalPrompt;
+}
+
+// Rate limited batch request with global Prompt.
+async function rateLimitedBatchRequest({
+  messages,
+  tokens,
+  tokensPerMinute,
+  maxTokens,
+  prompt,
+}) {
+  let tokensUsed = 0;
+  let promises = [];
+  let startTime = Date.now() + 61000; // We don't need to pause on the first iteration.
+  let results = [];
+  logger.debug(`Starting rateLimitedBatchRequest loop with ${messages.length} messages`);
+  for (let i = 0; i < messages.length; i++) {
+    // Check if next batch will go over limit. If yes, launch batch.
+    if ( (tokensUsed + tokens[i] + maxTokens) > tokensPerMinute) {
+      // store results in a list.
+      logger.debug(`Making ${promises.length} parallel requests with ${tokensUsed} max tokens`);
+      results = results.concat(await Promise.all(promises));
+      promises = []; // clear old promises.
+      tokensUsed = 0;
+      const elapsedTime = Date.now() - startTime;
+      // Make sure we wait 60 serconds between batches.
+      if (elapsedTime < 60000) {
+        logger.debug(`Waiting ${60000 - elapsedTime} milliseconds`);
+        await new Promise((resolve) => setTimeout(resolve, 60000 - elapsedTime));
+      }
+      startTime = Date.now();
+    }
+    tokensUsed += (tokens[i] + maxTokens);
+    promises.push(globalCompletion({
+      messages: messages[i],
+      prompt,
+      retry: true,
+    }));
+  }
+  // Run the final batch.
+  logger.debug(`Making final ${promises.length} requests with ${tokensUsed} max tokens`);
+  results = results.concat(await Promise.all(promises));
+  return results;
+}
+
+async function legacyRateLimitedBatchRequest({
+  messages,
+  tokens,
+  tokensPerMinute,
+  maxTokens,
+  temp,
+  format,
+  model,
+}) {
+  const openAIGenerationConfig = {
+    temperature: temp,
+    max_tokens: maxTokens,
+    response_format: {
+      type: format,
+    },
+  };
+  return await rateLimitedBatchRequest({
+    messages,
+    tokens,
+    tokensPerMinute,
+    maxTokens,
+    prompt: {openAIGenerationConfig, model},
+  });
+}
+
+function messagesFromPromptListAndTextList({promptList, textList}) {
+  const messages = [];
+  const tokens = [];
+  for (let i = 0; i < textList.length; i++) {
+    const text = textList[i];
+    const userContent = typeof text === "object" ? JSON.stringify(text, null, 2) : text;
+    messages.push([
+      {
+        role: "system",
+        content: promptList[i],
+      },
+      {role: "user", content: userContent},
+    ]);
+    // This is super fucking expensive. So only do it if you have to.
+    tokens.push(tokenHelper.countTokens(JSON.stringify(messages)));
+  }
+  return {messages, tokens};
+}
+
+function messagesFromPromptListStaticText({promptList, staticText}) {
+  const staticTokens = tokenHelper.countTokens(staticText);
+  const messages = [];
+  const tokens = [];
+  for (let i = 0; i < promptList.length; i++) {
+    const text = staticText;
+    const userContent = typeof text === "object" ? JSON.stringify(text, null, 2) : text;
+    messages.push([
+      {
+        role: "system",
+        content: promptList[i],
+      },
+      {role: "user", content: userContent},
+    ]);
+    tokens.push(staticTokens + tokenHelper.countTokens(JSON.stringify(promptList[i])));
+  }
+  return {messages, tokens};
+}
+
+function promptListFromParamsList({paramsList, systemInstruction}) {
+  logger.debug(`paramsList.length: ${paramsList.length}`);
+  const promptList = [];
+  paramsList.forEach((params) => {
+    let content = systemInstruction;
+    params.forEach((param) => {
+      content = content.replaceAll(`%${param.name}%`, param.value);
+    });
+    promptList.push(content);
+  });
+  return promptList;
+}
 
 export default nerFunctions;
