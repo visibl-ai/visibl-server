@@ -63,11 +63,11 @@ async function globalCompletion({
       logger.error(`Content filter triggered on request. Will retry once.`);
       return await defaultCompletion({messages, prompt, retry: false});
     } else {
-      if (prompt.openAIGenerationConfig.response_format === "json_schema") return {};
+      if (prompt.openAIGenerationConfig.response_format.type === "json_schema") return {};
       else return "";
     }
   }
-  if (prompt.openAIGenerationConfig.response_format === "json_schema") {
+  if (prompt.openAIGenerationConfig.response_format.type === "json_schema") {
     return parseJsonFromOpenAIResponse(completion, raw);
   } else {
     return completion.choices[0].message.content;

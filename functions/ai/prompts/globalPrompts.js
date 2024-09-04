@@ -72,6 +72,10 @@ const globalPrompts = {
                       "type": "string",
                     },
                   },
+                  "required": [
+                    "name",
+                    "description",
+                  ],
                 },
               },
               "locations": {
@@ -86,6 +90,10 @@ const globalPrompts = {
                       "type": "string",
                     },
                   },
+                  "required": [
+                    "name",
+                    "description",
+                  ],
                 },
               },
               "startTime": {
@@ -138,7 +146,6 @@ const globalPrompts = {
         },
       },
     },
-
   },
   moderateScene: {
     geminiModel: "gemini-1.5-flash-exp-0827",

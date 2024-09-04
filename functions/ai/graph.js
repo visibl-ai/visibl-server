@@ -240,10 +240,8 @@ async function graphScenes(params) {
   let scenes_result = [];
   const locations = await getGraph({uid, sku, visiblity, type: "locations"});
   const locationsCsv = csv(locations.locations);
-  console.log(locationsCsv);
   const characters = await getGraph({uid, sku, visiblity, type: "characters"});
   const charactersCsv = csv(characters.characters);
-  console.log(charactersCsv);
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   const chapterJson = transcriptions[chapter];
   chapterJson.forEach((item) => {
@@ -278,10 +276,10 @@ async function graphScenes(params) {
       {name: "CHARACTER_LIST", value: charactersCsv},
       {name: "LOCATIONS_LIST", value: locationsCsv},
     ]);
-    responseKey.push("scenes");
+    responseKey.push(i);
   }
   // TMP: testing.
-  textList = textList.slice(0, 10);
+  // textList = textList.slice(0, 10);
   logger.debug(`textList: ${JSON.stringify(textList, null, 2).substring(0, 150)}...`);
   logger.debug(`paramsList: ${JSON.stringify(paramsList, null, 2).substring(0, 150)}...`);
 
@@ -292,20 +290,22 @@ async function graphScenes(params) {
     textList,
     tokensPerMinute,
   });
-  console.log(scenes_result);
   const flattened_scenes_result = [];
   let scene_number = 0;
-  for (const scenes of scenes_result.scenes) {
-    scenes.scenes = JSON.parse(scenes.scenes);
-    for (const scene of scenes.scenes) {
-      // object is scenes = {scenes: [] }
-      scene.scene_number = scene_number++;
-      flattened_scenes_result.push(scene);
+  for (const key in scenes_result) {
+    if (Object.prototype.hasOwnProperty.call(scenes_result, key)) {
+      const scenes = scenes_result[key].scenes;
+      for (const scene of scenes) {
+        // object is scenes = {scenes: [] }
+        scene.scene_number = scene_number++;
+        flattened_scenes_result.push(scene);
+      }
     }
   }
   scenes_result = flattened_scenes_result;
-  // logger.debug(`scenes_result: ${JSON.stringify(scenes_result, null, 2)}`);
-
+  // Log the keys of locationDescription and charactersDescription
+  logger.debug(`locationDescription keys: ${JSON.stringify(Object.keys(locationDescription))}`);
+  logger.debug(`charactersDescription keys: ${JSON.stringify(Object.keys(charactersDescription))}`);
   const descriptive_scenes = scenes_result.map((scene) => {
     const newCharacters = {};
     for (const character of scene.characters) {
@@ -338,14 +338,13 @@ async function graphScenes(params) {
 
   // Set the start time of the first scene to when the chapter starts.
   if (descriptive_scenes.length > 0) {
-    descriptive_scenes[0].startTime = parseFloat(chapterJson[0].startTime).toFixed(2);
+    descriptive_scenes[0].startTime = Number(parseFloat(chapterJson[0].startTime).toFixed(2));
   }
   descriptive_scenes.forEach((scene, i) => {
     if (i < (descriptive_scenes.length - 1)) {
-      scene.endTime = parseFloat(descriptive_scenes[i + 1].startTime).toFixed(2);
+      scene.endTime = Number(parseFloat(descriptive_scenes[i + 1].startTime).toFixed(2));
     } else {
-      console.log("last scene");
-      scene.endTime = parseFloat(chapterJson[chapterJson.length - 1].startTime).toFixed(2);
+      scene.endTime = Number(parseFloat(chapterJson[chapterJson.length - 1].startTime).toFixed(2));
     }
   });
   let scenes;

@@ -49,9 +49,9 @@ const GENERATE_LOCATION_DESCRIPTIONS = false;
 const GENERATE_CHARACTER_DESCRIPTIONS_OAI = false;
 const GENERATE_LOCATION_DESCRIPTIONS_OAI = false;
 const SUMMARIZE_DESCRIPTIONS = false;
-const GENERATE_SCENES = true;
+const GENERATE_SCENES = false;
 const GENERATE_SCENES_16K = false;
-const GENERATE_AUGMENT_SCENES = false;
+const GENERATE_AUGMENT_SCENES = true;
 
 const SYM_PATH = "./test/bindings/graph/";
 const GRAPH_PATH = fs.realpathSync(SYM_PATH);
