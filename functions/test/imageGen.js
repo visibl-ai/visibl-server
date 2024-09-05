@@ -20,7 +20,7 @@ if (TEST) {
   APP_URL = `https://v1generatesceneimages-4f33egefga-ew.a.run.app`;
   NUKE_URL = `https://v1queuenuke-4f33egefga-ew.a.run.app`;
 }
-const DEFAULT_TIMEOUT = 2000;
+const DEFAULT_TIMEOUT = 10000;
 
 describe("Image Gen", () => {
   // eslint-disable-next-line no-undef

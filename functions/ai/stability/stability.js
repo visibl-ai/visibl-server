@@ -5,7 +5,16 @@ import FormData from "form-data";
 import {Readable} from "stream";
 import logger from "firebase-functions/logger";
 import {
-  STABILITY_API_KEY,
+  STABILITY_API_KEY_1,
+  STABILITY_API_KEY_2,
+  STABILITY_API_KEY_3,
+  STABILITY_API_KEY_4,
+  STABILITY_API_KEY_5,
+  STABILITY_API_KEY_6,
+  STABILITY_API_KEY_7,
+  STABILITY_API_KEY_8,
+  STABILITY_API_KEY_9,
+  STABILITY_API_KEY_10,
 } from "../../config/config.js";
 
 import {
@@ -46,7 +55,10 @@ async function stabilityForm({inputPath, formData}) {
   return form;
 }
 
-async function stabilityRequestToStream({url, form}) {
+async function stabilityRequestToStream({url, form, apiKey}) {
+  if (!apiKey) {
+    apiKey = STABILITY_API_KEY_1.value();
+  }
   const response = await axios.postForm(
       url,
       form,
@@ -54,7 +66,7 @@ async function stabilityRequestToStream({url, form}) {
         validateStatus: undefined,
         responseType: "arraybuffer",
         headers: {
-          Authorization: `Bearer ${STABILITY_API_KEY.value()}`,
+          Authorization: `Bearer ${apiKey}`,
           Accept: "image/*",
           ...form.getHeaders(),
         },
@@ -78,7 +90,8 @@ async function outpaint(request) {
     right=0,
     down=0,
     up=0,
-    outputFormat="jpeg"} = request;
+    outputFormat="jpeg",
+    apiKey} = request;
 
   const form = await stabilityForm({inputPath, formData: {
     left,
@@ -87,7 +100,7 @@ async function outpaint(request) {
     up,
     output_format: outputFormat,
   }});
-  const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/edit/outpaint`, form});
+  const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/edit/outpaint`, form, apiKey});
   logger.debug(`Outpainting image complete ${outputPath}`);
   return await uploadStreamAndGetPublicLink({stream: webpStream({sourceStream: stream}), filename: outputPath});
 }
@@ -152,11 +165,23 @@ const batchStabilityRequest = async (params) => {
   let startTime = Date.now();
   let promises = [];
   let results = [];
-
+  let apiKeyIndex = 0;
+  const apiKeys = [
+    STABILITY_API_KEY_1.value(),
+    STABILITY_API_KEY_2.value(),
+    STABILITY_API_KEY_3.value(),
+    STABILITY_API_KEY_4.value(),
+    STABILITY_API_KEY_5.value(),
+    STABILITY_API_KEY_6.value(),
+    STABILITY_API_KEY_7.value(),
+    STABILITY_API_KEY_8.value(),
+    STABILITY_API_KEY_9.value(),
+    STABILITY_API_KEY_10.value(),
+  ];
   for (let i = 0; i < functionsToCall.length; i++) {
     resultKeys[i] = resultKeys[i] || {}; // check for empty list.
     successKeys[i] = successKeys[i] || "result";
-
+    paramsForFunctions[i].apiKey = apiKeys[apiKeyIndex];
     promises.push((async () => {
       try {
         const result = await functionsToCall[i](paramsForFunctions[i]);
@@ -185,6 +210,7 @@ const batchStabilityRequest = async (params) => {
       }
       startTime = Date.now();
     }
+    apiKeyIndex = (apiKeyIndex + 1) % apiKeys.length;
   }
 
   logger.debug(`STABILITY: Making final ${promises.length} requests`);
@@ -198,13 +224,14 @@ const structure = async (request) => {
     outputPathWithoutExtension,
     prompt,
     control_strength=STABILITY_DEFAULT_CONTROL_STRENGTH,
-    outputFormat="jpeg"} = request;
+    outputFormat="jpeg",
+    apiKey} = request;
   const form = await stabilityForm({inputPath, formData: {
     prompt,
     control_strength,
     output_format: outputFormat,
   }});
-  const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/control/structure`, form});
+  const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/control/structure`, form, apiKey});
   logger.debug(`Structuring image complete ${outputPathWithoutExtension}`);
   return await uploadStreamAndGetPublicLink({stream: webpStream({sourceStream: stream}), filename: `${outputPathWithoutExtension}.structured.webp`});
 };
