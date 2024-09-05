@@ -23,7 +23,7 @@ async function queueNuke() {
 }
 
 function stabilityQueueToUnique(params) {
-  const {type, entryType, sceneId, chapter, scene_number} = params;
+  const {type, entryType, sceneId, chapter, scene_number, retry = false} = params;
   // Check if any of the required parameters are undefined
   if (type === undefined || entryType === undefined || sceneId === undefined ||
       chapter === undefined || scene_number === undefined) {
@@ -31,7 +31,8 @@ function stabilityQueueToUnique(params) {
   }
 
   // If all parameters are defined, return a unique identifier
-  return `${type}_${entryType}_${sceneId}_${chapter}_${scene_number}`;
+  const retryString = retry ? "_retry" : "";
+  return `${type}_${entryType}_${sceneId}_${chapter}_${scene_number}${retryString}`;
 }
 
 function dalleQueueToUnique(params) {

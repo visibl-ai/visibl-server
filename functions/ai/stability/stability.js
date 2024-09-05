@@ -30,6 +30,7 @@ import {
 
 import {
   saveImageResultsMultipleScenes,
+  retryFailedStabilityRequests,
 } from "../imageGen.js";
 
 import {
@@ -193,6 +194,7 @@ const batchStabilityRequest = async (params) => {
         logger.error(`Error in function call: ${error.message}`);
         return {
           ...resultKeys[i],
+          ...paramsForFunctions[i],
           result: false,
           [successKeys[i]]: {error: error.message},
         };
@@ -331,6 +333,7 @@ const stabilityQueue = async () => {
       scene_number: queue[i].params.scene_number,
       theme: queue[i].params.prompt,
       sceneId: queue[i].params.sceneId,
+      entryType: queue[i].entryType,
     });
     successKeys.push("tall");
   }
@@ -343,6 +346,11 @@ const stabilityQueue = async () => {
   });
   logger.debug(`======= ENDING BATCH WITH STABILITY =========`);
   logger.debug(`batchStabilityRequest results: ${JSON.stringify(results)}`);
+  try {
+    await retryFailedStabilityRequests({results});
+  } catch (error) {
+    logger.error(`stabilityQueue: retryFailedStabilityRequests: ${error.message}`);
+  }
   // 4. save results as required
   await saveImageResultsMultipleScenes({results});
 

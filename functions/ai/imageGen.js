@@ -138,6 +138,7 @@ async function outpaintWithQueue(params) {
           sceneId: sceneId,
           chapter: image.chapter,
           scene_number: image.scene_number,
+          retry: true,
         });
         uniques.push(stabilityQueueToUnique({
           type: "stability",
@@ -145,6 +146,7 @@ async function outpaintWithQueue(params) {
           sceneId: sceneId,
           chapter: image.chapter,
           scene_number: image.scene_number,
+          retry: true,
         }));
       }
     });
@@ -221,6 +223,7 @@ async function styleScenesWithQueue(params) {
         sceneId: sceneId,
         chapter: scene.chapter,
         scene_number: scene.scene_number,
+        retry: true,
       });
       uniques.push(stabilityQueueToUnique({
         type: "stability",
@@ -228,6 +231,7 @@ async function styleScenesWithQueue(params) {
         sceneId: sceneId,
         chapter: scene.chapter,
         scene_number: scene.scene_number,
+        retry: true,
       }));
     }
   });
@@ -339,6 +343,46 @@ async function imageGenCurrentTime(req) {
   return;
 }
 
+async function retryFailedStabilityRequests({results}) {
+  const failedRequests = results.filter((request) => request.result === false);
+  if (failedRequests.length > 0) {
+    logger.debug(`STABILITY: Number of failed requests: ${failedRequests.length}`);
+    const types = [];
+    const entryTypes = [];
+    const entryParams = [];
+    const uniques = [];
+    failedRequests.forEach((request) => {
+      if (request.retry) {
+        types.push("stability");
+        entryTypes.push(request.entryType);
+        entryParams.push({
+          inputPath: request.inputPath,
+          outputPathWithoutExtension: request.outputPathWithoutExtension,
+          prompt: request.prompt,
+          chapter: request.chapter,
+          scene_number: request.scene_number,
+          sceneId: request.sceneId,
+          retry: false,
+        });
+        uniques.push(stabilityQueueToUnique({
+          type: "stability",
+          entryType: request.entryType,
+          sceneId: request.sceneId,
+          chapter: request.chapter,
+          scene_number: request.scene_number,
+          retry: false,
+        }));
+      }
+    });
+    await queueAddEntries({
+      types,
+      entryTypes,
+      entryParams,
+      uniques,
+    });
+  }
+}
+
 export {
   imageGenChapterRecursive,
   imageDispatcher,
@@ -346,4 +390,5 @@ export {
   saveImageResults,
   saveImageResultsMultipleScenes,
   outpaintWithQueue,
+  retryFailedStabilityRequests,
 };
