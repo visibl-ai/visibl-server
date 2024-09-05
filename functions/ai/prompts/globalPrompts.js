@@ -7,7 +7,13 @@ const globalPrompts = {
   
   Here is the scene JSON data that needs improvement:
   %SCENES_JSON%
-  
+
+  Here is the characters list in CSV format:
+  %CHARACTERS_CSV%
+
+  Here is the locations list in CSV format:
+  %LOCATIONS_CSV%
+
   To complete this task, follow these steps:
   
   1. Analyze the chapter CSV data:
@@ -16,9 +22,9 @@ const globalPrompts = {
      - Also consider entries before and after the scene's time range for context
   
   2. Improve each field in the scene JSON:
-     - description: Expand this to provide a more vivid and detailed summary of the scene
-     - characters: If a relevant character is missing, add them. If a character is incorrectly included, remove them. Add more depth to the characters description, including any new information from the chapter. 
-     - locations: If the locations is incorrect, correct it. Enhance the description of the locations, adding sensory details and atmosphere. 
+     - description: Expand this to provide a more accurate summary of the scene
+     - characters: You must only reference a character by name from the characters list. If a relevant character is missing, add them. If a character is incorrectly included, remove them. Do not edit a character's description 
+     - locations: You must only reference a location by name from the locations list. If the locations is incorrect, correct it. Do not edit a location's description. 
      - startTime and endTime: Do not edit the startTime or endTime under any circumstances.
      - scene_number: Do not edit the scene_number under any circumstances.
      - viewpoint: make minor changes as needed

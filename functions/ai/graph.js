@@ -307,6 +307,34 @@ async function graphScenes(params) {
   // Log the keys of locationDescription and charactersDescription
   logger.debug(`locationDescription keys: ${JSON.stringify(Object.keys(locationDescription))}`);
   logger.debug(`charactersDescription keys: ${JSON.stringify(Object.keys(charactersDescription))}`);
+  const descriptive_scenes = descriptiveScenes({scenes_result, charactersDescription, locationDescription});
+
+  // Set the start time of the first scene to when the chapter starts.
+  if (descriptive_scenes.length > 0) {
+    descriptive_scenes[0].startTime = Number(parseFloat(chapterJson[0].startTime).toFixed(2));
+  }
+  descriptive_scenes.forEach((scene, i) => {
+    if (i < (descriptive_scenes.length - 1)) {
+      scene.endTime = Number(parseFloat(descriptive_scenes[i + 1].startTime).toFixed(2));
+    } else {
+      scene.endTime = Number(parseFloat(chapterJson[chapterJson.length - 1].startTime).toFixed(2));
+    }
+  });
+  let scenes;
+  try {
+    scenes = await getGraph({uid, sku, visiblity, type: "scenes"});
+    scenes[chapter] = descriptive_scenes;
+  } catch (e) {
+    logger.warn(`Error storing scenes: ${e}`);
+    scenes = {};
+    scenes[chapter] = descriptive_scenes;
+  }
+  await storeGraph({uid, sku, visiblity, data: scenes, type: "scenes"});
+  logger.debug(`Generated a total of ${descriptive_scenes.length} scenes for chapter ${chapter}`);
+  return descriptive_scenes;
+}
+
+function descriptiveScenes({scenes_result, charactersDescription, locationDescription}) {
   const descriptive_scenes = scenes_result.map((scene) => {
     const newCharacters = {};
     for (const character of scene.characters) {
@@ -336,29 +364,6 @@ async function graphScenes(params) {
     scene.locations = newLocations;
     return scene;
   });
-
-  // Set the start time of the first scene to when the chapter starts.
-  if (descriptive_scenes.length > 0) {
-    descriptive_scenes[0].startTime = Number(parseFloat(chapterJson[0].startTime).toFixed(2));
-  }
-  descriptive_scenes.forEach((scene, i) => {
-    if (i < (descriptive_scenes.length - 1)) {
-      scene.endTime = Number(parseFloat(descriptive_scenes[i + 1].startTime).toFixed(2));
-    } else {
-      scene.endTime = Number(parseFloat(chapterJson[chapterJson.length - 1].startTime).toFixed(2));
-    }
-  });
-  let scenes;
-  try {
-    scenes = await getGraph({uid, sku, visiblity, type: "scenes"});
-    scenes[chapter] = descriptive_scenes;
-  } catch (e) {
-    logger.warn(`Error storing scenes: ${e}`);
-    scenes = {};
-    scenes[chapter] = descriptive_scenes;
-  }
-  await storeGraph({uid, sku, visiblity, data: scenes, type: "scenes"});
-  logger.debug(`Generated a total of ${descriptive_scenes.length} scenes for chapter ${chapter}`);
   return descriptive_scenes;
 }
 
@@ -581,6 +586,10 @@ async function augmentScenesOAI(params) {
   const currentScenes = await getGraph({uid, sku, visiblity, type: "scenes"});
   const chapterScenes = currentScenes[chapter];
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const locations = await getGraph({uid, sku, visiblity, type: "locations"});
+  const locationsCsv = csv(locations.locations);
+  const characters = await getGraph({uid, sku, visiblity, type: "characters"});
+  const charactersCsv = csv(characters.characters);
   const chapterJson = transcriptions[chapter];
   chapterJson.forEach((item) => {
     if (typeof item.startTime === "number") {
@@ -590,7 +599,6 @@ async function augmentScenesOAI(params) {
   const csvText = csv(chapterJson);
   const BATCH_SIZE = 5;
   const scenesLength = chapterScenes.length;
-  logger.debug(`scenesLength: ${scenesLength}`);
   const responseKey = [];
   const prompt = "augmentScenes";
   const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
@@ -602,14 +610,11 @@ async function augmentScenesOAI(params) {
     const endIndex = Math.min(i + BATCH_SIZE, scenesLength);
     logger.debug(`Augmenting scenes ${i} to ${endIndex}`);
     let batch = chapterScenes.slice(i, endIndex);
-    logger.debug(`Batch size is: ${batch.length}`);
     const customSchema = _.cloneDeep(customSchemaTemplate);
     for (const scene of batch) {
-      logger.debug(`adding scene_${scene.scene_number} to customSchema`);
       customSchema.properties.scenes.properties[`scene_${scene.scene_number}`] = {...augmentSceneTemplate};
       customSchema.properties.scenes.required.push(`scene_${scene.scene_number}`);
     }
-    logger.debug(`customSchema required is: ${customSchema.properties.scenes.required}`);
     customSchemas.push(customSchema);
     // Filter each item in the batch to keep only specified keys
     batches[i] = batch;
@@ -617,6 +622,12 @@ async function augmentScenesOAI(params) {
     paramsList.push([{
       name: "SCENES_JSON",
       value: batch,
+    }, {
+      name: "CHARACTERS_CSV",
+      value: charactersCsv,
+    }, {
+      name: "LOCATIONS_CSV",
+      value: locationsCsv,
     }]);
     responseKey.push(i);
     // If this was the last batch, break the loop
@@ -635,12 +646,9 @@ async function augmentScenesOAI(params) {
   const flattened_scenes_result = [];
   for (const key in augmentedScenes) {
     if (Object.prototype.hasOwnProperty.call(augmentedScenes, key)) {
-      logger.debug(`key: ${key} has scenes: ${JSON.stringify(Object.keys(augmentedScenes[key].scenes))}`);
       const scenes = augmentedScenes[key].scenes;
       if (Object.keys(scenes).length !== batches[key].length) {
         logger.error(`Processed batch ${key} length ${Object.keys(scenes).length} !== batch length ${batches[key].length}`);
-        logger.warn(`batch: ${JSON.stringify(batches[key])}`);
-        logger.warn(`augmentedScenes: ${JSON.stringify(scenes)}`);
       }
       for (const scene of Object.values(scenes)) {
         flattened_scenes_result.push(scene);
@@ -648,8 +656,17 @@ async function augmentScenesOAI(params) {
     }
   }
   logger.debug(`Augmented Scenes. Started with ${scenesLength} scenes, ended with ${flattened_scenes_result.length} scenes.`);
+  let charactersDescription = await getGraph({uid, sku, visiblity, type: "characterSummaries"});
+  charactersDescription = Object.fromEntries(
+      Object.entries(charactersDescription).map(([key, value]) => [key.toLowerCase(), value]),
+  );
+  let locationDescription = await getGraph({uid, sku, visiblity, type: "locationSummaries"});
+  locationDescription = Object.fromEntries(
+      Object.entries(locationDescription).map(([key, value]) => [key.toLowerCase(), value]),
+  );
+  const descriptive_scenes = descriptiveScenes({scenes_result: flattened_scenes_result, charactersDescription, locationDescription});
   // Update the scenes in the graph
-  currentScenes[chapter] = flattened_scenes_result;
+  currentScenes[chapter] = descriptive_scenes;
   await storeGraph({uid, sku, visiblity, data: currentScenes, type: "augmentedScenes"});
 
   return augmentedScenes;
@@ -678,39 +695,39 @@ const augmentSceneTemplate = {
     "characters": {
       "type": "array",
       "items": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-          },
-          "description": {
-            "type": "string",
-          },
-        },
-        "additionalProperties": false,
-        "required": [
-          "name",
-          "description",
-        ],
+        "type": "string",
+        // "properties": {
+        //   "name": {
+        //     "type": "string",
+        //   },
+        // "description": {
+        //   "type": "string",
+        // },
+        // },
+        // "additionalProperties": false,
+        // "required": [
+        //   "name",
+        //   // "description",
+        // ],
       },
     },
     "locations": {
       "type": "array",
       "items": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string",
-          },
-          "description": {
-            "type": "string",
-          },
-        },
-        "additionalProperties": false,
-        "required": [
-          "name",
-          "description",
-        ],
+        "type": "string",
+        // "properties": {
+        //   "name": {
+        //     "type": "string",
+        //   },
+        // "description": {
+        //   "type": "string",
+        // },
+        // },
+        // "additionalProperties": false,
+        // "required": [
+        //   "name",
+        //   // "description",
+        // ],
       },
     },
     "startTime": {
