@@ -134,12 +134,18 @@ async function scenesCreateItemFirestore(uid, data) {
     throw new Error("libraryId must be specified");
   }
 
-  const sanitizedPrompt = await geminiRequest({
+  let sanitizedPrompt = await geminiRequest({
     prompt: "convertThemeToPrompt",
     message: prompt,
     replacements: [],
   });
-  logger.debug(`Sanitized prompt ${sanitizedPrompt.title}:${sanitizedPrompt.prompt} from ${prompt}`);
+  if (sanitizedPrompt.result) {
+    sanitizedPrompt = sanitizedPrompt.result;
+    logger.debug(`Sanitized prompt ${sanitizedPrompt.title}:${sanitizedPrompt.prompt} from ${prompt}`);
+  } else {
+    logger.error(`No sanitized prompt found for ${sanitizedPrompt}`);
+    throw new Error("No sanitized prompt found");
+  }
 
   const {catalogueId: catalogueId} = await libraryGetFirestore(uid, libraryId);
   // Ensure userDefault is a boolean
