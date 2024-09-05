@@ -16,6 +16,7 @@ import novel from "./openai/novel.js";
 import nerFunctions from "./openai/ner.js";
 import {OPENAI_TOKENS_PER_MINUTE} from "./openai/openaiLimits.js";
 import csv from "./csv.js";
+import _ from "lodash";
 
 const WAIT_TIME = 25;
 const MIN_LOCATIONS = 20;
@@ -531,7 +532,7 @@ async function augmentScenes(params) {
   const csvText = csv(chapterJson);
   const BATCH_SIZE = 10;
   const augmentedScenes = [];
-  const scenesLength = chapterScenes.length;
+  const scenesLength = 30;// chapterScenes.length;
   logger.debug(`scenesLength: ${scenesLength}`);
   const sceneToStart = 0;
   for (let i = sceneToStart; i < scenesLength; i += BATCH_SIZE) {
@@ -552,6 +553,9 @@ async function augmentScenes(params) {
       ],
     });
     const processedBatch = geminiResult.result;
+    if (processedBatch.scenes.length !== batch.length) {
+      logger.error(`Processed batch length ${processedBatch.scenes.length} !== batch length ${batch.length}`);
+    }
     // logger.debug(`processedBatch: ${JSON.stringify(processedBatch)}`);
     augmentedScenes.push(...processedBatch.scenes);
 
@@ -568,6 +572,197 @@ async function augmentScenes(params) {
   return augmentedScenes;
 }
 
+// This is a pretty chaotic function.
+// It takes the scenes from a chapter and augments them with AI.
+// It does this with a fixed schema model for the LLM. Its the first time
+// I've tried to do this.
+async function augmentScenesOAI(params) {
+  const {uid, sku, visiblity, chapter} = params;
+  const currentScenes = await getGraph({uid, sku, visiblity, type: "scenes"});
+  const chapterScenes = currentScenes[chapter];
+  const transcriptions = await getTranscriptions({uid, sku, visiblity});
+  const chapterJson = transcriptions[chapter];
+  chapterJson.forEach((item) => {
+    if (typeof item.startTime === "number") {
+      item.startTime = item.startTime.toFixed(1);
+    }
+  });
+  const csvText = csv(chapterJson);
+  const BATCH_SIZE = 5;
+  const scenesLength = chapterScenes.length;
+  logger.debug(`scenesLength: ${scenesLength}`);
+  const responseKey = [];
+  const prompt = "augmentScenes";
+  const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
+  const paramsList = [];
+  const customSchemas = [];
+  const batches = {};
+  const sceneToStart = 0;
+  for (let i = sceneToStart; i < scenesLength; i += BATCH_SIZE) {
+    const endIndex = Math.min(i + BATCH_SIZE, scenesLength);
+    logger.debug(`Augmenting scenes ${i} to ${endIndex}`);
+    let batch = chapterScenes.slice(i, endIndex);
+    logger.debug(`Batch size is: ${batch.length}`);
+    const customSchema = _.cloneDeep(customSchemaTemplate);
+    for (const scene of batch) {
+      logger.debug(`adding scene_${scene.scene_number} to customSchema`);
+      customSchema.properties.scenes.properties[`scene_${scene.scene_number}`] = {...augmentSceneTemplate};
+      customSchema.properties.scenes.required.push(`scene_${scene.scene_number}`);
+    }
+    logger.debug(`customSchema required is: ${customSchema.properties.scenes.required}`);
+    customSchemas.push(customSchema);
+    // Filter each item in the batch to keep only specified keys
+    batches[i] = batch;
+    batch = JSON.stringify(filterScenes(batch));
+    paramsList.push([{
+      name: "SCENES_JSON",
+      value: batch,
+    }]);
+    responseKey.push(i);
+    // If this was the last batch, break the loop
+    if (endIndex === scenesLength) {
+      break;
+    }
+  }
+  const augmentedScenes = await nerFunctions.batchRequestStaticText({
+    responseKey,
+    prompt,
+    paramsList,
+    staticText: csvText,
+    tokensPerMinute,
+    customSchemas,
+  });
+  const flattened_scenes_result = [];
+  for (const key in augmentedScenes) {
+    if (Object.prototype.hasOwnProperty.call(augmentedScenes, key)) {
+      logger.debug(`key: ${key} has scenes: ${JSON.stringify(Object.keys(augmentedScenes[key].scenes))}`);
+      const scenes = augmentedScenes[key].scenes;
+      if (Object.keys(scenes).length !== batches[key].length) {
+        logger.error(`Processed batch ${key} length ${Object.keys(scenes).length} !== batch length ${batches[key].length}`);
+        logger.warn(`batch: ${JSON.stringify(batches[key])}`);
+        logger.warn(`augmentedScenes: ${JSON.stringify(scenes)}`);
+      }
+      for (const scene of Object.values(scenes)) {
+        flattened_scenes_result.push(scene);
+      }
+    }
+  }
+  logger.debug(`Augmented Scenes. Started with ${scenesLength} scenes, ended with ${flattened_scenes_result.length} scenes.`);
+  // Update the scenes in the graph
+  currentScenes[chapter] = flattened_scenes_result;
+  await storeGraph({uid, sku, visiblity, data: currentScenes, type: "augmentedScenes"});
+
+  return augmentedScenes;
+}
+
+const customSchemaTemplate = {
+  "type": "object",
+  "properties": {
+    "scenes": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false,
+      "required": [],
+    },
+  },
+  "additionalProperties": false,
+  "required": ["scenes"],
+};
+
+const augmentSceneTemplate = {
+  "type": "object",
+  "properties": {
+    "description": {
+      "type": "string",
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+          },
+          "description": {
+            "type": "string",
+          },
+        },
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description",
+        ],
+      },
+    },
+    "locations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+          },
+          "description": {
+            "type": "string",
+          },
+        },
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description",
+        ],
+      },
+    },
+    "startTime": {
+      "type": "number",
+    },
+    "viewpoint": {
+      "type": "object",
+      "properties": {
+        "setting": {
+          "type": "string",
+        },
+        "placement": {
+          "type": "string",
+        },
+        "shot type": {
+          "type": "string",
+        },
+        "mood": {
+          "type": "string",
+        },
+        "technical": {
+          "type": "string",
+        },
+      },
+      "additionalProperties": false,
+      "required": [
+        "setting",
+        "placement",
+        "shot type",
+        "mood",
+        "technical",
+      ],
+    },
+    "endTime": {
+      "type": "number",
+    },
+    "scene_number": {
+      "type": "integer",
+    },
+  },
+  "additionalProperties": false,
+  "required": [
+    "description",
+    "characters",
+    "locations",
+    "startTime",
+    "viewpoint",
+    "endTime",
+    "scene_number",
+  ],
+};
+
 
 export {
   graphCharacters,
@@ -580,4 +775,5 @@ export {
   graphCharacterDescriptionsOAI,
   graphLocationDescriptionsOAI,
   augmentScenes,
+  augmentScenesOAI,
 };

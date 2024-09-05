@@ -5,7 +5,7 @@ import logger from "firebase-functions/logger";
 import tokenHelper from "./tokens.js";
 import {OPENAI_API_KEY} from "../../config/config.js";
 import globalPrompts from "../prompts/globalPrompts.js";
-
+import _ from "lodash";
 
 const DEFAULT_TEMP = 0.1;
 const DEFAULT_MAX_TOKENS = 4096;
@@ -381,7 +381,7 @@ const nerFunctions = {
     return flattenResults({results, responseKey});
   },
   batchRequestStaticText: async (params) => {
-    const {responseKey, prompt, paramsList, staticText, tokensPerMinute} = params;
+    const {responseKey, prompt, paramsList, staticText, tokensPerMinute, customSchemas} = params;
     // Generate the content for the prompt so we can calcualte tokens.
     logger.debug(`Batch request for ${prompt} with ${paramsList.length} texts and tokensPerMinute=${tokensPerMinute}`);
     let startTime = Date.now();
@@ -403,9 +403,10 @@ const nerFunctions = {
       tokens,
       tokensPerMinute,
       maxTokens,
-      prompt: formatGlobalPrompt({globalPrompt},
-      ),
+      prompt: formatGlobalPrompt({globalPrompt}),
+      customSchemas,
     });
+    // logger.debug(`Results: ${JSON.stringify(results)}`);
     return flattenResults({results, responseKey});
   },
 };
@@ -425,6 +426,7 @@ async function rateLimitedBatchRequest({
   tokensPerMinute,
   maxTokens,
   prompt,
+  customSchemas,
 }) {
   let tokensUsed = 0;
   let promises = [];
@@ -448,9 +450,14 @@ async function rateLimitedBatchRequest({
       startTime = Date.now();
     }
     tokensUsed += (tokens[i] + maxTokens);
+    const promptForIndex = _.cloneDeep(prompt);
+    if (customSchemas && customSchemas[i]) {
+      logger.debug(`Setting custom schema for index ${i}`);
+      promptForIndex.openAIGenerationConfig.response_format.json_schema.schema = customSchemas[i];
+    }
     promises.push(globalCompletion({
       messages: messages[i],
-      prompt,
+      prompt: promptForIndex,
       retry: true,
     }));
   }
