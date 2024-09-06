@@ -273,6 +273,10 @@ const queueEntryTypeToFunction = (entryType) => {
       return outpaintWideAndTall;
     case "structure":
       return structure;
+    case "failure":
+      return () => {
+        throw new Error("This is a test error");
+      };
     default:
       throw new Error(`Unknown entry type: ${entryType}`);
   }
@@ -334,6 +338,7 @@ const stabilityQueue = async () => {
       theme: queue[i].params.prompt,
       sceneId: queue[i].params.sceneId,
       entryType: queue[i].entryType,
+      retry: queue[i].params.retry,
     });
     successKeys.push("tall");
   }
@@ -355,6 +360,7 @@ const stabilityQueue = async () => {
   await saveImageResultsMultipleScenes({results});
 
   // 5. update items to completed.
+  // TODO: This is lazy, we set everything to completed, even if some failed.
   await queueSetItemsToComplete({queue});
 
   // 5. if there remaining items in the queue, initiate the next batch.

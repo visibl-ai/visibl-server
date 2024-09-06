@@ -352,6 +352,7 @@ async function retryFailedStabilityRequests({results}) {
     const entryParams = [];
     const uniques = [];
     failedRequests.forEach((request) => {
+      logger.debug(`STABILITY: retryFailedStabilityRequests: request = ${JSON.stringify(request)}`);
       if (request.retry) {
         types.push("stability");
         entryTypes.push(request.entryType);
@@ -362,7 +363,7 @@ async function retryFailedStabilityRequests({results}) {
           chapter: request.chapter,
           scene_number: request.scene_number,
           sceneId: request.sceneId,
-          retry: false,
+          retry: false, // retry once.
         });
         uniques.push(stabilityQueueToUnique({
           type: "stability",

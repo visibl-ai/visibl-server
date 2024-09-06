@@ -146,15 +146,15 @@ async function handleDalle3Error(params) {
 
 async function moderateSceneDescription(params) {
   const {scene, sceneId} = params;
-  const result = await geminiRequest({
+  const geminiResponse = await geminiRequest({
     prompt: "moderateScene",
     message: JSON.stringify(scene),
     replacements: [],
   });
-  if (result.scene) {
+  if (geminiResponse.result && geminiResponse.result.scene) {
     const moderatedScene = {
       ...scene,
-      ...result.scene,
+      ...geminiResponse.result.scene,
     };
     return moderatedScene;
   } else {
