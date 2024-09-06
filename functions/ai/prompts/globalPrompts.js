@@ -630,7 +630,7 @@ Remember to only include locations from the provided list that actually appear i
     systemInstruction: `
 You will be given a description of a theme for an image. Your task is to summarize this theme into two parts:
 1. A 1-2 word title
-2. A 1-3 word description which will precede the word "style" (This will be given to a diffusion model to structure an image)
+2. A 1-3 word description which will precede the word "style" (This will be given to a diffusion model to structure an image). Never exceed 4 words.
 
 To create the title:
 - Capture the essence of the theme in 1-2 words
