@@ -138,6 +138,7 @@ async function outpaintWithQueue(params) {
           sceneId: sceneId,
           chapter: image.chapter,
           scene_number: image.scene_number,
+          retry: true,
         });
         uniques.push(stabilityQueueToUnique({
           type: "stability",
@@ -145,6 +146,7 @@ async function outpaintWithQueue(params) {
           sceneId: sceneId,
           chapter: image.chapter,
           scene_number: image.scene_number,
+          retry: true,
         }));
       }
     });
@@ -205,10 +207,10 @@ async function styleScenesWithQueue(params) {
   const entryTypes = [];
   const entryParams = [];
   const uniques = [];
-  scenes = scenes.filter((scene) => scene.image !== undefined);
+  scenes = scenes.filter((scene) => scene.tall !== undefined);
   logger.debug(`Filtered out scenes without images, there are ${scenes.length} remaining.`);
   scenes.forEach((scene) => {
-    if (scene.tall) {
+    if (scene.tall && sceneId) {
       const timestamp = Date.now();
       const bucketPath = `Scenes/${scene.sceneId}/${scene.tall.split("/").pop()}`; // Tall is not compressed.
       const imagePath = `Scenes/${sceneId}/${scene.chapter}_scene${scene.scene_number}_${timestamp}`;
@@ -221,6 +223,7 @@ async function styleScenesWithQueue(params) {
         sceneId: sceneId,
         chapter: scene.chapter,
         scene_number: scene.scene_number,
+        retry: true,
       });
       uniques.push(stabilityQueueToUnique({
         type: "stability",
@@ -228,6 +231,7 @@ async function styleScenesWithQueue(params) {
         sceneId: sceneId,
         chapter: scene.chapter,
         scene_number: scene.scene_number,
+        retry: true,
       }));
     }
   });
@@ -339,6 +343,47 @@ async function imageGenCurrentTime(req) {
   return;
 }
 
+async function retryFailedStabilityRequests({results}) {
+  const failedRequests = results.filter((request) => request.result === false);
+  if (failedRequests.length > 0) {
+    logger.debug(`STABILITY: Number of failed requests: ${failedRequests.length}`);
+    const types = [];
+    const entryTypes = [];
+    const entryParams = [];
+    const uniques = [];
+    failedRequests.forEach((request) => {
+      logger.debug(`STABILITY: retryFailedStabilityRequests: request = ${JSON.stringify(request)}`);
+      if (request.retry) {
+        types.push("stability");
+        entryTypes.push(request.entryType);
+        entryParams.push({
+          inputPath: request.inputPath,
+          outputPathWithoutExtension: request.outputPathWithoutExtension,
+          prompt: request.prompt,
+          chapter: request.chapter,
+          scene_number: request.scene_number,
+          sceneId: request.sceneId,
+          retry: false, // retry once.
+        });
+        uniques.push(stabilityQueueToUnique({
+          type: "stability",
+          entryType: request.entryType,
+          sceneId: request.sceneId,
+          chapter: request.chapter,
+          scene_number: request.scene_number,
+          retry: false,
+        }));
+      }
+    });
+    await queueAddEntries({
+      types,
+      entryTypes,
+      entryParams,
+      uniques,
+    });
+  }
+}
+
 export {
   imageGenChapterRecursive,
   imageDispatcher,
@@ -346,4 +391,5 @@ export {
   saveImageResults,
   saveImageResultsMultipleScenes,
   outpaintWithQueue,
+  retryFailedStabilityRequests,
 };

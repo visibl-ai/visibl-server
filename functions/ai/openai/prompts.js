@@ -624,9 +624,13 @@ is the time in seconds when the narrator reaches the sentence.
 You are also being provided a list of characters, and a list of locations. 
 Pay close attention to the alisases of each character and location.
 
-You are working with a film director. You are creating a movie based on the novel. You are creating a 
-set of scenes that a film crew will use to create the movie. Your goal is to read the text, and create a
-scene object for each scene in the chapter. A scene object is:
+You are collaborating with a film director to adapt this novel into a movie. 
+Your task is to create a storyboard that the film crew will use to craft the movie scenes.
+
+Read the text and generate a storyboard object for each key frame of the scene in the chapter.
+Each storyboard object should provide a clear and structured snapshot of what will be captured in that specific key frame, 
+rather than describing a continuous moving scene.
+ A storyboard object is:
   a "scene_number" increasing one by one
   a "description" of the scene, which is very detailed and outlines exactly what is happening. Take a lot of the text from the chapter and insert it here.
   a "startTime" of the scene, based on the start_time of the sentences in the csv file the scene captures
@@ -643,9 +647,10 @@ scene object for each scene in the chapter. A scene object is:
 Only refer to characters by their name from the Character List.
 Only refer to locations by their name from the Locations List.
 
-You must create enough scenes to cover the entire chapter. Many scenes can be of the same description but
+If the text introduces a new character, or location, or other object, the storyboard can simply include a closeup of that subject.
+You must create enough key frames to cover the entire chapter. Many key frames can be of the same description but
 from a different viewpoint. 
-Generate a scene at least every 15 seconds, and at most every 5 seconds.
+Generate a key frames at least every 15 seconds, and at most every 5 seconds.
 
 ---Example Start---
 List of Characters:
@@ -676,7 +681,7 @@ Chapter JSON File:
 19,"31.96987951807229","He was not in a coffin."
 20,"33.234939759036145","He was not buried alive."
 
-Scenes object:
+Storyboard object:
 {scenes: 
     [{scene_number: 1, 
       description: 'Tommy walking towards the office building in the evening.', 

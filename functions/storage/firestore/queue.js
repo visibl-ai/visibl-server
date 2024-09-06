@@ -23,7 +23,7 @@ async function queueNuke() {
 }
 
 function stabilityQueueToUnique(params) {
-  const {type, entryType, sceneId, chapter, scene_number} = params;
+  const {type, entryType, sceneId, chapter, scene_number, retry = false} = params;
   // Check if any of the required parameters are undefined
   if (type === undefined || entryType === undefined || sceneId === undefined ||
       chapter === undefined || scene_number === undefined) {
@@ -31,7 +31,8 @@ function stabilityQueueToUnique(params) {
   }
 
   // If all parameters are defined, return a unique identifier
-  return `${type}_${entryType}_${sceneId}_${chapter}_${scene_number}`;
+  const retryString = retry ? "_retry" : "";
+  return `${type}_${entryType}_${sceneId}_${chapter}_${scene_number}${retryString}`;
 }
 
 function dalleQueueToUnique(params) {
@@ -85,7 +86,7 @@ async function queueAddEntries(params) {
   const db = getFirestore();
   const queueRef = db.collection("Queue");
   const batch = db.batch();
-  let entriesAdded = 0;
+  const entriesAdded = [];
   for (let i = 0; i < types.length; i++) {
     const now = Date.now();
     const entry = {
@@ -101,14 +102,19 @@ async function queueAddEntries(params) {
     const docSnapshot = await docRef.get();
     if (!docSnapshot.exists) {
       batch.create(docRef, entry);
-      entriesAdded++;
+      entriesAdded.push(entry);
     } else {
       logger.debug(`Entry ${uniques[i]} already exists in the queue, not re-adding.`);
     }
   }
-  await batch.commit();
-  logger.debug(`Added ${entriesAdded} entries to the queue`);
-  return {success: true};
+  try {
+    await batch.commit();
+    logger.debug(`Added ${entriesAdded.length} entries to the queue`);
+    return {success: true};
+  } catch (error) {
+    logger.error(`Failed to commit batch: ${error.message} ${JSON.stringify(entriesAdded)}`);
+    return {success: false};
+  }
 }
 
 

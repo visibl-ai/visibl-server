@@ -5,7 +5,16 @@ import FormData from "form-data";
 import {Readable} from "stream";
 import logger from "firebase-functions/logger";
 import {
-  STABILITY_API_KEY,
+  STABILITY_API_KEY_1,
+  STABILITY_API_KEY_2,
+  STABILITY_API_KEY_3,
+  STABILITY_API_KEY_4,
+  STABILITY_API_KEY_5,
+  STABILITY_API_KEY_6,
+  STABILITY_API_KEY_7,
+  STABILITY_API_KEY_8,
+  STABILITY_API_KEY_9,
+  STABILITY_API_KEY_10,
 } from "../../config/config.js";
 
 import {
@@ -21,6 +30,7 @@ import {
 
 import {
   saveImageResultsMultipleScenes,
+  retryFailedStabilityRequests,
 } from "../imageGen.js";
 
 import {
@@ -28,7 +38,7 @@ import {
 } from "../../util/sharp.js";
 
 const STABILITY_API_URL = "https://api.stability.ai/v2beta/stable-image";
-const STABILITY_API_REQUESTS_PER_10_SECONDS = 150;
+const STABILITY_API_REQUESTS_PER_10_SECONDS = 50;
 const STABILITY_DEFAULT_CONTROL_STRENGTH = 0.85; // 0.35 is way too low. We might need to increase this.
 
 async function stabilityForm({inputPath, formData}) {
@@ -46,7 +56,10 @@ async function stabilityForm({inputPath, formData}) {
   return form;
 }
 
-async function stabilityRequestToStream({url, form}) {
+async function stabilityRequestToStream({url, form, apiKey}) {
+  if (!apiKey) {
+    apiKey = STABILITY_API_KEY_1.value();
+  }
   const response = await axios.postForm(
       url,
       form,
@@ -54,7 +67,7 @@ async function stabilityRequestToStream({url, form}) {
         validateStatus: undefined,
         responseType: "arraybuffer",
         headers: {
-          Authorization: `Bearer ${STABILITY_API_KEY.value()}`,
+          Authorization: `Bearer ${apiKey}`,
           Accept: "image/*",
           ...form.getHeaders(),
         },
@@ -78,7 +91,8 @@ async function outpaint(request) {
     right=0,
     down=0,
     up=0,
-    outputFormat="jpeg"} = request;
+    outputFormat="jpeg",
+    apiKey} = request;
 
   const form = await stabilityForm({inputPath, formData: {
     left,
@@ -87,7 +101,7 @@ async function outpaint(request) {
     up,
     output_format: outputFormat,
   }});
-  const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/edit/outpaint`, form});
+  const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/edit/outpaint`, form, apiKey});
   logger.debug(`Outpainting image complete ${outputPath}`);
   return await uploadStreamAndGetPublicLink({stream: webpStream({sourceStream: stream}), filename: outputPath});
 }
@@ -152,11 +166,23 @@ const batchStabilityRequest = async (params) => {
   let startTime = Date.now();
   let promises = [];
   let results = [];
-
+  let apiKeyIndex = 0;
+  const apiKeys = [
+    STABILITY_API_KEY_1.value(),
+    STABILITY_API_KEY_2.value(),
+    STABILITY_API_KEY_3.value(),
+    STABILITY_API_KEY_4.value(),
+    STABILITY_API_KEY_5.value(),
+    STABILITY_API_KEY_6.value(),
+    STABILITY_API_KEY_7.value(),
+    STABILITY_API_KEY_8.value(),
+    STABILITY_API_KEY_9.value(),
+    STABILITY_API_KEY_10.value(),
+  ];
   for (let i = 0; i < functionsToCall.length; i++) {
     resultKeys[i] = resultKeys[i] || {}; // check for empty list.
     successKeys[i] = successKeys[i] || "result";
-
+    paramsForFunctions[i].apiKey = apiKeys[apiKeyIndex];
     promises.push((async () => {
       try {
         const result = await functionsToCall[i](paramsForFunctions[i]);
@@ -168,6 +194,7 @@ const batchStabilityRequest = async (params) => {
         logger.error(`Error in function call: ${error.message}`);
         return {
           ...resultKeys[i],
+          ...paramsForFunctions[i],
           result: false,
           [successKeys[i]]: {error: error.message},
         };
@@ -185,6 +212,7 @@ const batchStabilityRequest = async (params) => {
       }
       startTime = Date.now();
     }
+    apiKeyIndex = (apiKeyIndex + 1) % apiKeys.length;
   }
 
   logger.debug(`STABILITY: Making final ${promises.length} requests`);
@@ -198,13 +226,14 @@ const structure = async (request) => {
     outputPathWithoutExtension,
     prompt,
     control_strength=STABILITY_DEFAULT_CONTROL_STRENGTH,
-    outputFormat="jpeg"} = request;
+    outputFormat="jpeg",
+    apiKey} = request;
   const form = await stabilityForm({inputPath, formData: {
     prompt,
     control_strength,
     output_format: outputFormat,
   }});
-  const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/control/structure`, form});
+  const stream = await stabilityRequestToStream({url: `${STABILITY_API_URL}/control/structure`, form, apiKey});
   logger.debug(`Structuring image complete ${outputPathWithoutExtension}`);
   return await uploadStreamAndGetPublicLink({stream: webpStream({sourceStream: stream}), filename: `${outputPathWithoutExtension}.structured.webp`});
 };
@@ -244,10 +273,33 @@ const queueEntryTypeToFunction = (entryType) => {
       return outpaintWideAndTall;
     case "structure":
       return structure;
+    case "failure":
+      return () => {
+        throw new Error("This is a test error");
+      };
     default:
       throw new Error(`Unknown entry type: ${entryType}`);
   }
 };
+
+function validateQueueEntry(queueEntry) {
+  // Check that mandatory params are present.
+  if (queueEntry.inputPath === undefined || queueEntry.outputPathWithoutExtension === undefined ||
+      queueEntry.sceneId === undefined || queueEntry.chapter === undefined ||
+      queueEntry.scene_number === undefined) {
+    const missingEntries = [];
+    if (queueEntry.inputPath === undefined) missingEntries.push("inputPath");
+    if (queueEntry.outputPathWithoutExtension === undefined) missingEntries.push("outputPathWithoutExtension");
+    if (queueEntry.sceneId === undefined) missingEntries.push("sceneId");
+    if (queueEntry.chapter === undefined) missingEntries.push("chapter");
+    if (queueEntry.scene_number === undefined) missingEntries.push("scene_number");
+    if (missingEntries.length > 0) {
+      logger.warn(`stabilityQueue: Missing mandatory params for queue item: ${missingEntries.join(", ")}`);
+    }
+    return false;
+  }
+  return true;
+}
 
 // This function is the main entry point for the stability queue.
 // It will get the pending items from the queue, process them, and then update the queue.
@@ -269,6 +321,10 @@ const stabilityQueue = async () => {
   const resultKeys = [];
   const successKeys = [];
   for (let i = 0; i < queue.length; i++) {
+    if (!validateQueueEntry(queue[i].params)) {
+      logger.warn(`stabilityQueue: queueEntry: ${JSON.stringify(queue[i])}`);
+      continue;
+    }
     functionsToCall.push(queueEntryTypeToFunction(queue[i].entryType));
     paramsForFunctions.push({
       inputPath: queue[i].params.inputPath,
@@ -281,6 +337,8 @@ const stabilityQueue = async () => {
       scene_number: queue[i].params.scene_number,
       theme: queue[i].params.prompt,
       sceneId: queue[i].params.sceneId,
+      entryType: queue[i].entryType,
+      retry: queue[i].params.retry,
     });
     successKeys.push("tall");
   }
@@ -293,10 +351,16 @@ const stabilityQueue = async () => {
   });
   logger.debug(`======= ENDING BATCH WITH STABILITY =========`);
   logger.debug(`batchStabilityRequest results: ${JSON.stringify(results)}`);
+  try {
+    await retryFailedStabilityRequests({results});
+  } catch (error) {
+    logger.error(`stabilityQueue: retryFailedStabilityRequests: ${error.message}`);
+  }
   // 4. save results as required
   await saveImageResultsMultipleScenes({results});
 
   // 5. update items to completed.
+  // TODO: This is lazy, we set everything to completed, even if some failed.
   await queueSetItemsToComplete({queue});
 
   // 5. if there remaining items in the queue, initiate the next batch.

@@ -15,6 +15,7 @@ import {
   graphCharacterDescriptionsOAI,
   graphLocationDescriptionsOAI,
   augmentScenes,
+  augmentScenesOAI,
 } from "../ai/graph.js";
 
 import {
@@ -113,4 +114,11 @@ export const generateAugmentScenes = onTaskDispatched(
     async (req) => {
       logger.debug(`augmentScenes: ${JSON.stringify(req.data)}`);
       return await augmentScenes(dataToBody(req).body);
+    });
+
+export const generateAugmentScenesOAI = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`augmentScenesOAI: ${JSON.stringify(req.data)}`);
+      return await augmentScenesOAI(dataToBody(req).body);
     });

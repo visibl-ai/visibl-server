@@ -7,7 +7,7 @@ import {
 
 import logger from "firebase-functions/logger";
 
-import prompts from "./geminiPrompts.js";
+import globalPrompts from "../prompts/globalPrompts.js";
 
 import {GEMINI_API_KEY} from "../../config/config.js";
 
@@ -34,27 +34,32 @@ const safetySettings = [
   // },
 ];
 
+function instructionReplacements({instruction, replacements}) {
+  if (replacements) {
+    for (const replacement of replacements) {
+      instruction = instruction.replaceAll(`%${replacement.key}%`, replacement.value);
+    }
+  }
+  return instruction;
+}
+
 
 async function geminiRequest(request) {
   const {prompt, message, replacements, history = [], retry = true, instructionOverride} = request;
-  const type = prompts[prompt].generationConfig.responseMimeType;
+  const globalPrompt = formatGlobalPrompt({globalPrompt: globalPrompts[prompt]});
+  const type = globalPrompt.geminiGenerationConfig.responseMimeType;
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY.value());
-  let instruction = prompts[prompt].systemInstruction;
-  if (replacements) {
-    for (const replacement of replacements) {
-      instruction = instruction.replaceAll(replacement.key, replacement.value);
-    }
-  }
+  let instruction = instructionReplacements({instruction: globalPrompt.systemInstruction, replacements});
   if (instructionOverride) {
     instruction = instructionOverride;
   }
 
   const model = genAI.getGenerativeModel({
-    model: prompts[prompt].model,
+    model: globalPrompt.geminiModel,
     systemInstruction: instruction,
   });
 
-  const generationConfig = prompts[prompt].generationConfig;
+  const generationConfig = globalPrompt.geminiGenerationConfig;
 
   const chatSession = model.startChat({
     generationConfig,
@@ -62,12 +67,37 @@ async function geminiRequest(request) {
     history: history,
   });
   logger.debug(`Sending message to Gemini.`);
-  logger.debug(`Instruction: ${instruction.substring(0, 200)}`);
-  const result = await chatSession.sendMessage(message);
-  logger.debug(`Gemini response received.`);
+  logger.debug(`Instruction: ${instruction.substring(0, 300)}`);
+  let result;
 
   try {
+    result = await chatSession.sendMessage(message);
+  } catch (error) {
+    if (error.message.includes("model is overloaded")) {
+      logger.warn("Gemini model is overloaded. Waiting 10 seconds before retrying.");
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+      request.retry = false;
+      return await geminiRequest(request);
+    } else if (error.message.includes("Resource has been exhausted")) {
+      logger.error(`Gemini is asking us to chill. Retry in 60 seconds.`);
+      await new Promise((resolve) => setTimeout(resolve, 60000));
+      request.retry = false;
+      return await geminiRequest(request);
+    } else {
+      logger.error("Error sending message to Gemini:", error);
+      throw error;
+    }
+  }
+
+  let tokensUsed = 0;
+  try {
+    logger.debug(`Gemini response received.`);
     logger.debug(result.response.text().substring(0, 150));
+    if (result.response.usageMetadata) {
+      const quota = result.response.usageMetadata.promptTokenCount;
+      tokensUsed = quota;
+      logger.debug(`Tokens used: ${quota}`);
+    }
   } catch (error) {
     if (result.response.promptFeedback.blockReason) {
       logger.warn(`Gemini response blocked: ${result.response.promptFeedback.blockReason}. Will retry once.`);
@@ -89,14 +119,21 @@ async function geminiRequest(request) {
   }
   if (type === "application/json") {
     try {
-      return geminiTextToJSON(result.response.text());
+      return {result: geminiTextToJSON(result.response.text()), tokensUsed};
     } catch (e) {
       logger.error("Error trying to parse result to JSON.");
-      return result.response.text();
+      return {result: result.response.text(), tokensUsed};
     }
   } else {
-    return result.response.text();
+    return {result: result.response.text(), tokensUsed};
   }
+}
+
+function formatGlobalPrompt({globalPrompt}) {
+  if (globalPrompt.geminiGenerationConfig.responseMimeType === "application/json") {
+    globalPrompt.geminiGenerationConfig.responseSchema = globalPrompt.responseSchema;
+  }
+  return globalPrompt;
 }
 
 function geminiTextToJSON(text) {
@@ -113,5 +150,7 @@ function geminiTextToJSON(text) {
   }
 }
 
-export {geminiRequest};
+export {
+  geminiRequest,
+};
 

@@ -12,14 +12,28 @@ import fs from "fs";
 
 const TEST = false;
 let APP_URL = `http://127.0.0.1:5002/v1/admin/ai/generateSceneImages`;
+let NUKE_URL = `http://127.0.0.1:5002/v1/admin/queue/nuke`;
 if (TEST) {
   dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't work with conf.
 } else {
   dotenv.config({path: ".env.visibl-dev-ali"}); // because firebase-functions-test doesn't work with conf.
   APP_URL = `https://v1generatesceneimages-4f33egefga-ew.a.run.app`;
+  NUKE_URL = `https://v1queuenuke-4f33egefga-ew.a.run.app`;
 }
+const DEFAULT_TIMEOUT = 10000;
 
 describe("Image Gen", () => {
+  // eslint-disable-next-line no-undef
+  it("clear the current queue", async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
+    const response = await chai.request(NUKE_URL)
+        .post("")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({});
+    expect(response).to.have.status(200);
+    expect(response.body).to.have.property("success", true);
+  });
   it("should generate images for the chapter", async () => {
     const fullScenes = JSON.parse(fs.readFileSync(`./test/bindings/graph/scenes.json`, "utf8"));
     const sceneId = "NZjdActtkyARblfDU00l";

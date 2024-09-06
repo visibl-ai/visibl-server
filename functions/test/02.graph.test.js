@@ -49,18 +49,22 @@ const GENERATE_LOCATION_DESCRIPTIONS = false;
 const GENERATE_CHARACTER_DESCRIPTIONS_OAI = false;
 const GENERATE_LOCATION_DESCRIPTIONS_OAI = false;
 const SUMMARIZE_DESCRIPTIONS = false;
-const GENERATE_SCENES = false;
+const GENERATE_SCENES = true;
 const GENERATE_SCENES_16K = false;
 const GENERATE_AUGMENT_SCENES = false;
+const GENERATE_AUGMENT_SCENES_OAI = false;
 
 const SYM_PATH = "./test/bindings/graph/";
 const GRAPH_PATH = fs.realpathSync(SYM_PATH);
 console.log(GRAPH_PATH);
+const DEFAULT_TIMEOUT = 9999999999999;
 
 // eslint-disable-next-line no-undef
 describe("Graph tests", () => {
   // eslint-disable-next-line no-undef
-  it(`Upload transcripts`, async () => {
+  it(`Upload transcripts`, async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
     const fileList = [
       `${process.env.PUBLIC_SKU1}-transcriptions.json`,
       `${process.env.PUBLIC_SKU1}-characters-graph.json`,
@@ -104,8 +108,10 @@ describe("Graph tests", () => {
   });
   if (GENERATE_CHARACTERS) {
   // eslint-disable-next-line no-undef
-    it(`test graphCharacters`, async () => {
-    // Prepare the update data
+    it(`test graphCharacters`, async function() {
+      // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
+      // Prepare the update data
       const data = {
         uid: "admin",
         sku: process.env.PUBLIC_SKU1,
@@ -122,7 +128,9 @@ describe("Graph tests", () => {
   }
   if (GENERATE_LOCATIONS) {
     // eslint-disable-next-line no-undef
-    it(`test graphLocations`, async () => {
+    it(`test graphLocations`, async function() {
+      // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
       const data = {
         uid: "admin",
         sku: process.env.PUBLIC_SKU1,
@@ -138,7 +146,9 @@ describe("Graph tests", () => {
   }
   if (GENERATE_CHARACTER_DESCRIPTIONS) {
     // eslint-disable-next-line no-undef
-    it(`test graphCharacterDescriptions`, async () => {
+    it(`test graphCharacterDescriptions`, async function() {
+      // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
       // Prepare the update data
       const data = {
         uid: "admin",
@@ -155,7 +165,9 @@ describe("Graph tests", () => {
   }
   if (GENERATE_CHARACTER_DESCRIPTIONS_OAI) {
     // eslint-disable-next-line no-undef
-    it(`test graphCharacterDescriptionsOAI`, async () => {
+    it(`test graphCharacterDescriptionsOAI`, async function() {
+      // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
       // Prepare the update data
       const data = {
         uid: "admin",
@@ -172,7 +184,9 @@ describe("Graph tests", () => {
   }
   if (GENERATE_LOCATION_DESCRIPTIONS) {
     // eslint-disable-next-line no-undef
-    it(`test graphLocationDescriptions`, async () => {
+    it(`test graphLocationDescriptions`, async function() {
+      // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
       // Prepare the update data
       const data = {
         uid: "admin",
@@ -189,7 +203,9 @@ describe("Graph tests", () => {
   }
   if (GENERATE_LOCATION_DESCRIPTIONS_OAI) {
     // eslint-disable-next-line no-undef
-    it(`test graphLocationDescriptionsOAI`, async () => {
+    it(`test graphLocationDescriptionsOAI`, async function() {
+      // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
       // Prepare the update data
       const data = {
         uid: "admin",
@@ -206,7 +222,9 @@ describe("Graph tests", () => {
   }
   if (SUMMARIZE_DESCRIPTIONS) {
     // eslint-disable-next-line no-undef
-    it(`test graphSummarizeDescriptions`, async () => {
+    it(`test graphSummarizeDescriptions`, async function() {
+      // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
       // Prepare the update data
       const data = {
         uid: "admin",
@@ -223,8 +241,10 @@ describe("Graph tests", () => {
   }
   if (GENERATE_SCENES) {
     // eslint-disable-next-line no-undef
-    it(`test generateGraphScenes`, async () => {
-      for (let chapter = 3; chapter < 4; chapter++) {
+    it(`test generateGraphScenes`, async function() {
+      // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
+      for (let chapter = 5; chapter < 31; chapter++) {
       // for (let chapter = 0; chapter < 31; chapter++) {
         // Prepare the update data
         const data = {
@@ -244,7 +264,9 @@ describe("Graph tests", () => {
   }
   if (GENERATE_SCENES_16K) {
     // eslint-disable-next-line no-undef
-    it(`test generateGraphScenes16k`, async () => {
+    it(`test generateGraphScenes16k`, async function() {
+      // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
       // Prepare the update data
       const data = {
         uid: "admin",
@@ -263,7 +285,9 @@ describe("Graph tests", () => {
 
   if (GENERATE_AUGMENT_SCENES) {
     // eslint-disable-next-line no-undef
-    it(`test generateAugmentScenes`, async () => {
+    it(`test generateAugmentScenes`, async function() {
+      // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
       const data = {
         uid: "admin",
         sku: process.env.PUBLIC_SKU1,
@@ -273,6 +297,25 @@ describe("Graph tests", () => {
       const response = await chai
           .request(`${APP_URL}${APP_ID}/us-central1`)
           .post("/generateAugmentScenes")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+    });
+  }
+  if (GENERATE_AUGMENT_SCENES_OAI) {
+    // eslint-disable-next-line no-undef
+    it(`test generateAugmentScenesOAI`, async function() {
+      // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
+      const data = {
+        uid: "admin",
+        sku: process.env.PUBLIC_SKU1,
+        visiblity: "public",
+        chapter: 3,
+      };
+      const response = await chai
+          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .post("/generateAugmentScenesOAI")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
       expect(response).to.have.status(204);

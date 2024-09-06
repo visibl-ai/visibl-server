@@ -42,7 +42,7 @@ const SYM_PATH = "./test/bindings/queue/";
 const bucketImagePath = `Images/`;
 const bucketScenePath = `Scenes/`;
 
-const DEFAULT_TIMEOUT = 2000;
+const DEFAULT_TIMEOUT = 5000;
 // eslint-disable-next-line no-undef
 describe("Queue Tests", () => {
   // eslint-disable-next-line no-undef
@@ -145,6 +145,7 @@ describe("Queue Tests", () => {
     }
     entries = response.body;
   });
+
   // eslint-disable-next-line no-undef
   it("update two items in the queue collection", async function() {
     // eslint-disable-next-line no-invalid-this
@@ -272,6 +273,7 @@ describe("Queue Tests", () => {
     console.log(response.body);
     expect(response.body).to.have.lengthOf(1);
   });
+
   // eslint-disable-next-line no-undef
   it("add two identical items to the queue in new request, make sure duplicates are rejected.", async function() {
     this.timeout(DEFAULT_TIMEOUT);
@@ -448,21 +450,34 @@ describe("Queue Tests", () => {
     // eslint-disable-next-line no-invalid-this
     this.timeout(90000);
     // eslint-disable-next-line no-unused-vars
-    const response = await chai
+    let response = await chai
         .request(`${DISPATCH_URL}${APP_ID}/us-central1`)
         .post("/launchDalleQueue")
         .set("Content-Type", "application/json")
         .send({data: {}}); // nest object as this is a dispatch.
     // expect(response).to.have.status(204); // Dispatch at end will fail, so not 204.
+    response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/get")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({
+          type: "stability",
+          status: "pending",
+          limit: 200,
+        });
+    expect(response).to.have.status(200);
+    console.log(response.body);
+    expect(response.body).to.have.lengthOf(2);
+    // These items were addded by the backed and should have a retry in the ID.
+    expect(response.body[0].id).to.match(/retry/);
+    expect(response.body[1].id).to.match(/retry/);
   });
-
   // eslint-disable-next-line no-undef
-  it("add four (1 duplicate) items to the queue collection again", async function() {
+  it("add four (1 duplicate, 1 failing) items to the queue collection again", async function() {
     // eslint-disable-next-line no-invalid-this
     this.timeout(DEFAULT_TIMEOUT);
     const types = ["stability", "stability", "stability", "stability"];
-    const entryTypes = ["outpaintTall", "structure", "outpaintTall", "structure"];
-    const uniques = ["stability_outpaintTall_01_1_2", "stability_structure_01_3_4", "stability_outpaintTall_02_1_2", "stability_structure_02_3_4"];
+    const entryTypes = ["outpaintTall", "structure", "outpaintTall", "failure"];
+    const uniques = ["stability_outpaintTall_01_1_2_retry", "stability_structure_01_3_4", "stability_outpaintTall_02_1_2", "stability_failure_02_3_4_retry"];
     const entryParams = [
       {
         inputPath: `${bucketImagePath}jardethe.png`,
@@ -495,6 +510,7 @@ describe("Queue Tests", () => {
         chapter: 3,
         scene_number: 4,
         prompt: `Neon punk style`,
+        retry: true,
       },
     ];
     const response = await chai.request(APP_URL)
@@ -535,7 +551,7 @@ describe("Queue Tests", () => {
         });
     expect(response).to.have.status(200);
     console.log(response.body);
-    expect(response.body).to.have.lengthOf(5);
+    expect(response.body).to.have.lengthOf(6);
     for (const entry of response.body) {
       expect(entry).to.have.property("type", "stability");
       expect(entry).to.have.property("status", "complete");
@@ -544,6 +560,8 @@ describe("Queue Tests", () => {
       expect(entry).to.have.property("params");
       expect(entry).to.have.property("trace");
     }
-    entries = response.body;
+    // Check if at least one item has the specific id
+    const hasSpecificId = response.body.some((entry) => entry.id === "stability_failure_02_3_4");
+    expect(hasSpecificId).to.be.true;
   });
 });
