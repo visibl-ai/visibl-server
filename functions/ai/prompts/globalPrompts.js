@@ -626,7 +626,7 @@ Remember to only include locations from the provided list that actually appear i
     },
   },
   convertThemeToPrompt: {
-    geminiModel: "gemini-1.5-pro-exp-0801",
+    geminiModel: "gemini-1.5-pro",
     systemInstruction: `
 You will be given a description of a theme for an image. Your task is to summarize this theme into two parts:
 1. A 1-2 word title

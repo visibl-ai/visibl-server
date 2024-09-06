@@ -21,24 +21,28 @@ if (TEST) {
   NUKE_URL = `https://v1queuenuke-4f33egefga-ew.a.run.app`;
 }
 const DEFAULT_TIMEOUT = 10000;
-
+const NUKE = false;
 describe("Image Gen", () => {
+  if (NUKE) {
   // eslint-disable-next-line no-undef
-  it("clear the current queue", async function() {
+    it("clear the current queue", async function() {
+    // eslint-disable-next-line no-invalid-this
+      this.timeout(DEFAULT_TIMEOUT);
+      const response = await chai.request(NUKE_URL)
+          .post("")
+          .set("API-KEY", process.env.ADMIN_API_KEY)
+          .send({});
+      expect(response).to.have.status(200);
+      expect(response.body).to.have.property("success", true);
+    });
+  }
+  it("should generate images for the chapter", async function() {
     // eslint-disable-next-line no-invalid-this
     this.timeout(DEFAULT_TIMEOUT);
-    const response = await chai.request(NUKE_URL)
-        .post("")
-        .set("API-KEY", process.env.ADMIN_API_KEY)
-        .send({});
-    expect(response).to.have.status(200);
-    expect(response.body).to.have.property("success", true);
-  });
-  it("should generate images for the chapter", async () => {
     const fullScenes = JSON.parse(fs.readFileSync(`./test/bindings/graph/scenes.json`, "utf8"));
     const sceneId = "NZjdActtkyARblfDU00l";
     const lastSceneGenerated = 0;
-    const chapter = 3;
+    const chapter = 4;
     const chapterKey = `${chapter}`;
     const totalScenes = fullScenes[chapterKey].length;
     console.log("totalScenes = " + totalScenes);

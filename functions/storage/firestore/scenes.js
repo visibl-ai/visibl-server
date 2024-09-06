@@ -133,12 +133,19 @@ async function scenesCreateItemFirestore(uid, data) {
   if (libraryId === undefined) {
     throw new Error("libraryId must be specified");
   }
-
-  let sanitizedPrompt = await geminiRequest({
-    prompt: "convertThemeToPrompt",
-    message: prompt,
-    replacements: [],
-  });
+  // Check if prompt is an object
+  let sanitizedPrompt = {};
+  // IN TESTS - we can pass in a prompt object for testing.
+  if (typeof prompt === "object" && prompt !== null) {
+    // If prompt is already an object, use it as is
+    sanitizedPrompt.result = prompt;
+  } else {
+    sanitizedPrompt = await geminiRequest({
+      prompt: "convertThemeToPrompt",
+      message: prompt,
+      replacements: [],
+    });
+  }
   if (sanitizedPrompt.result) {
     sanitizedPrompt = sanitizedPrompt.result;
     logger.debug(`Sanitized prompt ${sanitizedPrompt.title}:${sanitizedPrompt.prompt} from ${prompt}`);

@@ -49,10 +49,10 @@ const GENERATE_LOCATION_DESCRIPTIONS = false;
 const GENERATE_CHARACTER_DESCRIPTIONS_OAI = false;
 const GENERATE_LOCATION_DESCRIPTIONS_OAI = false;
 const SUMMARIZE_DESCRIPTIONS = false;
-const GENERATE_SCENES = true;
+const GENERATE_SCENES = false;
 const GENERATE_SCENES_16K = false;
 const GENERATE_AUGMENT_SCENES = false;
-const GENERATE_AUGMENT_SCENES_OAI = false;
+const GENERATE_AUGMENT_SCENES_OAI = true;
 
 const SYM_PATH = "./test/bindings/graph/";
 const GRAPH_PATH = fs.realpathSync(SYM_PATH);
@@ -311,7 +311,7 @@ describe("Graph tests", () => {
         uid: "admin",
         sku: process.env.PUBLIC_SKU1,
         visiblity: "public",
-        chapter: 3,
+        chapter: 4,
       };
       const response = await chai
           .request(`${APP_URL}${APP_ID}/us-central1`)
