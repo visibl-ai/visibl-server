@@ -3,7 +3,8 @@
 /* eslint-disable no-unused-vars */
 import {
   getFirestore,
-  Timestamp} from "firebase-admin/firestore";
+  Timestamp,
+  FieldPath} from "firebase-admin/firestore";
 
 import {logger} from "firebase-functions";
 
@@ -61,6 +62,7 @@ async function getGlobalScenesFirestore(uid, data) {
   // Query the Scenes collection for items matching uid and libraryId
   const scenesQuery = await db.collection("Scenes")
       .where("catalogueId", "==", catalogueId)
+      .orderBy(FieldPath.documentId(), "desc")
       .get();
   // Map the query results to an array of scene objects
   let scenes = scenesQuery.docs.map((doc) => ({
@@ -97,6 +99,7 @@ async function getCatalogueScenesFirestore(uid, data) {
   const scenesQuery = await db.collection("Scenes")
       .where("uid", "==", uid)
       .where("catalogueId", "==", catalogueId)
+      .orderBy(FieldPath.documentId(), "desc")
       .get();
 
   // If no scenes found, return an empty array
@@ -351,6 +354,7 @@ async function sceneUpdateChapterGeneratedFirestore(sceneId, chapter, generated,
     chapters: data.chapters, // Ensure we return the updated chapters
   };
 }
+
 
 export {
   getGlobalScenesFirestore,

@@ -13,7 +13,12 @@ import {
 import {logger} from "firebase-functions/v2";
 import {libraryGetFirestore} from "./firestore/library.js";
 import {catalogueGetFirestore} from "./firestore/catalogue.js";
-
+import {getGlobalScenesFirestore} from "./firestore/scenes.js";
+import {
+  getAdjacentScenes,
+  sceneFromCurrentTime,
+  scenesFromCurrentTime,
+} from "../util/sceneHelpers.js";
 import {
   dispatchTask,
   // dataToBody,
@@ -174,10 +179,75 @@ async function getUserLibraryScene(params) {
   return await getScene({sceneId: sceneId});
 }
 
+async function getAiCarouselFirestore(uid, data) {
+  let {libraryId, sceneId, currentTime} = data;
+  if (!libraryId || !currentTime) {
+    throw new Error("Invalid or missing libraryId or currentTime");
+  }
+
+  const libraryData = await libraryGetFirestore(uid, libraryId);
+  if (!libraryData) {
+    logger.debug(`Library item with id ${libraryId} not found`);
+    throw new Error("Library item not found");
+  }
+  const {catalogueId} = libraryData;
+  if (!catalogueId) {
+    throw new Error("CatalogueId not found in library item");
+  }
+
+  if (!sceneId && libraryData.defaultSceneId) {
+    logger.debug(`Using default library sceneId ${libraryData.defaultSceneId} for libraryId ${libraryId}`);
+    sceneId = libraryData.defaultSceneId;
+  } else if (!sceneId) {
+    const catalogueItem = await catalogueGetFirestore(catalogueId);
+    logger.debug(`Using default catalogue sceneId ${catalogueItem.defaultSceneId} for catalogueId ${catalogueId}`);
+    sceneId = catalogueItem.defaultSceneId;
+  }
+
+  logger.debug(`Generating scenes starting at currentTime: ${currentTime}`);
+  await dispatchTask("generateSceneImagesCurrentTime",
+      {sceneId, currentTime},
+  );
+
+
+  // 1. get all scenes in a sorted list.
+  const scenesList = await getGlobalScenesFirestore(uid, {libraryId});
+  // 2. create the carousel object based on position of sceneId.
+  const carousel = getAdjacentScenes({scenesList, sceneId});
+  // 3. Load the scenes from storage in parallel.
+  const scenesCarousel = await Promise.all(carousel.map(async (scene) => {
+    const fullScenes = await getScene({sceneId: scene.id});
+    logger.debug(`fullScenes for ${scene.id}: ${JSON.stringify(fullScenes).substring(0, 150)}`);
+    // 4. for each scene, sceneFromCurrentTime
+    const currentScene = sceneFromCurrentTime(fullScenes, currentTime);
+    logger.debug(`Current scene ${JSON.stringify(currentScene)} for ${scene.id} at ${currentTime}`);
+    // 5. scenesToGenerateFromCurrentTime (5 forward and 5 backward)
+    return {
+      sceneId: scene.id,
+      scenes: scenesFromCurrentTime({
+        currentSceneNumber: currentScene.sceneNumber,
+        currentChapter: currentScene.chapter,
+        fullScenes,
+        precedingScenes: 5,
+        followingScenes: 5,
+      })};
+  }));
+  // 6. construct the final carousel object
+  for (const scene of carousel) {
+    const carouselScene = scenesCarousel.find((s) => s.sceneId === scene.id);
+    if (carouselScene) {
+      scene.scenes = carouselScene.scenes;
+    }
+  }
+  // 7. return the carousel object.
+  return carousel;
+}
+
 export {
   saveUser,
   getUser,
   getPipelineFirestore,
   getAiFirestore,
   removeUndefinedProperties,
+  getAiCarouselFirestore,
 };

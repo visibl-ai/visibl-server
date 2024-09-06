@@ -5,6 +5,7 @@ import {validateOnCallAuth, validateOnRequestAdmin} from "../auth/auth.js";
 
 import {
   getAiFirestore,
+  getAiCarouselFirestore,
 } from "../storage/firestore.js";
 
 import {
@@ -40,6 +41,15 @@ export const v1getAi = onCall({
 }, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await getAiFirestore(uid, data);
+});
+
+export const v1getAiCarousel = onCall({
+  region: "europe-west1",
+  minInstances: 1,
+  concurrency: 1,
+}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await getAiCarouselFirestore(uid, data);
 });
 
 export const v1getLibraryScenes = onCall({
