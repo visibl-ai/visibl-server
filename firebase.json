@@ -131,6 +131,11 @@
         "source": "/v1/admin/scenes/compress",
         "function": "v1compressImage",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/scenes/carousel",
+        "function": "v1adminGetAiCarousel",
+        "region": "europe-west1"
       }
     ]
   }

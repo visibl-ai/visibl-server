@@ -52,7 +52,7 @@ const SUMMARIZE_DESCRIPTIONS = false;
 const GENERATE_SCENES = false;
 const GENERATE_SCENES_16K = false;
 const GENERATE_AUGMENT_SCENES = false;
-const GENERATE_AUGMENT_SCENES_OAI = true;
+const GENERATE_AUGMENT_SCENES_OAI = false;
 
 const SYM_PATH = "./test/bindings/graph/";
 const GRAPH_PATH = fs.realpathSync(SYM_PATH);
