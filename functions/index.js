@@ -10,5 +10,6 @@ export * from "./routes/graph.js";
 export * from "./routes/pipeline.js";
 export * from "./routes/helloWorld.js";
 export * from "./routes/queue.js";
+export * from "./routes/cache.js";
 
 

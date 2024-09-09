@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import axios from "axios";
 import path from "path";
 import app from "../firebase.js";
+import {storeSceneInCacheFromMemory} from "./realtimeDb/scenesCache.js";
 // Get a reference to the default storage bucket
 
 /**
@@ -184,6 +185,7 @@ async function storeScenes(params) {
   if (sceneId === undefined) {
     throw new Error("storeScenes: sceneId is required");
   }
+  await storeSceneInCacheFromMemory({sceneId, sceneData});
   const filename = `Scenes/${sceneId}/scenes.json`;
   return storeJsonFile({filename, data: sceneData});
 }
@@ -208,7 +210,9 @@ async function getJsonFile(params) {
         reject(err);
       } else {
         try {
+          // const currentTime = Date.now();
           const sceneData = JSON.parse(contents.toString());
+          // logger.debug(`Time to parse JSON from getJsonFile: ${Date.now() - currentTime}ms`);
           resolve(sceneData);
         } catch (parseError) {
           logger.error("Error parsing JSON: " + parseError);

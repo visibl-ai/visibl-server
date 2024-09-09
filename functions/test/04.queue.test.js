@@ -1,6 +1,7 @@
 /* eslint-disable max-len */
 /* eslint-disable no-invalid-this */
 // import admin from "firebase-admin";
+import "./_env.js";
 import dotenv from "dotenv";
 import chai from "chai";
 import chaiHttp from "chai-http";

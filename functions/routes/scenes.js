@@ -5,6 +5,7 @@ import {validateOnCallAuth, validateOnRequestAdmin} from "../auth/auth.js";
 
 import {
   getAiFirestore,
+  getAiCarouselFirestore,
 } from "../storage/firestore.js";
 
 import {
@@ -35,11 +36,28 @@ export const v1compressImage = onRequest({region: "europe-west1", cors: true}, a
 
 export const v1getAi = onCall({
   region: "europe-west1",
-  minInstances: 1,
   concurrency: 1,
 }, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   return await getAiFirestore(uid, data);
+});
+
+export const v1getAiCarousel = onCall({
+  region: "europe-west1",
+  minInstances: 1,
+  concurrency: 1,
+}, async (context) => {
+  const {uid, data} = await validateOnCallAuth(context);
+  return await getAiCarouselFirestore(uid, data);
+});
+
+// Test Function for instrumentation.
+export const v1adminGetAiCarousel = onRequest({
+  region: "europe-west1",
+  cors: true,
+}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await getAiCarouselFirestore(req.body.uid, req.body.data));
 });
 
 export const v1getLibraryScenes = onCall({
@@ -50,8 +68,8 @@ export const v1getLibraryScenes = onCall({
 });
 
 export const v1getCatalogueItemScenes = onCall({region: "europe-west1"}, async (context) => {
-  const {uid, data} = await validateOnCallAuth(context);
-  return await getCatalogueScenesFirestore(uid, data);
+  const {data} = await validateOnCallAuth(context);
+  return await getCatalogueScenesFirestore(data);
 });
 
 

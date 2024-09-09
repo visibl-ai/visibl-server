@@ -3,7 +3,8 @@
 /* eslint-disable no-unused-vars */
 import {
   getFirestore,
-  Timestamp} from "firebase-admin/firestore";
+  Timestamp,
+  FieldPath} from "firebase-admin/firestore";
 
 import {logger} from "firebase-functions";
 
@@ -61,6 +62,7 @@ async function getGlobalScenesFirestore(uid, data) {
   // Query the Scenes collection for items matching uid and libraryId
   const scenesQuery = await db.collection("Scenes")
       .where("catalogueId", "==", catalogueId)
+      .orderBy(FieldPath.documentId(), "desc")
       .get();
   // Map the query results to an array of scene objects
   let scenes = scenesQuery.docs.map((doc) => ({
@@ -90,13 +92,13 @@ async function getGlobalScenesFirestore(uid, data) {
   return scenes;
 }
 
-async function getCatalogueScenesFirestore(uid, data) {
+async function getCatalogueScenesFirestore(data) {
   const db = getFirestore();
   const {catalogueId} = data;
   // Query the Scenes collection for items matching uid and libraryId
   const scenesQuery = await db.collection("Scenes")
-      .where("uid", "==", uid)
       .where("catalogueId", "==", catalogueId)
+      .orderBy(FieldPath.documentId(), "desc")
       .get();
 
   // If no scenes found, return an empty array
@@ -133,12 +135,19 @@ async function scenesCreateItemFirestore(uid, data) {
   if (libraryId === undefined) {
     throw new Error("libraryId must be specified");
   }
-
-  let sanitizedPrompt = await geminiRequest({
-    prompt: "convertThemeToPrompt",
-    message: prompt,
-    replacements: [],
-  });
+  // Check if prompt is an object
+  let sanitizedPrompt = {};
+  // IN TESTS - we can pass in a prompt object for testing.
+  if (typeof prompt === "object" && prompt !== null) {
+    // If prompt is already an object, use it as is
+    sanitizedPrompt.result = prompt;
+  } else {
+    sanitizedPrompt = await geminiRequest({
+      prompt: "convertThemeToPrompt",
+      message: prompt,
+      replacements: [],
+    });
+  }
   if (sanitizedPrompt.result) {
     sanitizedPrompt = sanitizedPrompt.result;
     logger.debug(`Sanitized prompt ${sanitizedPrompt.title}:${sanitizedPrompt.prompt} from ${prompt}`);
@@ -344,6 +353,7 @@ async function sceneUpdateChapterGeneratedFirestore(sceneId, chapter, generated,
     chapters: data.chapters, // Ensure we return the updated chapters
   };
 }
+
 
 export {
   getGlobalScenesFirestore,

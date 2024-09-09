@@ -80,4 +80,88 @@ function scenesToGenerateFromCurrentTime({
   return result;
 }
 
-export {sceneFromCurrentTime, scenesToGenerateFromCurrentTime};
+/**
+ * Generates a list of scenes to generate from the current scene.
+ * @param {Object} fullScenes - The full scenes object.
+ * @param {number} currentSceneNumber - The current scene number.
+ * @param {number} currentChapter - The current chapter.
+ * @return {Array} - The list of scenes to generate.
+ */
+function scenesFromCurrentTime({
+  currentSceneNumber,
+  currentChapter,
+  fullScenes,
+  precedingScenes = PRECEDING_SCENES,
+  followingScenes = FOLLOWING_SCENES,
+}) {
+  const returnScenes = [];
+  const scenesToPopulate = scenesToGenerateFromCurrentTime({
+    currentSceneNumber,
+    currentChapter,
+    fullScenes,
+    precedingScenes,
+    followingScenes,
+  });
+  for (const sceneToPopulate of scenesToPopulate) {
+    const chapterScenes = fullScenes[sceneToPopulate.chapter];
+    if (chapterScenes) {
+      const scene = chapterScenes.find((s) => s.scene_number === sceneToPopulate.scene_number);
+      if (scene) {
+        scene.chapter = sceneToPopulate.chapter;
+        returnScenes.push(scene);
+      }
+    }
+  }
+  return returnScenes;
+}
+
+/**
+ * Gets the adjacent scenes to the given sceneId.
+ * @param {Array} scenesList - The list of scenes.
+ * @param {string} sceneId - The id of the scene to get the adjacent scenes for.
+ * @param {number} adjacentCount - The number of adjacent scenes to get.
+ * @return {Array} - The list of adjacent scenes.
+ */
+function getAdjacentScenes({scenesList, sceneId, adjacentCount = 5}) {
+  const index = scenesList.findIndex((scene) => scene.id === sceneId);
+  if (index === -1) return [];
+
+  const result = [];
+
+  for (let i = index - adjacentCount; i < index + adjacentCount + 1; i++) {
+    const wrappedIndex = (i + scenesList.length) % scenesList.length;
+    result.push(scenesList[wrappedIndex]);
+  }
+  return result;
+}
+
+/**
+ * Sanitizes the scenes for the cache.
+ * @param {Object} scenes - The scenes object.
+ * @return {Object} - The sanitized scenes object.
+ */
+function sanitizeSceneForCache(scenes) {
+  const sanitizedScenes = {};
+  for (const [chapter, chapterScenes] of Object.entries(scenes)) {
+    sanitizedScenes[chapter] = chapterScenes.map((scene) => {
+      const sanitizedScene = {};
+      if (scene.startTime !== undefined) sanitizedScene.startTime = scene.startTime;
+      if (scene.endTime !== undefined) sanitizedScene.endTime = scene.endTime;
+      if (scene.scene_number !== undefined) sanitizedScene.scene_number = scene.scene_number;
+      if (scene.image !== undefined) sanitizedScene.image = scene.image;
+      if (scene.prompt !== undefined) sanitizedScene.prompt = scene.prompt;
+      if (scene.sceneId !== undefined) sanitizedScene.sceneId = scene.sceneId;
+      if (chapter !== undefined) sanitizedScene.chapter = parseInt(chapter);
+      return sanitizedScene;
+    });
+  }
+  return sanitizedScenes;
+}
+
+export {
+  sceneFromCurrentTime,
+  scenesToGenerateFromCurrentTime,
+  getAdjacentScenes,
+  scenesFromCurrentTime,
+  sanitizeSceneForCache,
+};

@@ -29,7 +29,16 @@
     "ui": {
       "enabled": true
     },
-    "singleProjectMode": true
+    "singleProjectMode": true,
+    "database": {
+      "port": 9000
+    },
+    "hosting": {
+      "port": 5002
+    },
+    "storage": {
+      "port": 9199
+    }
   },
   "storage": {
     "rules": "storage.rules"
@@ -130,6 +139,16 @@
       {
         "source": "/v1/admin/scenes/compress",
         "function": "v1compressImage",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/scenes/carousel",
+        "function": "v1adminGetAiCarousel",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/cache/populateSceneCache",
+        "function": "v1populateSceneCache",
         "region": "europe-west1"
       }
     ]
