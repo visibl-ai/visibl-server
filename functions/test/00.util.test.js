@@ -4,7 +4,6 @@ import dotenv from "dotenv";
 dotenv.config({path: ".env.local"});
 import fs from "fs";
 const fullScenes = JSON.parse(fs.readFileSync(`./test/bindings/scenes/${process.env.PUBLIC_SKU1}-scenes-graph.json`, "utf8"));
-
 // eslint-disable-next-line no-undef
 describe("Scene Helpers", () => {
   // eslint-disable-next-line no-undef

@@ -3,6 +3,7 @@
 /* eslint-disable no-invalid-this */
 // import admin from "firebase-admin";
 import "./_env.js";
+import console from "../util/_console.js";
 import dotenv from "dotenv";
 dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't work with conf.
 import chai from "chai";

@@ -5,7 +5,7 @@ import {
   HarmBlockThreshold,
 } from "@google/generative-ai";
 
-import logger from "firebase-functions/logger";
+import logger from "../../util/logger.js";
 
 import globalPrompts from "../prompts/globalPrompts.js";
 

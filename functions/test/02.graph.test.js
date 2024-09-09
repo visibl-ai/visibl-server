@@ -3,6 +3,7 @@
 /* eslint-disable max-len */
 // import admin from "firebase-admin";
 import "./_env.js";
+import console from "../util/_console.js";
 import dotenv from "dotenv";
 import chai from "chai";
 import chaiHttp from "chai-http";

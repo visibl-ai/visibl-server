@@ -1,5 +1,5 @@
 /* eslint-disable require-jsdoc */
-import {logger} from "firebase-functions/v2";
+import logger from "../util/logger.js";
 
 import {ENVIRONMENT} from "../config/config.js";
 import {

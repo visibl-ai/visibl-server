@@ -4,7 +4,7 @@
 // const exec = promisify(execCb);
 import ffmpegTools from "../util/ffmpeg.js";
 import whisper from "./openai/whisper.js";
-import {logger} from "firebase-functions/v2";
+import logger from "../util/logger.js";
 import {ENVIRONMENT} from "../config/config.js";
 import {uploadFileToBucket,
   downloadFileFromBucket,
@@ -149,7 +149,6 @@ async function pipeline(uid, sku, ffmpegPath ) {
   splitAudio = await uploadFilesToBucket(sku, outputFiles, getSplitAudioPath(uid, sku));
   logger.debug("STEP 4: Files uploaded to bucket.");
   // 5. Transcribe the files
-  console.log(metadata);
   const transcriptions = await transcribeFilesInParallel(metadata.bookData, outputFiles);
   if (transcriptions === undefined) {
     logger.error(`Transcriptions are undefined for ${sku}`);

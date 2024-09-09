@@ -1,5 +1,4 @@
 /* eslint-disable require-jsdoc */
-// import logger from "firebase-functions/logger";
 import {onCall, onRequest} from "firebase-functions/v2/https";
 import {validateOnCallAuth, validateOnRequestAdmin} from "../auth/auth.js";
 import {
@@ -37,7 +36,6 @@ export const v1catalogueGetManifest = onRequest({region: "europe-west1"}, async 
     res.status(400).send("Catalogue ID is required");
     return;
   }
-  console.log(`catalogueId: ${catalogueId}`);
   res.status(200).send(await generateManifest("admin", catalogueId));
 });
 

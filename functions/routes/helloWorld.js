@@ -1,6 +1,6 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable require-jsdoc */
-import logger from "firebase-functions/logger";
+import logger from "../util/logger.js";
 import {onCall} from "firebase-functions/v2/https";
 import {validateOnCallAuth} from "../auth/auth.js";
 import {ENVIRONMENT} from "../config/config.js";

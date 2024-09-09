@@ -10,7 +10,7 @@ import {
   getDefaultSceneFilename,
   getSceneFilename,
 } from "./storage.js";
-import {logger} from "firebase-functions/v2";
+import logger from "../util/logger.js";
 import {libraryGetFirestore} from "./firestore/library.js";
 import {catalogueGetFirestore} from "./firestore/catalogue.js";
 import {getGlobalScenesFirestore} from "./firestore/scenes.js";

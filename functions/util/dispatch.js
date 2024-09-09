@@ -1,6 +1,6 @@
 import {GoogleAuth} from "google-auth-library";
 import {getFunctions} from "firebase-admin/functions";
-import {logger} from "firebase-functions";
+import logger from "./logger.js";
 
 let auth;
 /**

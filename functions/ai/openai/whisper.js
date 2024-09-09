@@ -2,7 +2,7 @@
 // Import the OpenAI library
 import OpenAI from "openai";
 import fs from "fs";
-import {logger} from "firebase-functions/v2";
+import logger from "../../util/logger.js";
 import {OPENAI_API_KEY} from "../../config/config.js";
 
 // Initialize the OpenAI client with the API key from environment variables

@@ -7,7 +7,7 @@ import {
   removeUndefinedProperties,
 } from "../firestore.js";
 import {scenesCreateDefaultCatalogueFirestore} from "./scenes.js";
-import {logger} from "firebase-functions/v2";
+import logger from "../../util/logger.js";
 
 /**
    * Validates the audiobook data object.
@@ -108,7 +108,6 @@ async function catalogueBatchAddFirestore(items) {
 
   for (const item of items) {
     // Remove any undefined properties from data
-    console.log(item);
     const data = removeUndefinedProperties(item);
     if (data.feedTemplate) {
       data.feedTemplate = removeUndefinedProperties(data.feedTemplate);

@@ -2,7 +2,7 @@
 import ISO6391 from "iso-639-1";
 import {getJsonFile} from "../storage/storage.js";
 import {generateTranscriptions} from "../ai/transcribe.js";
-import logger from "firebase-functions/logger";
+import logger from "./logger.js";
 import {
   copyFile,
   getPublicUrl,
@@ -30,7 +30,6 @@ function generateManifestUrl(visibility, uid, catalogueId) {
 }
 
 async function generateOPDS(uid, catalogueItems, title) {
-  console.log(catalogueItems);
   const opdsResponse = {
     metadata: {
       title: title,
@@ -186,7 +185,6 @@ async function addSkuToCatalogue(uid, metadata, visibility) {
   if (visibility !== "public" && visibility !== "private") {
     throw new Error("Visibility must be either 'public' or 'private'");
   }
-  console.log(metadata);
   const itemToAdd = {
     type: "audiobook",
     title: metadata.title,

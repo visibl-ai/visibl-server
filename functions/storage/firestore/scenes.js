@@ -6,7 +6,7 @@ import {
   Timestamp,
   FieldPath} from "firebase-admin/firestore";
 
-import {logger} from "firebase-functions";
+import logger from "../../util/logger.js";
 
 import {
   libraryGetFirestore,

@@ -2,7 +2,7 @@
 import {
   getFirestore} from "firebase-admin/firestore";
 
-import logger from "firebase-functions/logger";
+import logger from "../../util/logger.js";
 
 import {
   AAX_CONNECT_SOURCE,

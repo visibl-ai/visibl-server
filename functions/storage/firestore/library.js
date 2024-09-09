@@ -6,7 +6,7 @@ import {
 import {
   removeUndefinedProperties,
 } from "../firestore.js";
-import {logger} from "firebase-functions/v2";
+import logger from "../../util/logger.js";
 
 import {
   catalogueGetFirestore,

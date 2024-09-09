@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import logger from "firebase-functions/logger";
+import logger from "./logger.js";
 import {
   getFileStream,
   uploadStreamAndGetPublicLink,

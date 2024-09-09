@@ -2,7 +2,7 @@
 
 // eslint-disable-next-line no-unused-vars
 import {getDatabase, getDatabaseWithUrl} from "firebase-admin/database";
-import logger from "firebase-functions/logger";
+import logger from "../../util/logger.js";
 import app from "../../firebase.js";
 
 

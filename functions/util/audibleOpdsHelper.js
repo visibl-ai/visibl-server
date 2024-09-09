@@ -1,7 +1,7 @@
 
 /* eslint-disable require-jsdoc */
 import axios from "axios";
-import logger from "firebase-functions/logger";
+import logger from "../util/logger.js";
 
 import {AUDIBLE_OPDS_API_KEY,
   AUDIBLE_OPDS_FIREBASE_URL,

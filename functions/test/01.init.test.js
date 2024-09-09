@@ -3,8 +3,9 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable max-len */
 import "./_env.js";
+import console from "../util/_console.js";
 import admin from "firebase-admin";
-import logger from "firebase-functions/logger";
+import logger from "../util/logger.js";
 import dotenv from "dotenv";
 
 import chai from "chai";
@@ -1042,7 +1043,7 @@ describe("Full functional tests of visibl api", () => {
     expect(await callStabilityQueue()).to.have.status(204);
     // We need to now get the scenes and check that no image is here.
     const wrapped = firebaseTest.wrap(v1getAi);
-    let result = await wrapped({
+    const result = await wrapped({
       auth: {
         uid: userData.uid,
       },
@@ -1052,31 +1053,8 @@ describe("Full functional tests of visibl api", () => {
       },
     });
     console.log(JSON.stringify(result).substring(0, 1000));
-    // No image should be generated on first try before moderation.
-    expect(result).to.exist;
-    expect(result).to.be.an("array");
-    expect(result[0]).to.have.property("scene_number");
-    expect(result[0]).to.have.property("description");
-    expect(result[0]).to.have.property("characters");
-    expect(result[0]).to.have.property("locations");
-    expect(result[0]).to.have.property("viewpoint");
-    expect(result[0]).to.not.have.property("image");
-    expect(result[0]).to.not.have.property("square");
-
     // Now lets see if the moderated image is generated.
-    await callDalleQueue();
-    expect(await callStabilityQueue()).to.have.status(204);
-    result = await wrapped({
-      auth: {
-        uid: userData.uid,
-      },
-      data: {
-        libraryId: libraryItem.id,
-        chapter,
-      },
-    });
-    console.log(JSON.stringify(result).substring(0, 1000));
-    // No image should be generated on first try before moderation.
+    // Dall it re-calls itself if the queue is not empty.
     expect(result).to.exist;
     expect(result).to.be.an("array");
     expect(result[0]).to.have.property("scene_number");

@@ -1,5 +1,5 @@
 /* eslint-disable require-jsdoc */
-import logger from "firebase-functions/logger";
+import logger from "../../util/logger.js";
 import OpenAI from "openai";
 import {OPENAI_API_KEY} from "../../config/config.js";
 import {downloadImage} from "../../storage/storage.js";
@@ -133,10 +133,11 @@ async function handleDalle3Error(params) {
     retry = false;
     logger.warn(`Going to retry image generation for scene ${scene.scene_number} in chapter ${scene.chapter} for scene ${sceneId}`);
     if (error.message.includes("safety") || error.message.includes("filter")) {
-      logger.warn(`Safety error, moderating scene description once.`);
+      logger.warn(`Scene ${sceneId}Safety error, moderating scene description once.`);
       scene = await moderateSceneDescription({scene, sceneId});
+      logger.warn(`Scene ${sceneId} moderated, adding item to dall-e queue`);
     } else {
-      logger.warn(`Unkown error, lets retry once.`);
+      logger.warn(`Scene ${sceneId}Unkown error, lets retry once.`);
     }
     await addSceneToQueue({scene, sceneId, retry});
   } else {
@@ -236,8 +237,12 @@ const dalleQueue = async () => {
   queue = await queueGetEntries({type: "dalle", status: "pending", limit: OPENAI_DALLE_3_IMAGES_PER_MINUTE});
   if (queue.length > 0) {
     // Wait the apropriate amount of time due to the rate limit.
-    const waitTime = 60000 - (endTime - startTime);
-    logger.debug(`Waiting ${waitTime}ms due to rate limit`);
+    let waitTime = 60000 - (endTime - startTime);
+    // Don't slow down development.
+    if (process.env.ENVIRONMENT === "development") {
+      waitTime = 0;
+    }
+    logger.debug(`DALL E: Waiting ${waitTime}ms due to rate limit`);
     await new Promise((resolve) => setTimeout(resolve, waitTime));
     await dalleQueue();
   }
