@@ -265,7 +265,7 @@ describe("Carousel Tests", () => {
     });
     // console.log(result);
     expect(result).to.have.length(11);
-    // console.log(result[0].scenes);
+    console.log(result[0]);
   });
   // check that paging works.
 });

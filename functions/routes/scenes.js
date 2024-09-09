@@ -36,7 +36,6 @@ export const v1compressImage = onRequest({region: "europe-west1", cors: true}, a
 
 export const v1getAi = onCall({
   region: "europe-west1",
-  minInstances: 1,
   concurrency: 1,
 }, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);

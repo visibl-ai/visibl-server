@@ -29,6 +29,11 @@ async function storeScenesInCache(params) {
   return;
 }
 
+async function storeSceneInCacheFromMemory({sceneId, sceneData}) {
+  const dbRef = sceneToDbRef({sceneId});
+  await storeData({ref: dbRef, data: sanitizeSceneForCache(sceneData)});
+}
+
 async function getScenesFromCache({sceneId}) {
   const dbRef = sceneToDbRef({sceneId});
   const scenes = await getData({ref: dbRef});
@@ -38,4 +43,5 @@ async function getScenesFromCache({sceneId}) {
 export {
   storeScenesInCache,
   getScenesFromCache,
+  storeSceneInCacheFromMemory,
 };
