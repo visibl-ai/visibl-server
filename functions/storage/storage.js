@@ -208,7 +208,9 @@ async function getJsonFile(params) {
         reject(err);
       } else {
         try {
+          // const currentTime = Date.now();
           const sceneData = JSON.parse(contents.toString());
+          // logger.debug(`Time to parse JSON from getJsonFile: ${Date.now() - currentTime}ms`);
           resolve(sceneData);
         } catch (parseError) {
           logger.error("Error parsing JSON: " + parseError);

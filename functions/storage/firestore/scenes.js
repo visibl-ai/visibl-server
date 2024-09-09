@@ -92,12 +92,11 @@ async function getGlobalScenesFirestore(uid, data) {
   return scenes;
 }
 
-async function getCatalogueScenesFirestore(uid, data) {
+async function getCatalogueScenesFirestore(data) {
   const db = getFirestore();
   const {catalogueId} = data;
   // Query the Scenes collection for items matching uid and libraryId
   const scenesQuery = await db.collection("Scenes")
-      .where("uid", "==", uid)
       .where("catalogueId", "==", catalogueId)
       .orderBy(FieldPath.documentId(), "desc")
       .get();

@@ -14,7 +14,6 @@ import {
 
 import {
   scenesCreateItemFirestore,
-  getCatalogueScenesFirestore,
 } from "./scenes.js";
 
 import {generateManifest} from "../../util/opds.js";

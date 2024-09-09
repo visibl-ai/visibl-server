@@ -53,7 +53,11 @@ export const v1getAiCarousel = onCall({
 });
 
 // Test Function for instrumentation.
-export const v1adminGetAiCarousel = onRequest({region: "europe-west1", cors: true}, async (req, res) => {
+export const v1adminGetAiCarousel = onRequest({
+  region: "europe-west1",
+  memory: "512MiB",
+  cors: true,
+}, async (req, res) => {
   await validateOnRequestAdmin(req);
   res.status(200).send(await getAiCarouselFirestore(req.body.uid, req.body.data));
 });
@@ -66,8 +70,8 @@ export const v1getLibraryScenes = onCall({
 });
 
 export const v1getCatalogueItemScenes = onCall({region: "europe-west1"}, async (context) => {
-  const {uid, data} = await validateOnCallAuth(context);
-  return await getCatalogueScenesFirestore(uid, data);
+  const {data} = await validateOnCallAuth(context);
+  return await getCatalogueScenesFirestore(data);
 });
 
 

@@ -24,6 +24,8 @@ import {
   // dataToBody,
 } from "../util/dispatch.js";
 
+import {getScenesFromCache} from "./realtimeDb/scenesCache.js";
+
 /**
  * Adds a new user to the Firestore database.
  *
@@ -215,22 +217,18 @@ async function getAiCarouselFirestore(uid, data) {
 
   // 1. get all scenes in a sorted list.
   const scenesList = await getGlobalScenesFirestore(uid, {libraryId});
-  logger.debug(`Time to global scenes: ${Date.now() - stepTime}ms`);
   stepTime = Date.now();
   // 2. create the carousel object based on position of sceneId.
   const carousel = getAdjacentScenes({scenesList, sceneId});
-  logger.debug(`Time to adjascent scenes: ${Date.now() - stepTime}ms`);
   stepTime = Date.now();
   // 3. Load the scenes from storage in parallel.
   const scenesCarousel = await Promise.all(carousel.map(async (scene) => {
-    let fetchTime = Date.now();
-    const fullScenes = await getScene({sceneId: scene.id});
-    logger.debug(`Time to fetch scene ${scene.id} from storage: ${Date.now() - fetchTime}ms`);
-    fetchTime = Date.now();
+    const fetchTime = Date.now();
+    const fullScenes = await getScenesFromCache({sceneId: scene.id});
+    logger.debug(`Time to fetch scene ${scene.id} from cache: ${Date.now() - fetchTime}ms`);
     logger.debug(`fullScenes for ${scene.id}: ${JSON.stringify(fullScenes).substring(0, 150)}`);
     // 4. for each scene, sceneFromCurrentTime
     const currentScene = sceneFromCurrentTime(fullScenes, currentTime);
-    logger.debug(`Time to fetch from current time: ${Date.now() - fetchTime}ms`);
     logger.debug(`Current scene ${JSON.stringify(currentScene)} for ${scene.id} at ${currentTime}`);
     // 5. scenesToGenerateFromCurrentTime (5 forward and 5 backward)
     return {
@@ -252,7 +250,6 @@ async function getAiCarouselFirestore(uid, data) {
       scene.scenes = carouselScene.scenes;
     }
   }
-  logger.debug(`Time to construct scenes carousel: ${Date.now() - stepTime}ms`);
   stepTime = Date.now();
   // 7. return the carousel object.
   return carousel;

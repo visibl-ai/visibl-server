@@ -135,9 +135,33 @@ function getAdjacentScenes({scenesList, sceneId, adjacentCount = 5}) {
   return result;
 }
 
+/**
+ * Sanitizes the scenes for the cache.
+ * @param {Object} scenes - The scenes object.
+ * @return {Object} - The sanitized scenes object.
+ */
+function sanitizeSceneForCache(scenes) {
+  const sanitizedScenes = {};
+  for (const [chapter, chapterScenes] of Object.entries(scenes)) {
+    sanitizedScenes[chapter] = chapterScenes.map((scene) => {
+      const sanitizedScene = {};
+      if (scene.startTime !== undefined) sanitizedScene.startTime = scene.startTime;
+      if (scene.endTime !== undefined) sanitizedScene.endTime = scene.endTime;
+      if (scene.scene_number !== undefined) sanitizedScene.scene_number = scene.scene_number;
+      if (scene.image !== undefined) sanitizedScene.image = scene.image;
+      if (scene.prompt !== undefined) sanitizedScene.prompt = scene.prompt;
+      if (scene.sceneId !== undefined) sanitizedScene.sceneId = scene.sceneId;
+      if (chapter !== undefined) sanitizedScene.chapter = parseInt(chapter);
+      return sanitizedScene;
+    });
+  }
+  return sanitizedScenes;
+}
+
 export {
   sceneFromCurrentTime,
   scenesToGenerateFromCurrentTime,
   getAdjacentScenes,
   scenesFromCurrentTime,
+  sanitizeSceneForCache,
 };
