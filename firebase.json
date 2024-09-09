@@ -145,6 +145,11 @@
         "source": "/v1/admin/scenes/carousel",
         "function": "v1adminGetAiCarousel",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/admin/cache/populateSceneCache",
+        "function": "v1populateSceneCache",
+        "region": "europe-west1"
       }
     ]
   }

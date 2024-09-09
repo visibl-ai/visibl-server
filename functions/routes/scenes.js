@@ -55,7 +55,6 @@ export const v1getAiCarousel = onCall({
 // Test Function for instrumentation.
 export const v1adminGetAiCarousel = onRequest({
   region: "europe-west1",
-  memory: "512MiB",
   cors: true,
 }, async (req, res) => {
   await validateOnRequestAdmin(req);

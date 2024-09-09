@@ -10,7 +10,7 @@ function sceneToDbRef({sceneId}) {
 
 async function storeScenesInCache(params) {
   let {scenes, catalogueId} = params.body;
-  if (!catalogueId) {
+  if (!catalogueId && !scenes) {
     throw new Error("storeScenesInCache: catalogueId is required");
   }
   if (!scenes || scenes.length === 0) {

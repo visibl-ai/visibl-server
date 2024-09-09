@@ -14,12 +14,21 @@ import {
 import {
   microDispatchInstance,
   dataToBody,
+  dispatchTask,
 } from "../util/dispatch.js";
 
 export const v1cacheNuke = onRequest({region: "europe-west1"}, async (req, res) => {
   await validateOnRequestAdmin(req);
   res.status(200).send(await deleteAllData());
 });
+
+export const v1populateSceneCache = onRequest({
+  region: "europe-west1",
+}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await dispatchTask("populateSceneCache", req.body));
+});
+
 
 export const populateSceneCache = onTaskDispatched(
     microDispatchInstance(),
