@@ -37,6 +37,7 @@ export const v1aaxConnect = onCall({region: "europe-west1"}, async (context) => 
   await dispatchTask({
     functionName: "aaxPostAuthHook",
     data: {uid: uid, auth: auth},
+    location: "us-central1",
   });
   return auth;
 });
