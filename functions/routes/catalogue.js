@@ -53,5 +53,8 @@ export const v1catalogueProcessRaw = onRequest({
   region: "europe-west1",
 }, async (req, res) => {
   await validateOnRequestAdmin(req);
-  res.status(200).send(await dispatchTask("processM4B", {sku: req.body.sku}));
+  res.status(200).send(await dispatchTask({
+    functionName: "processM4B",
+    data: {sku: req.body.sku},
+  }));
 });

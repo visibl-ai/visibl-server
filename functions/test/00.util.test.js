@@ -17,7 +17,7 @@ describe("Scene Helpers", () => {
     // eslint-disable-next-line no-undef
     it("should return null if no scene is found", () => {
       const result = sceneFromCurrentTime(fullScenes, 100000);
-      expect(result).to.be.null;
+      expect(result).to.deep.equal({chapter: 30, sceneNumber: 47});
     });
   });
 

@@ -29,6 +29,7 @@ import {
   helloWorld,
 } from "../index.js";
 const APP_ID = process.env.APP_ID;
+const DISPATCH_REGION = `europe-west1`;
 const app = initializeApp({
   projectId: APP_ID,
   storageBucket: `${APP_ID}.appspot.com`,
@@ -453,7 +454,7 @@ describe("Queue Tests", () => {
     this.timeout(90000);
     // eslint-disable-next-line no-unused-vars
     let response = await chai
-        .request(`${DISPATCH_URL}${APP_ID}/us-central1`)
+        .request(`${DISPATCH_URL}${APP_ID}/${DISPATCH_REGION}`)
         .post("/launchDalleQueue")
         .set("Content-Type", "application/json")
         .send({data: {}}); // nest object as this is a dispatch.
@@ -533,7 +534,7 @@ describe("Queue Tests", () => {
     this.timeout(90000);
     // eslint-disable-next-line no-unused-vars
     const response = await chai
-        .request(`${DISPATCH_URL}${APP_ID}/us-central1`)
+        .request(`${DISPATCH_URL}${APP_ID}/${DISPATCH_REGION}`)
         .post("/launchStabilityQueue")
         .set("Content-Type", "application/json")
         .send({data: {}}); // nest object as this is a dispatch.

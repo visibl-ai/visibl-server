@@ -7,15 +7,18 @@ import {
 
 import logger from "./logger.js";
 
+const DEFAULT_REGION = "europe-west1";
+
 let auth;
 /**
  * Get the URL of a given v2 cloud function.
+ * Not used anymore, until google requires it.
  *
  * @param {string} name the function's name
  * @param {string} location the function's location
  * @return {Promise<string>} The URL of the function
  */
-async function getFunctionUrl(name, location="us-central1") {
+async function getFunctionUrl(name, location=DEFAULT_REGION) {
   let uri = await getDispatchFunction({functionName: name});
   if (uri) {
     return uri;
@@ -63,7 +66,7 @@ function largeDispatchInstance() {
     rateLimits: {
       maxConcurrentDispatches: 1,
     },
-    region: "us-central1",
+    region: DEFAULT_REGION,
     memory: "32GiB",
     timeoutSeconds: 3600,
   };
@@ -81,7 +84,7 @@ function microDispatchInstance() {
     rateLimits: {
       maxConcurrentDispatches: 1,
     },
-    region: "us-central1",
+    region: DEFAULT_REGION,
     // memory: "128MiB",
     timeoutSeconds: 3600,
   };
@@ -100,26 +103,7 @@ function mediumDispatchInstance(concurrency=1) {
     rateLimits: {
       maxConcurrentDispatches: concurrency,
     },
-    region: "us-central1",
-    memory: "4GiB",
-    timeoutSeconds: 3600,
-  };
-}
-
-/**
- * @return {Object} An object with a 'body' property containing the request data.
- * @param {number} concurrency - The number of concurrent dispatches.
- */
-function mediumEuDispatchInstance(concurrency=1) {
-  return {
-    retryConfig: {
-      maxAttempts: 1,
-      minBackoffSeconds: 1,
-    },
-    rateLimits: {
-      maxConcurrentDispatches: concurrency,
-    },
-    region: "europe-west1",
+    region: DEFAULT_REGION,
     memory: "4GiB",
     timeoutSeconds: 3600,
   };
@@ -132,7 +116,7 @@ function mediumEuDispatchInstance(concurrency=1) {
  * @param {number} scheduleDelaySeconds
  * @param {string} location
  */
-async function dispatchTask(functionName, data, deadline=60 * 5, scheduleDelaySeconds=0, location="us-central1" ) {
+async function dispatchTask({functionName, data, deadline=60 * 5, scheduleDelaySeconds=0, location=DEFAULT_REGION}) {
   try {
     let stepTime = Date.now();
     /*
@@ -168,6 +152,5 @@ export {
   largeDispatchInstance,
   microDispatchInstance,
   mediumDispatchInstance,
-  mediumEuDispatchInstance,
   dispatchTask,
 };

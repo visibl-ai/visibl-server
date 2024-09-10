@@ -24,7 +24,12 @@ import {
 
 export const v1generateSceneImages = onRequest({region: "europe-west1", cors: true}, async (req, res) => {
   await validateOnRequestAdmin(req);
-  await dispatchTask("generateSceneImages", req.body, 60 * 5, 1);
+  await dispatchTask({
+    functionName: "generateSceneImages",
+    data: req.body,
+    deadline: 60 * 5,
+    scheduleDelaySeconds: 1,
+  });
   res.status(200).send({dispatched: true});
 });
 

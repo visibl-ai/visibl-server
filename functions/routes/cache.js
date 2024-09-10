@@ -26,7 +26,10 @@ export const v1populateSceneCache = onRequest({
   region: "europe-west1",
 }, async (req, res) => {
   await validateOnRequestAdmin(req);
-  res.status(200).send(await dispatchTask("populateSceneCache", req.body));
+  res.status(200).send(await dispatchTask({
+    functionName: "populateSceneCache",
+    data: req.body,
+  }));
 });
 
 

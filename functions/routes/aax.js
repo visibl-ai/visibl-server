@@ -34,7 +34,10 @@ export const v1getAAXLoginURL = onCall({region: "europe-west1"}, async (context)
 export const v1aaxConnect = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   const auth = await getAAXAuth(uid, data);
-  await dispatchTask("aaxPostAuthHook", {uid: uid, auth: auth});
+  await dispatchTask({
+    functionName: "aaxPostAuthHook",
+    data: {uid: uid, auth: auth},
+  });
   return auth;
 });
 

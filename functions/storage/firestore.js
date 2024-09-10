@@ -143,9 +143,10 @@ async function getAiFirestore(uid, data) {
 
   if (currentTime) {
     logger.debug(`Generating scenes starting at currentTime: ${currentTime}`);
-    await dispatchTask("generateSceneImagesCurrentTime",
-        {sceneId, currentTime},
-    );
+    await dispatchTask({
+      functionName: "generateSceneImagesCurrentTime",
+      data: {sceneId, currentTime},
+    });
   }
 
   if (chapter !== undefined && scenes[chapter]) {
@@ -239,7 +240,10 @@ async function dispatchCarouselGeneration({carousel, sceneId, currentTime}) {
   ];
 
   await Promise.all(scenesToGenerate.map((scene) =>
-    dispatchTask("generateSceneImagesCurrentTime", {sceneId: scene.id, currentTime}),
+    dispatchTask({
+      functionName: "generateSceneImagesCurrentTime",
+      data: {sceneId: scene.id, currentTime},
+    }),
   ));
   logger.debug(`Time to dispatchCarouselGeneration: ${Date.now() - stepTime}ms`);
   return;

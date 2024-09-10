@@ -51,7 +51,7 @@ process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 process.env.FIREBASE_DATABASE_EMULATOR_HOST = "127.0.0.1:9000";
 
 const DISPATCH_URL = `http://127.0.0.1:5001`;
-const DISPATCH_REGION = `us-central1`;
+const DISPATCH_REGION = `europe-west1`;
 const auth = getAuth();
 const TEST_USER_EMAIL = `john.${Date.now()}@example.com`;
 const SYM_PATH = "./test/bindings/";

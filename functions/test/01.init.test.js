@@ -71,7 +71,7 @@ process.env.FIRESTORE_EMULATOR_HOST = "127.0.0.1:8080";
 process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 const APP_URL = `http://127.0.0.1:5002`;
 const DISPATCH_URL = `http://127.0.0.1:5001`;
-const DISPATCH_REGION = `us-central1`;
+const DISPATCH_REGION = `europe-west1`;
 const auth = getAuth();
 // const db = getFirestore();
 
