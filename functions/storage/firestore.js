@@ -228,6 +228,10 @@ async function getAiCarouselFirestore(uid, data) {
     logger.debug(`fullScenes for ${scene.id}: ${JSON.stringify(fullScenes).substring(0, 150)}`);
     // 4. for each scene, sceneFromCurrentTime
     const currentScene = sceneFromCurrentTime(fullScenes, currentTime);
+    if (!currentScene) {
+      logger.error(`No current scene found for ${scene.id} at ${currentTime}`);
+      return {};
+    }
     logger.debug(`Current scene ${JSON.stringify(currentScene)} for ${scene.id} at ${currentTime}`);
     let chapters = {};
     if (catalogueItem?.metadata?.chapters) {

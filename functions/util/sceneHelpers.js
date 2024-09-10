@@ -7,14 +7,23 @@ const FOLLOWING_SCENES = 10;
  * @return {Object|null} - The scene object if found, null otherwise.
  */
 function sceneFromCurrentTime(fullScenes, currentTime) {
+  let nearestScene = null;
+  let minTimeDifference = Infinity;
   for (const [chapter, scenes] of Object.entries(fullScenes)) {
     for (const scene of scenes) {
       if (currentTime >= scene.startTime && currentTime < scene.endTime) {
         return {chapter: parseInt(chapter), sceneNumber: scene.scene_number};
       }
+      // Calculate the time difference to the start of the scene
+      const timeDifference = Math.abs(currentTime - scene.startTime);
+      if (timeDifference < minTimeDifference) {
+        minTimeDifference = timeDifference;
+        nearestScene = {chapter: parseInt(chapter), sceneNumber: scene.scene_number};
+      }
     }
   }
-  return null; // If no matching scene is found
+
+  return nearestScene; // Return the nearest scene if no exact match is found
 }
 
 /**
