@@ -1,5 +1,10 @@
 import {GoogleAuth} from "google-auth-library";
 import {getFunctions} from "firebase-admin/functions";
+import {
+  getDispatchFunction,
+  storeDispatchFunction,
+} from "../storage/realtimeDb/dispatchCache.js";
+
 import logger from "./logger.js";
 
 let auth;
@@ -11,6 +16,10 @@ let auth;
  * @return {Promise<string>} The URL of the function
  */
 async function getFunctionUrl(name, location="us-central1") {
+  let uri = await getDispatchFunction({functionName: name});
+  if (uri) {
+    return uri;
+  }
   if (!auth) {
     auth = new GoogleAuth({
       scopes: "https://www.googleapis.com/auth/cloud-platform",
@@ -21,11 +30,14 @@ async function getFunctionUrl(name, location="us-central1") {
     `projects/${projectId}/locations/${location}/functions/${name}`;
 
   const client = await auth.getClient();
+  // This is the slow request.
   const res = await client.request({url});
-  const uri = res.data?.serviceConfig?.uri;
+  uri = res.data?.serviceConfig?.uri;
+  logger.debug(`getFunctionUrl: ${name} uri: ${uri}`);
   if (!uri) {
     throw new Error(`Unable to retreive uri for function at ${url}`);
   }
+  await storeDispatchFunction({functionName: name, uri});
   return uri;
 }
 
@@ -95,21 +107,55 @@ function mediumDispatchInstance(concurrency=1) {
 }
 
 /**
+ * @return {Object} An object with a 'body' property containing the request data.
+ * @param {number} concurrency - The number of concurrent dispatches.
+ */
+function mediumEuDispatchInstance(concurrency=1) {
+  return {
+    retryConfig: {
+      maxAttempts: 1,
+      minBackoffSeconds: 1,
+    },
+    rateLimits: {
+      maxConcurrentDispatches: concurrency,
+    },
+    region: "europe-west1",
+    memory: "4GiB",
+    timeoutSeconds: 3600,
+  };
+}
+
+/**
  * @param {string} functionName
  * @param {Object} data
  * @param {number} deadline
  * @param {number} scheduleDelaySeconds
+ * @param {string} location
  */
-async function dispatchTask(functionName, data, deadline=60 * 5, scheduleDelaySeconds=1 ) {
+async function dispatchTask(functionName, data, deadline=60 * 5, scheduleDelaySeconds=0, location="us-central1" ) {
   try {
-    const queue = getFunctions().taskQueue(functionName);
-    const targetUri = await getFunctionUrl(functionName);
-    logger.debug(`Queuing ${functionName} with targetUri: ${targetUri}`);
-    return queue.enqueue(data, {
+    let stepTime = Date.now();
+    /*
+The function name can be either:
+1) A fully qualified function resource name:
+projects/{project}/locations/{location}/functions/{functionName}
+2) A partial resource name with location and function name, in which case the runtime project ID is used:
+locations/{location}/functions/{functionName}
+3) A partial function name, in which case the runtime project ID and the default location, us-central1, is used:
+{functionName}
+    */
+    const queue = getFunctions().taskQueue(`locations/${location}/functions/${functionName}`);
+    // const targetUri = await getFunctionUrl(functionName, location);
+    logger.debug(`dispatchTask: Time to getFunctionUrl: ${Date.now() - stepTime}ms`);
+    stepTime = Date.now();
+    // logger.debug(`Queuing ${functionName} with targetUri: ${targetUri}`);
+    await queue.enqueue(data, {
       scheduleDelaySeconds: scheduleDelaySeconds,
       dispatchDeadlineSeconds: deadline,
-      uri: targetUri,
+      // uri: targetUri, // TaskOptionsExperimental.uri - Turns out this is useless and super slow.
     });
+    logger.debug(`dispatchTask: ${functionName} time to enqueue: ${Date.now() - stepTime}ms`);
+    return;
   } catch (error) {
     logger.error(`Error dispatching task ${functionName}: ${error}`);
     return;
@@ -122,5 +168,6 @@ export {
   largeDispatchInstance,
   microDispatchInstance,
   mediumDispatchInstance,
+  mediumEuDispatchInstance,
   dispatchTask,
 };
