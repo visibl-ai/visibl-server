@@ -6,7 +6,7 @@ import {
   Timestamp,
   FieldPath} from "firebase-admin/firestore";
 
-import {logger} from "firebase-functions";
+import logger from "../../util/logger.js";
 
 import {
   libraryGetFirestore,
@@ -194,8 +194,10 @@ async function scenesCreateItemFirestore(uid, data) {
     // Default scenes exist for this item. Lets start generating images for the current time.
     if (currentTime) {
       logger.debug(`New Scene: currentTime found, generating scenes at currentTime: ${currentTime}`);
-      await dispatchTask("generateSceneImagesCurrentTime",
-          {sceneId: newSceneRef.id, currentTime});
+      await dispatchTask({
+        functionName: "generateSceneImagesCurrentTime",
+        data: {sceneId: newSceneRef.id, currentTime},
+      });
     } else {
       logger.debug(`New Scene: No currentTime found, generating full chapter.`);
       await imageDispatcher({

@@ -1,5 +1,5 @@
 /* eslint-disable max-len */
-import logger from "firebase-functions/logger";
+import logger from "../util/logger.js";
 import {saveUser} from "../storage/firestore.js";
 import {createUserFolder} from "../storage/storage.js";
 import {ADMIN_API_KEY} from "../config/config.js";

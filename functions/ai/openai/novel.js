@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import logger from "firebase-functions/logger";
+import logger from "../../util/logger.js";
 import nerFunctions from "./ner.js";
 import csv from "../csv.js";
 import _ from "lodash";

@@ -4,7 +4,7 @@ import {
   getFirestore} from "firebase-admin/firestore";
 import {removeUndefinedProperties} from "../firestore.js";
 
-import logger from "firebase-functions/logger";
+import logger from "../../util/logger.js";
 
 async function queueNuke() {
   const db = getFirestore();

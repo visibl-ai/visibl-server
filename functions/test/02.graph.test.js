@@ -3,6 +3,7 @@
 /* eslint-disable max-len */
 // import admin from "firebase-admin";
 import "./_env.js";
+import console from "../util/_console.js";
 import dotenv from "dotenv";
 import chai from "chai";
 import chaiHttp from "chai-http";
@@ -17,6 +18,7 @@ import fs from "fs";
 import test from "firebase-functions-test";
 dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't work with conf.
 const APP_ID = process.env.APP_ID;
+const DISPATCH_REGION = `europe-west1`;
 const APP_URL = `http://127.0.0.1:5001/`;
 // Start the Firebase Functions test environment
 // eslint-disable-next-line no-unused-vars
@@ -120,7 +122,7 @@ describe("Graph tests", () => {
       };
 
       const response = await chai
-          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
           .post("/generateGraphCharacters")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -138,7 +140,7 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
           .post("/generateGraphLocations")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -157,7 +159,7 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
           .post("/generateGraphCharacterDescriptions")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -176,7 +178,7 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
           .post("/generateGraphCharacterDescriptionsOAI")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -195,7 +197,7 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
           .post("/generateGraphLocationDescriptions")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -214,7 +216,7 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
           .post("/generateGraphLocationDescriptionsOAI")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -233,7 +235,7 @@ describe("Graph tests", () => {
         visiblity: "public",
       };
       const response = await chai
-          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
           .post("/generateGraphSummarizeDescriptions")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -255,7 +257,7 @@ describe("Graph tests", () => {
           chapter: chapter,
         };
         const response = await chai
-            .request(`${APP_URL}${APP_ID}/us-central1`)
+            .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
             .post("/generateGraphScenes")
             .set("Content-Type", "application/json")
             .send({data: data}); // nest object as this is a dispatch.
@@ -276,7 +278,7 @@ describe("Graph tests", () => {
         chapter: 3,
       };
       const response = await chai
-          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
           .post("/generateGraphScenes16k")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -296,7 +298,7 @@ describe("Graph tests", () => {
         chapter: 3,
       };
       const response = await chai
-          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
           .post("/generateAugmentScenes")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.
@@ -315,7 +317,7 @@ describe("Graph tests", () => {
         chapter: 4,
       };
       const response = await chai
-          .request(`${APP_URL}${APP_ID}/us-central1`)
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
           .post("/generateAugmentScenesOAI")
           .set("Content-Type", "application/json")
           .send({data: data}); // nest object as this is a dispatch.

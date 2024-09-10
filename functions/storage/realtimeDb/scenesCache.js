@@ -3,7 +3,7 @@ import {storeData, getData} from "./database.js";
 import {getScene} from "../storage.js";
 import {getCatalogueScenesFirestore} from "../firestore/scenes.js";
 import {sanitizeSceneForCache} from "../../util/sceneHelpers.js";
-// import logger from "firebase-functions/logger";
+
 function sceneToDbRef({sceneId}) {
   return `scenes/${sceneId}`;
 }

@@ -1,7 +1,7 @@
 /* eslint-disable require-jsdoc */
 import {onRequest} from "firebase-functions/v2/https";
 import {onTaskDispatched} from "firebase-functions/v2/tasks";
-import logger from "firebase-functions/logger";
+import logger from "../util/logger.js";
 import {validateOnRequestAdmin} from "../auth/auth.js";
 import {
   deleteAllData,
@@ -26,7 +26,10 @@ export const v1populateSceneCache = onRequest({
   region: "europe-west1",
 }, async (req, res) => {
   await validateOnRequestAdmin(req);
-  res.status(200).send(await dispatchTask("populateSceneCache", req.body));
+  res.status(200).send(await dispatchTask({
+    functionName: "populateSceneCache",
+    data: req.body,
+  }));
 });
 
 

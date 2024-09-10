@@ -1,5 +1,4 @@
 /* eslint-disable require-jsdoc */
-// import logger from "firebase-functions/logger";
 import {onCall, onRequest} from "firebase-functions/v2/https";
 import {validateOnCallAuth, validateOnRequestAdmin} from "../auth/auth.js";
 
@@ -25,7 +24,12 @@ import {
 
 export const v1generateSceneImages = onRequest({region: "europe-west1", cors: true}, async (req, res) => {
   await validateOnRequestAdmin(req);
-  await dispatchTask("generateSceneImages", req.body, 60 * 5, 1);
+  await dispatchTask({
+    functionName: "generateSceneImages",
+    data: req.body,
+    deadline: 60 * 5,
+    scheduleDelaySeconds: 1,
+  });
   res.status(200).send({dispatched: true});
 });
 

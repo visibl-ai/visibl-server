@@ -1,7 +1,7 @@
 /* eslint-disable require-jsdoc */
 import {onRequest} from "firebase-functions/v2/https";
 import {onTaskDispatched} from "firebase-functions/v2/tasks";
-import logger from "firebase-functions/logger";
+import logger from "../util/logger.js";
 import {validateOnRequestAdmin} from "../auth/auth.js";
 import {
   queueNuke,

@@ -51,7 +51,7 @@ describe("Image Gen", () => {
           uid: "BBPx9JiRZZcdeBSc5RCMp5ue78w2",
           data: {
             libraryId: "U48SMO7B3zODgv5yOEOz",
-            currentTime: 196.46900000000002,
+            currentTime: 19.752,
           },
         });
 

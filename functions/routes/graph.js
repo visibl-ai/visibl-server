@@ -1,5 +1,5 @@
 /* eslint-disable require-jsdoc */
-import logger from "firebase-functions/logger";
+import logger from "../util/logger.js";
 import {onRequest} from "firebase-functions/v2/https";
 import {onTaskDispatched} from "firebase-functions/v2/tasks";
 import {validateOnRequestAdmin} from "../auth/auth.js";

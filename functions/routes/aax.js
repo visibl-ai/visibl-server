@@ -1,5 +1,4 @@
 /* eslint-disable require-jsdoc */
-// import logger from "firebase-functions/logger";
 import {onCall, onRequest} from "firebase-functions/v2/https";
 import {validateOnCallAuth, validateOnRequestAdmin} from "../auth/auth.js";
 import {onTaskDispatched} from "firebase-functions/v2/tasks";
@@ -35,7 +34,11 @@ export const v1getAAXLoginURL = onCall({region: "europe-west1"}, async (context)
 export const v1aaxConnect = onCall({region: "europe-west1"}, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
   const auth = await getAAXAuth(uid, data);
-  await dispatchTask("aaxPostAuthHook", {uid: uid, auth: auth});
+  await dispatchTask({
+    functionName: "aaxPostAuthHook",
+    data: {uid: uid, auth: auth},
+    location: "us-central1",
+  });
   return auth;
 });
 

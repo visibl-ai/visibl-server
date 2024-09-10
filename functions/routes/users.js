@@ -1,6 +1,6 @@
 /* eslint-disable require-jsdoc */
 // import app from "../firebase.js";
-import logger from "firebase-functions/logger";
+import logger from "../util/logger.js";
 import {onCall} from "firebase-functions/v2/https";
 import {beforeUserCreated} from "firebase-functions/v2/identity";
 import {newUser, validateOnCallAuth} from "../auth/auth.js";

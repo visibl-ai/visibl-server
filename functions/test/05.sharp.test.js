@@ -2,6 +2,7 @@
 /* eslint-disable no-invalid-this */
 // import admin from "firebase-admin";
 import "./_env.js";
+import console from "../util/_console.js";
 import dotenv from "dotenv";
 import chai from "chai";
 import chaiHttp from "chai-http";
@@ -50,7 +51,7 @@ describe("Sharp Compression", () => {
       ];
       const bucket = getStorage(app).bucket();
       for (const thisFile of fileList) {
-        console.log(`Uploading file: ${thisFile.fileName}`);
+        console.debug(`Uploading file: ${thisFile.fileName}`);
         const filePath = `${thisFile.path}${thisFile.fileName}`;
         const file = bucket.file(filePath);
         try {
@@ -62,7 +63,7 @@ describe("Sharp Compression", () => {
                   reject(error);
                 })
                 .on("finish", () => {
-                  console.log(`File ${thisFile.fileName} uploaded successfully`);
+                  console.debug(`File ${thisFile.fileName} uploaded successfully`);
                   resolve();
                 });
           });
@@ -82,7 +83,7 @@ describe("Sharp Compression", () => {
             destinationFilePath: `${bucketImagePath}linda.webp`,
           });
       expect(response).to.have.status(200);
-      console.log(response.body);
+      console.debug(response.body);
     });
   });
 });

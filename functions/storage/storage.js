@@ -1,6 +1,6 @@
 /* eslint-disable require-jsdoc */
 import {getStorage, getDownloadURL} from "firebase-admin/storage";
-import {logger} from "firebase-functions/v2";
+import logger from "../util/logger.js";
 import {STORAGE_BUCKET_ID} from "../config/config.js";
 import fs from "fs/promises";
 import axios from "axios";

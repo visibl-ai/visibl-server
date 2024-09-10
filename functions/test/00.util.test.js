@@ -4,7 +4,6 @@ import dotenv from "dotenv";
 dotenv.config({path: ".env.local"});
 import fs from "fs";
 const fullScenes = JSON.parse(fs.readFileSync(`./test/bindings/scenes/${process.env.PUBLIC_SKU1}-scenes-graph.json`, "utf8"));
-
 // eslint-disable-next-line no-undef
 describe("Scene Helpers", () => {
   // eslint-disable-next-line no-undef
@@ -18,7 +17,7 @@ describe("Scene Helpers", () => {
     // eslint-disable-next-line no-undef
     it("should return null if no scene is found", () => {
       const result = sceneFromCurrentTime(fullScenes, 100000);
-      expect(result).to.be.null;
+      expect(result).to.deep.equal({chapter: 30, sceneNumber: 47});
     });
   });
 

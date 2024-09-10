@@ -3,6 +3,7 @@
 /* eslint-disable no-invalid-this */
 // import admin from "firebase-admin";
 import "./_env.js";
+import console from "../util/_console.js";
 import dotenv from "dotenv";
 dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't work with conf.
 import chai from "chai";
@@ -50,7 +51,7 @@ process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 process.env.FIREBASE_DATABASE_EMULATOR_HOST = "127.0.0.1:9000";
 
 const DISPATCH_URL = `http://127.0.0.1:5001`;
-const DISPATCH_REGION = `us-central1`;
+const DISPATCH_REGION = `europe-west1`;
 const auth = getAuth();
 const TEST_USER_EMAIL = `john.${Date.now()}@example.com`;
 const SYM_PATH = "./test/bindings/";

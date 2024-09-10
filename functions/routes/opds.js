@@ -1,5 +1,4 @@
 /* eslint-disable require-jsdoc */
-// import logger from "firebase-functions/logger";
 import {onCall, onRequest} from "firebase-functions/v2/https";
 import {validateOnCallAuth} from "../auth/auth.js";
 import {

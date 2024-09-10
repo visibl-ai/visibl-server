@@ -7,7 +7,7 @@
 
 import ffmpeg from "fluent-ffmpeg";
 // import fs from 'fs/promises';
-import {logger} from "firebase-functions/v2";
+import logger from "./logger.js";
 
 
 const splitAudioInParallel = async (

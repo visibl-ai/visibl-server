@@ -2,19 +2,21 @@
 
 // eslint-disable-next-line no-unused-vars
 import {getDatabase, getDatabaseWithUrl} from "firebase-admin/database";
-import logger from "firebase-functions/logger";
+import logger from "../../util/logger.js";
 import app from "../../firebase.js";
 
+let dbGlobal = null;
 
 function getDb() {
-  let db;
-  if (process.env.FIREBASE_DATABASE_EMULATOR_HOST) {
-    logger.debug(`Using database emulator with URL: ${process.env.FIREBASE_DATABASE_EMULATOR_HOST}`);
-    db = getDatabaseWithUrl(`http://${process.env.FIREBASE_DATABASE_EMULATOR_HOST}`);
-  } else {
-    db = getDatabase(app);
+  if (!dbGlobal) {
+    if (process.env.FIREBASE_DATABASE_EMULATOR_HOST) {
+      logger.debug(`Using database emulator with URL: ${process.env.FIREBASE_DATABASE_EMULATOR_HOST}`);
+      dbGlobal = getDatabaseWithUrl(`http://${process.env.FIREBASE_DATABASE_EMULATOR_HOST}`);
+    } else {
+      dbGlobal = getDatabase(app);
+    }
   }
-  return db;
+  return dbGlobal;
 }
 
 async function storeData({ref, data}) {

@@ -10,7 +10,7 @@ import {
   getDefaultSceneFilename,
   getSceneFilename,
 } from "./storage.js";
-import {logger} from "firebase-functions/v2";
+import logger from "../util/logger.js";
 import {libraryGetFirestore} from "./firestore/library.js";
 import {catalogueGetFirestore} from "./firestore/catalogue.js";
 import {getGlobalScenesFirestore} from "./firestore/scenes.js";
@@ -143,9 +143,10 @@ async function getAiFirestore(uid, data) {
 
   if (currentTime) {
     logger.debug(`Generating scenes starting at currentTime: ${currentTime}`);
-    await dispatchTask("generateSceneImagesCurrentTime",
-        {sceneId, currentTime},
-    );
+    await dispatchTask({
+      functionName: "generateSceneImagesCurrentTime",
+      data: {sceneId, currentTime},
+    });
   }
 
   if (chapter !== undefined && scenes[chapter]) {
@@ -182,6 +183,72 @@ async function getUserLibraryScene(params) {
   return await getScene({sceneId: sceneId});
 }
 
+async function populateCarousel({carousel, catalogueItem, currentTime}) {
+  const scenesCarousel = await Promise.all(carousel.map(async (scene) => {
+    const fetchTime = Date.now();
+    const fullScenes = await getScenesFromCache({sceneId: scene.id});
+    logger.debug(`Time to fetch scene ${scene.id} from cache: ${Date.now() - fetchTime}ms`);
+    // logger.debug(`fullScenes for ${scene.id}: ${JSON.stringify(fullScenes).substring(0, 150)}`);
+    // 4. for each scene, sceneFromCurrentTime
+    const currentScene = sceneFromCurrentTime(fullScenes, currentTime);
+    if (!currentScene) {
+      logger.error(`No current scene found for ${scene.id} at ${currentTime}`);
+      return {};
+    }
+    // logger.debug(`Current scene ${JSON.stringify(currentScene)} for ${scene.id} at ${currentTime}`);
+    let chapters = {};
+    if (catalogueItem?.metadata?.chapters) {
+      chapters = _.cloneDeep(catalogueItem.metadata.chapters);
+      // Set the length of each chapter
+      Object.keys(chapters).forEach((chapterKey) => {
+        if (fullScenes[chapterKey]) {
+          chapters[chapterKey].numberOfScenes = fullScenes[chapterKey].length;
+        } else {
+          chapters[chapterKey].numberOfScenes = 0; // Set to 0 if the chapter doesn't exist in fullScenes
+        }
+      });
+    }
+
+    // 5. scenesToGenerateFromCurrentTime (5 forward and 5 backward)
+    return {
+      sceneId: scene.id,
+      chapters,
+      scenes: scenesFromCurrentTime({
+        currentSceneNumber: currentScene.sceneNumber,
+        currentChapter: currentScene.chapter,
+        fullScenes,
+        precedingScenes: 5,
+        followingScenes: 5,
+      })};
+  }));
+  return scenesCarousel;
+}
+
+async function dispatchCarouselGeneration({carousel, sceneId, currentTime}) {
+  const stepTime = Date.now();
+  const ADJACENT_CAROUSEL_GENERATION_COUNT = 2;
+  const currentIndex = carousel.findIndex((scene) => scene.id === sceneId);
+  if (currentIndex === -1) {
+    logger.error(`dispatchCarouselGeneration: Scene with id ${sceneId} not found in carousel`);
+    return;
+  }
+
+  const scenesToGenerate = [
+    ...carousel.slice(Math.max(0, currentIndex - ADJACENT_CAROUSEL_GENERATION_COUNT), currentIndex),
+    carousel[currentIndex],
+    ...carousel.slice(currentIndex + 1, currentIndex + 1 + ADJACENT_CAROUSEL_GENERATION_COUNT),
+  ];
+
+  await Promise.all(scenesToGenerate.map((scene) =>
+    dispatchTask({
+      functionName: "generateSceneImagesCurrentTime",
+      data: {sceneId: scene.id, currentTime},
+    }),
+  ));
+  logger.debug(`Time to dispatchCarouselGeneration: ${Date.now() - stepTime}ms`);
+  return;
+}
+
 async function getAiCarouselFirestore(uid, data) {
   let {libraryId, sceneId, currentTime} = data;
   let stepTime = Date.now();
@@ -208,10 +275,6 @@ async function getAiCarouselFirestore(uid, data) {
   }
   logger.debug(`Time to get defaultScene: ${Date.now() - stepTime}ms`);
   stepTime = Date.now();
-  logger.debug(`Generating scenes starting at currentTime: ${currentTime}`);
-  // Don't await, we don't want to tie up the process.
-  dispatchTask("generateSceneImagesCurrentTime", {sceneId, currentTime})
-      .catch((error) => logger.error(`Error dispatching generateSceneImagesCurrentTime task: ${error}`));
 
   // 1. get all scenes in a sorted list.
   const scenesList = await getGlobalScenesFirestore(uid, {libraryId});
@@ -221,39 +284,11 @@ async function getAiCarouselFirestore(uid, data) {
   const carousel = getAdjacentScenes({scenesList, sceneId});
   stepTime = Date.now();
   // 3. Load the scenes from storage in parallel.
-  const scenesCarousel = await Promise.all(carousel.map(async (scene) => {
-    const fetchTime = Date.now();
-    const fullScenes = await getScenesFromCache({sceneId: scene.id});
-    logger.debug(`Time to fetch scene ${scene.id} from cache: ${Date.now() - fetchTime}ms`);
-    logger.debug(`fullScenes for ${scene.id}: ${JSON.stringify(fullScenes).substring(0, 150)}`);
-    // 4. for each scene, sceneFromCurrentTime
-    const currentScene = sceneFromCurrentTime(fullScenes, currentTime);
-    logger.debug(`Current scene ${JSON.stringify(currentScene)} for ${scene.id} at ${currentTime}`);
-    let chapters = {};
-    if (catalogueItem?.metadata?.chapters) {
-      chapters = _.cloneDeep(catalogueItem.metadata.chapters);
-      // Set the length of each chapter
-      Object.keys(chapters).forEach((chapterKey) => {
-        if (fullScenes[chapterKey]) {
-          chapters[chapterKey].numberOfScenes = fullScenes[chapterKey].length;
-        } else {
-          chapters[chapterKey].numberOfScenes = 0; // Set to 0 if the chapter doesn't exist in fullScenes
-        }
-      });
-    }
-
-    // 5. scenesToGenerateFromCurrentTime (5 forward and 5 backward)
-    return {
-      sceneId: scene.id,
-      chapters,
-      scenes: scenesFromCurrentTime({
-        currentSceneNumber: currentScene.sceneNumber,
-        currentChapter: currentScene.chapter,
-        fullScenes,
-        precedingScenes: 5,
-        followingScenes: 5,
-      })};
-  }));
+  // Call dispatchCarouselGeneration and populateCarousel in parallel
+  const [, scenesCarousel] = await Promise.all([
+    dispatchCarouselGeneration({carousel, sceneId, currentTime}),
+    populateCarousel({carousel, catalogueItem, currentTime}),
+  ]);
   logger.debug(`Time to scenesCarousel: ${Date.now() - stepTime}ms`);
   stepTime = Date.now();
   // 6. construct the final carousel object

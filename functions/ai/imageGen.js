@@ -1,5 +1,5 @@
 /* eslint-disable require-jsdoc */
-import {logger} from "firebase-functions/v2";
+import logger from "../util/logger.js";
 
 import {ENVIRONMENT} from "../config/config.js";
 import {
@@ -158,9 +158,10 @@ async function outpaintWithQueue(params) {
     });
   }
   // Now we dispatch the queue.
-  await dispatchTask("launchStabilityQueue",
-      {},
-  );
+  await dispatchTask({
+    functionName: "launchStabilityQueue",
+    data: {},
+  });
 }
 
 async function composeScenesWithQueue(params) {
@@ -193,9 +194,10 @@ async function composeScenesWithQueue(params) {
     entryParams,
     uniques,
   });
-  await dispatchTask("launchDalleQueue",
-      {},
-  );
+  await dispatchTask({
+    functionName: "launchDalleQueue",
+    data: {},
+  });
   return;
 }
 
@@ -241,9 +243,10 @@ async function styleScenesWithQueue(params) {
     entryParams,
     uniques,
   });
-  await dispatchTask("launchStabilityQueue",
-      {},
-  );
+  await dispatchTask({
+    functionName: "launchStabilityQueue",
+    data: {},
+  });
 }
 
 // This function was written before the queue was implemented.
@@ -286,7 +289,12 @@ async function imageGenChapterRecursive(req) {
 }
 
 async function imageDispatcher(request, delay) {
-  await dispatchTask("generateSceneImages", request, 60 * 5, delay);
+  await dispatchTask({
+    functionName: "generateSceneImages",
+    data: request,
+    deadline: 60 * 5,
+    scheduleDelaySeconds: delay,
+  });
 }
 
 

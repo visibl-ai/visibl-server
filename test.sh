@@ -17,14 +17,17 @@
 # lsof -ti :4400 | xargs kill
 # lsof -ti :5000 | xargs kill
 # lsof -ti :8080 | xargs kill
-
+export LOG_LEVEL=WARN
 echo "Starting firebase emulator"
 firebase emulators:start > /dev/stdout &
+#firebase emulators:start > /dev/null 2>&1 &
 LOGS_PID=$!
 sleep 10
 
 echo "running tests"
 cd functions
+# Export LOG_LEVEL environment variable
+
 mocha test/00.util.test.js --timeout 99999999999  --exit --bail --reporter spec || TEST_FAILED=true
 mocha test/01.init.test.js --timeout 99999999999  --exit --bail --reporter spec || TEST_FAILED=true
 mocha test/02.graph.test.js --timeout 99999999999  --exit --bail --reporter spec || TEST_FAILED=true

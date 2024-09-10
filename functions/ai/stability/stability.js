@@ -3,7 +3,7 @@
 import axios from "axios";
 import FormData from "form-data";
 import {Readable} from "stream";
-import logger from "firebase-functions/logger";
+import logger from "../../util/logger.js";
 import {
   STABILITY_API_KEY_1,
   STABILITY_API_KEY_2,

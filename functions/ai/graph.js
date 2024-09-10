@@ -11,7 +11,7 @@ import {
   geminiRequest,
 } from "./gemini/gemini.js";
 
-import logger from "firebase-functions/logger";
+import logger from "../util/logger.js";
 import novel from "./openai/novel.js";
 import nerFunctions from "./openai/ner.js";
 import {OPENAI_TOKENS_PER_MINUTE} from "./openai/openaiLimits.js";
