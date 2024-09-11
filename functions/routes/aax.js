@@ -23,6 +23,13 @@ import {
   dispatchTask,
 } from "../util/dispatch.js";
 
+import {
+  streamAaxFfmpeg,
+  streamAax,
+  demoOPDS,
+  demoManifest,
+} from "../util/aaxStream.js";
+
 // /v1/ai/dalle3
 
 // Endpoints to use audible-opds-firebase
@@ -81,3 +88,16 @@ export const aaxPostAuthHook = onTaskDispatched(
       return await audiblePostAuthHook(body.uid, {auth: body.auth});
     },
 );
+
+export const v1streamAax = onRequest({region: "europe-west1"}, async (req, res) => {
+  // await validateOnRequestAdmin(req);
+  await streamAax(req, res);
+});
+
+export const v1aaxDemoOPDS = onRequest({region: "europe-west1"}, async (req, res) => {
+  await demoOPDS(req, res);
+});
+
+export const v1aaxDemoManifest = onRequest({region: "europe-west1"}, async (req, res) => {
+  await demoManifest(req, res);
+});
