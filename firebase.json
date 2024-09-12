@@ -150,6 +150,21 @@
         "source": "/v1/admin/cache/populateSceneCache",
         "function": "v1populateSceneCache",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/aax/stream",
+        "function": "v1streamAax",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/aax/demoOPDS",
+        "function": "v1aaxDemoOPDS",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/aax/demoManifest",
+        "function": "v1aaxDemoManifest",
+        "region": "europe-west1"
       }
     ]
   }

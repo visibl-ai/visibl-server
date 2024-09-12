@@ -13,7 +13,7 @@ const expect = chai.expect;
 import {initializeApp} from "firebase-admin/app";
 // import {getAuth} from "firebase-admin/auth";
 import {getStorage} from "firebase-admin/storage";
-import {getAuth} from "firebase-admin/auth";
+// import {getAuth} from "firebase-admin/auth";
 import fs from "fs";
 
 
@@ -30,7 +30,7 @@ const firebaseTest = test({
 import {
   // eslint-disable-next-line no-unused-vars
   helloWorld,
-  v1catalogueGet,
+  // v1catalogueGet,
 } from "../index.js";
 const APP_ID = process.env.APP_ID;
 const app = initializeApp({
@@ -49,7 +49,7 @@ const DISPATCH_REGION = `europe-west1`;
 const SYM_PATH = "./test/bindings/";
 
 
-const SETUP_ENV = true;
+const SETUP_ENV = false;
 const DEFAULT_TIMEOUT = 99999999999999;
 
 async function uploadFiles(fileList) {
@@ -115,5 +115,58 @@ describe("AAX Stream tests", () => {
       console.log(response.body);
     });
   }
+  const queryParams = new URLSearchParams({
+    audibleKey: "XXX",
+    audibleIv: "XXX",
+    inputFile: "/bin/BK_HOWE_007172.aaxc",
+    outputFile: "/bin/BK_HOWE_007172-ch1.m4a",
+    startTime: "19.751995",
+    durationInSeconds: "3196.070998",
+  });
+  // eslint-disable-next-line no-undef
+  it("Request Headers", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
+    // Make HEAD request to /v1/aax/stream
+    const response = await chai
+        .request(`${APP_URL}`)
+        .head(`/v1/aax/stream?${queryParams.toString()}`)
+        .send();
+
+    // Assert the response
+    expect(response).to.have.status(200);
+    expect(response).to.have.header("Accept-Ranges", "bytes");
+    expect(response).to.have.header("Content-Type", "audio/m4a");
+    expect(response).to.have.header("Content-Length");
+    expect(response).to.have.header("Connection", "close");
+
+    // Log headers for debugging
+    console.log("Response headers:", response.headers);
+  });
+  // eslint-disable-next-line no-undef
+  it("Request Headers", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
+    // Make GET request with range header to /v1/aax/stream
+    const response = await chai
+        .request(`${APP_URL}`)
+        .get(`/v1/aax/stream?${queryParams.toString()}`)
+        .set("Range", "bytes=0-10000")
+        .send();
+
+    // Assert the response
+    expect(response).to.have.status(206); // Partial Content
+    expect(response).to.have.header("Content-Type", "audio/m4a");
+    expect(response).to.have.header("Content-Range");
+    expect(response).to.have.header("Content-Length", "10000"); // 10001 bytes (0-10000 inclusive)
+    expect(response).to.have.header("Accept-Ranges", "bytes");
+
+    // Verify content length matches the requested range
+    const contentLength = parseInt(response.headers["content-length"]);
+    expect(contentLength).to.equal(10000);
+
+    // Log headers and body length for debugging
+    console.log("Response headers:", response.headers);
+    console.log("Response body length:", response.body.length);
+    console.log(`${APP_URL}/v1/aax/stream?${queryParams.toString()}`);
+  });
 });
 

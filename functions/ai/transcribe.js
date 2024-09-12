@@ -11,7 +11,6 @@ import {uploadFileToBucket,
   getJsonFile,
   uploadJsonToBucket,
 } from "../storage/storage.js";
-import fs from "fs/promises";
 
 const MAX_SIZE = process.env.MAX_SIZE || 24;
 const NUM_THREADS = process.env.NUM_THREADS || 32;
@@ -162,13 +161,6 @@ async function pipeline(uid, sku, ffmpegPath ) {
   return {transcriptions: transcriptionsFile.metadata.name, metadata: metadata.bookData, splitAudio};
 }
 
-async function downloadFffmpegBinary() {
-  const ffmpegPath = "./bin/ffmpeg";
-  await downloadFileFromBucket({bucketPath: "bin/ffmpeg", localPath: ffmpegPath});
-  await fs.chmod(ffmpegPath, 0o755);
-  return ffmpegPath;
-}
-
 async function generateTranscriptions(uid, data) {
   logger.debug(JSON.stringify(data));
   //   if (data.run !== true) {
@@ -179,7 +171,7 @@ async function generateTranscriptions(uid, data) {
   logger.debug(`Processing FileName: ${sku} for ${uid}`);
   let ffmpegPath;
   logger.debug(`Downloading ffmpeg binary`);
-  ffmpegPath = await downloadFffmpegBinary();
+  ffmpegPath = await ffmpegTools.downloadFffmpegBinary();
   if (ENVIRONMENT.value() === "development") {
     ffmpegPath = `ffmpeg`;
   }

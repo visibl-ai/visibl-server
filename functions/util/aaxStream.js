@@ -1,57 +1,9 @@
+/* eslint-disable require-jsdoc */
 import fetch from "node-fetch";
 import logger from "../util/logger.js";
-
-const streamAax = async (req, res) => {
-  try {
-    const url = "https://firebasestorage.googleapis.com/v0/b/visibl-dev-ali.appspot.com/o/Catalogue%2FProcessed%2FVISIBL_000001%2FVISIBL_000001-ch3.m4a?alt=media&token=01b2d5c1-cfbb-4d17-8499-40d0eda5e0a3"; // Replace with your actual target URL
-
-    // Forward the original request headers
-    const headers = {...req.headers};
-    delete headers.host; // Remove the 'host' header as it will be set by fetch
-    delete headers["x-forwarded-host"];
-    delete headers["x-original-url"];
-    delete headers.connection;
-    // Ensure the 'range' header is forwarded if present
-    if (headers.range) {
-      headers.Range = headers.range;
-      delete headers.range;
-    }
-    logger.debug(`METHOD: ${req.method}`);
-    logger.debug(`HEADERS: ${JSON.stringify(headers)}`);
-    const response = await fetch(url, {
-      method: req.method,
-      headers: headers,
-      body: req.method !== "GET" && req.method !== "HEAD" ? req.body : undefined,
-    });
-
-    // Log the response details
-    logger.debug(`Response status: ${response.status}`);
-    logger.debug(`Response headers: ${JSON.stringify(Object.fromEntries(response.headers))}`);
-
-    // If you want to log the body for non-streaming responses:
-    let bodyText;
-    if (!response.body.pipe) {
-      bodyText = await response.text();
-      logger.debug(`Response body: ${bodyText}`);
-    }
-
-    // Set the status code and headers from the proxied response
-    res.status(response.status);
-    response.headers.forEach((value, name) => {
-      res.setHeader(name, value);
-    });
-
-    // Pipe the response body to the client
-    if (response.body.pipe) {
-      response.body.pipe(res);
-    } else {
-      res.send(bodyText);
-    }
-  } catch (error) {
-    logger.error("Error proxying request:", error);
-    res.status(500).send("Internal Server Error");
-  }
-};
+import {promises as fsPromises} from "fs";
+import fs from "fs";
+import ffmpegTools from "../util/ffmpeg.js";
 
 const demoOPDS = async (req, res) => {
   res.json({
@@ -119,7 +71,7 @@ const demoManifest = async (req, res) => {
         "type": "audio/mp4",
         "duration": 3196,
         "title": "AAX DEMO",
-        "href": "http://localhost:5002/v1/aax/stream",
+        "href": "http://127.0.0.1:5002/v1/aax/stream?audibleKey=XXX&audibleIv=XXX&inputFile=%2Fbin%2FBK_HOWE_007172.aaxc&outputFile=%2Fbin%2FBK_HOWE_007172-ch3.m4a&startTime=19.751995&durationInSeconds=3196.070998",
       },
     ],
   });
@@ -191,4 +143,111 @@ const streamAaxFfmpeg = async (req, res) => {
   }
 };
 
-export {streamAax, demoOPDS, demoManifest, streamAaxFfmpeg};
+async function aaxcStreamer(req, res) {
+  // Handle HEAD request separately
+  if (req.method === "HEAD") {
+    return handleHeadRequest(req, res);
+  } else if (req.method === "GET") {
+    return handleGetRequest(req, res);
+  }
+}
+
+function paramsFromReq(req) {
+  const {
+    audibleKey,
+    audibleIv,
+    inputFile,
+    outputFile,
+    startTime,
+    durationInSeconds,
+  } = req.query;
+  logger.debug(`paramsFromReq: ${JSON.stringify(req.query)}`);
+  return {
+    audibleKey,
+    audibleIv,
+    inputFile,
+    outputFile,
+    startTime: startTime ? parseFloat(startTime) : undefined,
+    durationInSeconds: durationInSeconds ? parseFloat(durationInSeconds) : undefined,
+  };
+}
+
+async function handleHeadRequest(req, res) {
+  logger.debug("Handling HEAD request");
+
+  const params = paramsFromReq(req);
+  const path = await ffmpegTools.generateM4bInMem(params);
+  const stats = await fsPromises.stat(path);
+  logger.debug(`stats: ${JSON.stringify(stats)}`);
+  const contentLength = stats.size;
+  logger.debug(`contentLength: ${path} ${contentLength}`);
+  // Here we respond with the correct headers for the content.
+  res.writeHead(200, {
+    "Accept-Ranges": "bytes",
+    "Content-Type": "audio/m4a", // Correct content type for ADTS-wrapped AAC
+    "Connection": "close",
+    "Content-Length": contentLength, // Omit or dynamically calculate if static file
+    // "Cache-Control": "private, max-age=0",
+    // "Date": new Date().toUTCString(),
+    // "Server": "FFmpeg-Server",
+  });
+
+  res.end(); // End the response without sending a body
+}
+
+async function handleGetRequest(req, res) {
+  logger.debug("Headers:", req.headers);
+  const range = req.headers.range;
+  if (!range) {
+    return res.status(416).send("Range required supported");
+  }
+  const params = paramsFromReq(req);
+  const outputPath = `${process.cwd()}${params.outputFile}`;
+  const stats = await fsPromises.stat(outputPath);
+  logger.debug(`stats: ${JSON.stringify(stats)}`);
+  const contentLength = stats.size;
+  // Parse the byte range from the request
+  const parts = range.replace(/bytes=/, "").split("-");
+  const startByte = parseInt(parts[0], 10);
+  const endByte = parts[1] ? parseInt(parts[1], 10) : contentLength - 1;
+  let endbyteToSend = endByte;
+  if (endByte == contentLength) {
+    endbyteToSend = contentLength - 1;
+  }
+  const headersToSend = {
+    // 'Content-Range': `bytes ${newStartByte}-${newEndByte}/${audioFileSize}`,
+    "Content-Range": `bytes ${startByte}-${endbyteToSend}/${contentLength}`,
+    "Accept-Ranges": "bytes",
+    // 'Content-Length': `${newEndByte-newStartByte}`,
+    "Content-Length": `${endByte-startByte}`,
+    "Content-Type": "audio/m4a",
+    // 'Connection':"close",
+  };
+  console.log(`Sending headers:`, headersToSend);
+  res.writeHead(206, headersToSend);
+  const fileStream = fs.createReadStream(outputPath, {start: startByte, end: endByte});
+  fileStream.on("error", (err) => {
+    console.error("Error reading file:", err);
+    if (!res.headersSent) {
+      res.status(500).send("Error during streaming");
+    }
+  });
+
+  fileStream.on("end", () => {
+    console.log("Reached the end of the partial file stream");
+  });
+
+  fileStream.pipe(res);
+
+  res.on("close", () => {
+    console.log("Client closed connection");
+    fileStream.destroy();
+  });
+}
+
+export {
+  demoOPDS,
+  demoManifest,
+  streamAaxFfmpeg,
+  aaxcStreamer,
+};

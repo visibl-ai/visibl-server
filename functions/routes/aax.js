@@ -24,8 +24,7 @@ import {
 } from "../util/dispatch.js";
 
 import {
-  streamAaxFfmpeg,
-  streamAax,
+  aaxcStreamer,
   demoOPDS,
   demoManifest,
 } from "../util/aaxStream.js";
@@ -91,7 +90,7 @@ export const aaxPostAuthHook = onTaskDispatched(
 
 export const v1streamAax = onRequest({region: "europe-west1"}, async (req, res) => {
   // await validateOnRequestAdmin(req);
-  await streamAax(req, res);
+  await aaxcStreamer(req, res);
 });
 
 export const v1aaxDemoOPDS = onRequest({region: "europe-west1"}, async (req, res) => {

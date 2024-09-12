@@ -6,8 +6,13 @@
 
 
 import ffmpeg from "fluent-ffmpeg";
+import {
+  downloadFileFromBucket,
+} from "../storage/storage.js";
+import fs from "fs/promises";
 // import fs from 'fs/promises';
 import logger from "./logger.js";
+import {ENVIRONMENT} from "../config/config.js";
 
 
 const splitAudioInParallel = async (
@@ -158,6 +163,49 @@ const ffprobe = async (inputFile, ffprobePath) => {
   });
 };
 
+// eslint-disable-next-line require-jsdoc
+async function generateM4bInMem(params) {
+  let ffmpegPath = await downloadFffmpegBinary();
+  if (ENVIRONMENT.value() === "development") {
+    ffmpegPath = `ffmpeg`;
+  }
+  logger.debug(`Current working directory: ${process.cwd()}`);
+
+  return new Promise((resolve, reject) => {
+    const inputPath = `${process.cwd()}${params.inputFile}`;
+    const outputPath = `${process.cwd()}${params.outputFile}`;
+    logger.debug(`inputPath: ${inputPath}`);
+    logger.debug(`params: ${JSON.stringify(params)}`);
+    ffmpeg(inputPath).setFfmpegPath(ffmpegPath)
+        .setStartTime(params.startTime)
+        .setDuration(params.durationInSeconds)
+        .audibleKey(params.audibleKey)
+        .audibleIv(params.audibleIv)
+        .audioCodec("copy")
+        .noVideo()
+        .output(outputPath)
+        .on("start", (commandLine) => {
+          logger.debug("FFmpeg command: " + commandLine);
+        })
+        .on("end", () => {
+          logger.debug(`Compressed ${params.inputFile} into ${params.outputFile} from ${params.startTime} for ${params.durationInSeconds} complete`);
+          resolve(outputPath);
+        }).on("error", (err) => {
+          logger.error("An error occurred: " + err.message);
+          reject(err);
+        })
+        .run();
+  });
+}
+
+// eslint-disable-next-line require-jsdoc
+async function downloadFffmpegBinary() {
+  const ffmpegPath = "./bin/ffmpeg";
+  await downloadFileFromBucket({bucketPath: "bin/ffmpeg", localPath: ffmpegPath});
+  await fs.chmod(ffmpegPath, 0o755);
+  return ffmpegPath;
+}
+
 
 const ffmpegTools = {
   splitAudio,
@@ -165,6 +213,8 @@ const ffmpegTools = {
   splitAudioInSeries,
   ffprobe,
   splitAudioWithMaxSize,
+  generateM4bInMem,
+  downloadFffmpegBinary,
 };
 
 export default ffmpegTools;
