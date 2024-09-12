@@ -8,6 +8,7 @@
 import ffmpeg from "fluent-ffmpeg";
 import {
   downloadFileFromBucket,
+  getFileStream,
 } from "../storage/storage.js";
 import fs from "fs/promises";
 // import fs from 'fs/promises';
@@ -170,13 +171,11 @@ async function generateM4bInMem(params) {
     ffmpegPath = `ffmpeg`;
   }
   logger.debug(`Current working directory: ${process.cwd()}`);
-
+  const inputStream = await getFileStream({path: `UserData/${params.uid}/Uploads/AAXRaw/${params.sku}.aaxc`});
   return new Promise((resolve, reject) => {
-    const inputPath = `${process.cwd()}${params.inputFile}`;
-    const outputPath = `${process.cwd()}${params.outputFile}`;
-    logger.debug(`inputPath: ${inputPath}`);
+    const outputPath = params.outputFile;
     logger.debug(`params: ${JSON.stringify(params)}`);
-    ffmpeg(inputPath).setFfmpegPath(ffmpegPath)
+    ffmpeg(inputStream).setFfmpegPath(ffmpegPath)
         .setStartTime(params.startTime)
         .setDuration(params.durationInSeconds)
         .audibleKey(params.audibleKey)

@@ -152,31 +152,51 @@ async function aaxcStreamer(req, res) {
   }
 }
 
+function getOutputFilePath(params) {
+  return `${process.cwd()}/bin/${params.sku}-${params.audibleKey}-${params.startTime}.m4a`;
+}
+
 function paramsFromReq(req) {
   const {
     audibleKey,
     audibleIv,
-    inputFile,
-    outputFile,
+    sku,
+    uid,
     startTime,
     durationInSeconds,
   } = req.query;
   logger.debug(`paramsFromReq: ${JSON.stringify(req.query)}`);
+  const outputFile = getOutputFilePath(req.query);
   return {
     audibleKey,
     audibleIv,
-    inputFile,
+    sku,
+    uid,
     outputFile,
     startTime: startTime ? parseFloat(startTime) : undefined,
     durationInSeconds: durationInSeconds ? parseFloat(durationInSeconds) : undefined,
   };
 }
 
+async function m4bInMem(params) {
+  const outputPath = getOutputFilePath(params);
+  try {
+    await fsPromises.access(outputPath);
+    logger.debug(`File ${outputPath} already exists, using cached version`);
+    return outputPath;
+  } catch (error) {
+    // File doesn't exist, proceed with generation
+    logger.debug(`File ${outputPath} does not exist, generating new file`);
+  }
+  const path = await ffmpegTools.generateM4bInMem(params);
+  return path;
+}
+
 async function handleHeadRequest(req, res) {
   logger.debug("Handling HEAD request");
 
   const params = paramsFromReq(req);
-  const path = await ffmpegTools.generateM4bInMem(params);
+  const path = await m4bInMem(params);
   const stats = await fsPromises.stat(path);
   logger.debug(`stats: ${JSON.stringify(stats)}`);
   const contentLength = stats.size;
@@ -202,7 +222,7 @@ async function handleGetRequest(req, res) {
     return res.status(416).send("Range required supported");
   }
   const params = paramsFromReq(req);
-  const outputPath = `${process.cwd()}${params.outputFile}`;
+  const outputPath = await m4bInMem(params);
   const stats = await fsPromises.stat(outputPath);
   logger.debug(`stats: ${JSON.stringify(stats)}`);
   const contentLength = stats.size;

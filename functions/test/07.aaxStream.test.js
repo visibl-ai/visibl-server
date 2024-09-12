@@ -47,7 +47,7 @@ const DISPATCH_URL = `http://127.0.0.1:5001`;
 const APP_URL = `http://127.0.0.1:5002`;
 const DISPATCH_REGION = `europe-west1`;
 const SYM_PATH = "./test/bindings/";
-
+const UID = "UID0101010";
 
 const SETUP_ENV = false;
 const DEFAULT_TIMEOUT = 99999999999999;
@@ -88,6 +88,7 @@ describe("AAX Stream tests", () => {
         {from: `m4b/${process.env.PUBLIC_SKU1}.json`, to: `Catalogue/Raw/${process.env.PUBLIC_SKU1}.json`},
         {from: `m4b/${process.env.PUBLIC_SKU1}.jpg`, to: `Catalogue/Raw/${process.env.PUBLIC_SKU1}.jpg`},
         {from: `m4b/${process.env.PUBLIC_SKU1}.m4b`, to: `Catalogue/Raw/${process.env.PUBLIC_SKU1}.m4b`},
+        {from: `m4b/${process.env.SKU3}.aaxc`, to: `UserData/${UID}/Uploads/AAXRaw/${process.env.SKU3}.aaxc`},
       ]);
       let response = await chai
           .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
@@ -118,8 +119,9 @@ describe("AAX Stream tests", () => {
   const queryParams = new URLSearchParams({
     audibleKey: "XXX",
     audibleIv: "XXX",
-    inputFile: "/bin/BK_HOWE_007172.aaxc",
-    outputFile: "/bin/BK_HOWE_007172-ch1.m4a",
+    uid: UID,
+    sku: process.env.SKU3,
+    // inputFile: `${process.env.SKU3}.aaxc`,
     startTime: "19.751995",
     durationInSeconds: "3196.070998",
   });
@@ -143,7 +145,7 @@ describe("AAX Stream tests", () => {
     console.log("Response headers:", response.headers);
   });
   // eslint-disable-next-line no-undef
-  it("Request Headers", async function() {
+  it("Request Range", async function() {
     this.timeout(DEFAULT_TIMEOUT);
     // Make GET request with range header to /v1/aax/stream
     const response = await chai
