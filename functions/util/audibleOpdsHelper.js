@@ -102,7 +102,7 @@ async function audiblePostAuthHook(uid, data) {
   // or not in the users Bucket, do it!.
   const userItems = await aaxGetItemsFirestore(uid);
   logger.info("userItems", {userItems});
-  let itemsToProcess = userItems.filter((item) => item.m4bGenerated !== true);
+  let itemsToProcess = userItems.filter((item) => item.fileSize !== true);
   logger.info("M4B itemsToProcess", {itemsToProcess});
   await generateM4B(uid, auth, itemsToProcess);
   itemsToProcess = userItems.filter((item) => item.transcriptionsGenerated !== true);
@@ -116,7 +116,7 @@ async function generateM4B(uid, auth, itemsToProcess) {
     try {
       if (ENVIRONMENT.value() === "development") {
         logger.info(`Skipping generation of m4b for item ${item.asin} in development environment.`);
-        item.m4bGenerated = true;
+        item.fileSize = true;
         await aaxUpdateItemFirestore(item);
         return;
       }
@@ -132,13 +132,16 @@ async function generateM4B(uid, auth, itemsToProcess) {
           "API-KEY": AUDIBLE_OPDS_API_KEY.value(),
         },
       });
-
+      TODO: use ffmpeg to get the size here!!
       if (response.status === 200 && response.data.status === "success") {
         logger.info(`Successfully downloaded generated m4b for item ${item.asin}`);
         // Here you would typically process the downloaded file
         // For example, convert it to M4B format
         // Then update the item status in Firestore
-        item.m4bGenerated = true;
+        item.fileSize = true;
+        item.key = response.key;
+        item.iv = response.iv;
+        item.licenceRules = response.licence_rules;
         await aaxUpdateItemFirestore(item);
       } else {
         logger.error(`Failed to download generated m4b for item ${item.asin}`, response.data);
