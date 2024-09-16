@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect to Audible</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Text:ital@0;1&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: "DM Serif Text", system-ui;
+            margin: 0;
+            padding: 0;
+            background: #000000; /* Set background to black */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 400px;
+        }
+        img {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+        h1 {
+            font-size: 18px;
+            color: #333;
+        }
+        p {
+            font-size: 14px;
+            color: #666;
+        }
+        ul {
+            margin: 10px 0;
+            padding: 0 20px;
+        }
+        li {
+            font-size: 14px;
+            color: #555;
+        }
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        button {
+            width: 48%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button.accept {
+            background-color: #007BFF;
+            color: white;
+        }
+        button.decline {
+            background-color: white;
+            color: #dc3545;
+            border: 1px solid #dc3545;
+        }
+        .footer {
+            font-size: 12px;
+            text-align: center;
+            margin-top: 20px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="amazon-connect.png" alt="Visibl connecting to Audible">
+        <h1>Play your Audible content in Visibl</h1>
+        <p>Visibl allows you to listen to content you have purchased from third parties via fair-use open-source libraries. <a href="#" id="learnMoreLink">Learn more.</a></p>
+        <ul>
+            <li>I understand that Visibl is not affiliated with Audible, or Amazon.</li>
+            <li>I consent to storing my DRM protected content on Google Storage for personal use.</li>
+            <li>I consent to transcribing my audio content for personal accessibility purposes.</li>
+        </ul>
+        <div class="button-container">
+            <button class="decline">Decline</button>
+            <button class="accept">Accept</button>
+        </div>
+        <p class="footer">Audible™ and the Audible logo are trademarks of Amazon.com, Inc or its affiliates and are in no way affiliated with Visibl.</p>
+    </div>
+
+    <!-- Add the following script before the closing body tag -->
+    <script>
+        // Extract the redirectId from the URL query string
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectId = urlParams.get('redirectId');
+
+        // Get the accept button element
+        const acceptButton = document.querySelector('.accept');
+
+        if (redirectId) {
+            // Set the accept button's click event to redirect to the desired URL
+            acceptButton.addEventListener('click', () => {
+                window.location.href = `https://app.visibl.ai/api/aaxConnectRedirect/${redirectId}`;
+            });
+        } else {
+            // If redirectId is not present, disable the accept button and show a message
+            acceptButton.disabled = true;
+            acceptButton.textContent = 'Redirect ID Missing';
+        }
+
+        // Modify the decline button's behavior to send a message to the iOS app
+        const declineButton = document.querySelector('.decline');
+        declineButton.addEventListener('click', () => {
+            // Call a function that the iOS app can intercept
+            window.webkit.messageHandlers.closeWebView.postMessage("close");
+        });
+
+        // Add event listener for the "Learn More" link
+        document.getElementById('learnMoreLink').addEventListener('click', function(e) {
+            e.preventDefault();
+            const url = 'https://github.com/mkb79/Audible?tab=readme-ov-file#audible';
+            window.webkit.messageHandlers.openExternalUrl.postMessage(url);
+        });
+    </script>
+</body>
+</html>
