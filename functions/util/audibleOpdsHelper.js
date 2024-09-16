@@ -1,12 +1,13 @@
-
 /* eslint-disable require-jsdoc */
 import axios from "axios";
 import logger from "../util/logger.js";
+import crypto from "crypto";
 
 import {AUDIBLE_OPDS_API_KEY,
   AUDIBLE_OPDS_FIREBASE_URL,
   STORAGE_BUCKET_ID,
   ENVIRONMENT,
+  HOSTING_DOMAIN,
 } from "../config/config.js";
 
 import {
@@ -23,6 +24,11 @@ import {
   aaxGetItemsFirestore,
   aaxGetAllAuthFirestore,
 } from "../storage/firestore/aax.js";
+
+import {
+  storeData,
+  getData,
+} from "../storage/realtimeDb/database.js";
 
 
 import {generateTranscriptions} from "../ai/transcribe.js";
@@ -56,13 +62,33 @@ async function getAAXLoginURL(uid, data) {
       "API-KEY": AUDIBLE_OPDS_API_KEY.value(),
     },
   });
-
-  const loginUrl = response.data.login_url;
+  const uuid = crypto.randomUUID();
+  logger.debug(`getAAXLoginURL setting uuid for login url: ${uuid}`);
+  await storeData({ref: `aaxLoginURLs/${uuid}`, data: {loginUrl: response.data.login_url}});
+  const loginUrl = `${HOSTING_DOMAIN.value()}/aaxConnect/connect.html?redirectId=${uuid}`;
+  const redirectUrl = response.data.login_url;
   const codeVerifier = response.data.code_verifier;
   const serial = response.data.serial;
-  return {loginUrl, codeVerifier, serial};
+  return {loginUrl, codeVerifier, serial, redirectUrl};
 }
 
+async function redirectToAAXLogin(req, res) {
+  const redirectId = req.path.split("/").pop();
+
+  if (!redirectId) {
+    logger.error("redirectToAAXLogin: Missing redirectId");
+    return res.status(400).send("Missing redirectId");
+  }
+  logger.debug(`redirectToAAXLogin: redirectId: ${redirectId}`);
+  const loginUrlData = await getData({ref: `aaxLoginURLs/${redirectId}`});
+  if (loginUrlData && loginUrlData.loginUrl) {
+    logger.debug(`redirectToAAXLogin: redirecting ${redirectId} to ${loginUrlData.loginUrl}`);
+    res.redirect(loginUrlData.loginUrl);
+  } else {
+    logger.error("redirectToAAXLogin: Login URL not found");
+    res.status(404).send("Login URL not found");
+  }
+}
 
 // eslint-disable-next-line require-jsdoc
 async function getAAXAuth(uid, data) {
@@ -279,4 +305,5 @@ export {
   refreshAAXTokens,
   submitAAXAuth,
   disconnectAAXAuth,
+  redirectToAAXLogin,
 };

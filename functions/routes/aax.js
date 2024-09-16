@@ -9,6 +9,7 @@ import {
   audiblePostAuthHook,
   submitAAXAuth,
   disconnectAAXAuth,
+  redirectToAAXLogin,
 } from "../util/audibleOpdsHelper.js";
 
 import {
@@ -99,4 +100,8 @@ export const v1aaxDemoOPDS = onRequest({region: "europe-west1"}, async (req, res
 
 export const v1aaxDemoManifest = onRequest({region: "europe-west1"}, async (req, res) => {
   await demoManifest(req, res);
+});
+
+export const v1aaxConnectRedirect = onRequest({region: "europe-west1"}, async (req, res) => {
+  await redirectToAAXLogin(req, res);
 });

@@ -29,7 +29,7 @@ import test from "firebase-functions-test";
 dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't work with conf.
 // Start the Firebase Functions test environment
 const firebaseTest = test({
-  databaseURL: "http://localhost:8080",
+  databaseURL: "http://localhost:9000",
   storageBucket: "visibl-dev-ali.appspot.com",
   projectId: "visibl-dev-ali",
 });
@@ -76,7 +76,7 @@ const auth = getAuth();
 // const db = getFirestore();
 
 const TEST_USER_EMAIL = `john.${Date.now()}@example.com`;
-const AAX_TESTS = false;
+const AAX_TESTS = true;
 
 
 async function callStabilityQueue() {
@@ -448,6 +448,8 @@ describe("Full functional tests of visibl api", () => {
       expect(result).to.have.property("connected").that.is.a("boolean");
       expect(result.connected).to.be.false;
     });
+    let loginUrl;
+    let redirectUrl;
     // eslint-disable-next-line no-undef
     it("AAX - get login URL", async () => {
       const wrapped = firebaseTest.wrap(v1getAAXLoginURL);
@@ -462,9 +464,30 @@ describe("Full functional tests of visibl api", () => {
       });
       console.log(result);
       expect(result).to.have.property("loginUrl");
+      loginUrl = result.loginUrl;
       expect(result).to.have.property("codeVerifier");
       expect(result).to.have.property("serial");
+      expect(result).to.have.property("redirectUrl");
+      redirectUrl = result.redirectUrl;
+      console.log(`AAX: loginUrl: ${loginUrl}, redirectUrl: ${redirectUrl}`);
     });
+    // eslint-disable-next-line no-undef
+    it("AAX - check login URL redirection", async () => {
+      // Extract the redirectId from the loginUrl query string
+      const redirectId = loginUrl.split("?redirectId=")[1];
+
+      expect(redirectId).to.be.a("string").and.not.be.empty;
+      console.log(`Extracted redirectId: ${redirectId}`);
+      expect(loginUrl).to.be.a("string").and.not.be.empty;
+      expect(redirectUrl).to.be.a("string").and.not.be.empty;
+      const REDIRECT_URL = `${APP_URL}/v1/aax/aaxConnectRedirect/${redirectId}`;
+      console.log(`AAX: Checking redirect of URL: ${REDIRECT_URL}`);
+      const response = await chai.request(REDIRECT_URL).get("").redirects(0);
+      console.log(`AAX: response: ${response.text}`);
+      expect(response).to.redirectTo(redirectUrl);
+      expect(response).to.have.status(302);
+    });
+
     // eslint-disable-next-line no-undef
     it(`Uploads audible files to UserData`, async () => {
       const fileList = [
