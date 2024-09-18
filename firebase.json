@@ -92,6 +92,16 @@
         "region": "europe-west1"
       },
       {
+        "source": "/v1/admin/aax/deleteAuth",
+        "function": "v1AdminDeleteAAXAuth",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/aax/aaxConnectRedirect/**",
+        "function": "v1aaxConnectRedirect",
+        "region": "europe-west1"
+      },
+      {
         "source": "/v1/tmp/privateOPDS/**",
         "function": "v1TMPgetPrivateOPDSFeed",
         "region": "europe-west1"

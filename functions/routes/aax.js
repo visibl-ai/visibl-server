@@ -1,5 +1,6 @@
 /* eslint-disable require-jsdoc */
 import {onCall, onRequest} from "firebase-functions/v2/https";
+import logger from "../util/logger.js";
 import {validateOnCallAuth, validateOnRequestAdmin} from "../auth/auth.js";
 import {onTaskDispatched} from "firebase-functions/v2/tasks";
 import {
@@ -10,12 +11,14 @@ import {
   submitAAXAuth,
   disconnectAAXAuth,
   redirectToAAXLogin,
+  aaxcTranscribe,
 } from "../util/audibleOpdsHelper.js";
 
 import {
   getAAXAvailableFirestore,
   setAAXAvailableFirestore,
   getAAXConnectStatusFirestore,
+  deleteAAXAuthFirestore,
 } from "../storage/firestore/users.js";
 
 import {
@@ -28,7 +31,7 @@ import {
   aaxcStreamer,
   demoOPDS,
   demoManifest,
-} from "../util/aaxStream.js";
+} from "../audio/aaxStream.js";
 
 // /v1/ai/dalle3
 
@@ -79,6 +82,11 @@ export const v1AdminSetAAXAvailable = onRequest({region: "europe-west1"}, async 
   res.status(200).send(await setAAXAvailableFirestore(req));
 });
 
+export const v1AdminDeleteAAXAuth = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await deleteAAXAuthFirestore(req));
+});
+
 export const aaxPostAuthHook = onTaskDispatched(
     largeDispatchInstance(),
     async (req) => {
@@ -86,6 +94,14 @@ export const aaxPostAuthHook = onTaskDispatched(
       // const body = req.data;
       const {body: body} = dataToBody(req);
       return await audiblePostAuthHook(body.uid, {auth: body.auth});
+    },
+);
+
+export const aaxDispatchTranscriptions = onTaskDispatched(
+    largeDispatchInstance(),
+    async (req) => {
+      logger.debug(`aaxDispatchTranscriptions: ${JSON.stringify(req.data)}`);
+      return await aaxcTranscribe(dataToBody(req).body);
     },
 );
 

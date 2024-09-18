@@ -105,7 +105,7 @@
         if (redirectId) {
             // Set the accept button's click event to redirect to the desired URL
             acceptButton.addEventListener('click', () => {
-                window.location.href = `https://app.visibl.ai/api/aaxConnectRedirect/${redirectId}`;
+                window.location.href = `${window.location.protocol}//${window.location.host}/v1/aax/aaxConnectRedirect/${redirectId}`;
             });
         } else {
             // If redirectId is not present, disable the accept button and show a message

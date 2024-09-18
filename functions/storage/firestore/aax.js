@@ -73,7 +73,6 @@ async function aaxUpdateItemFirestore(item) {
   await itemRef.update(item);
 }
 
-
 async function aaxGetAllAuthFirestore(expiry, lastDocId = null, limit = 100) {
   const db = getFirestore();
   const authRef = db.collection("AAXAuth");

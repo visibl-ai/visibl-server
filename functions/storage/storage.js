@@ -236,6 +236,14 @@ async function downloadFileFromBucket(params) {
   return await file.download({destination: localPath});
 }
 
+async function deleteLocalFiles(localPaths) {
+  await Promise.all(localPaths.map((localPath) =>
+    fs.unlink(localPath).catch((error) =>
+      logger.error(`Error deleting file ${localPath}:`, error),
+    ),
+  ));
+}
+
 async function uploadFileToBucket(params) {
   const {localPath, bucketPath} = params;
   const bucket = getStorage(app).bucket(STORAGE_BUCKET_ID.value());
@@ -366,4 +374,5 @@ export {
   storeGraph,
   getGraph,
   downloadImage,
+  deleteLocalFiles,
 };

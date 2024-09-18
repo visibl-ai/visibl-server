@@ -3,7 +3,7 @@ import fetch from "node-fetch";
 import logger from "../util/logger.js";
 import {promises as fsPromises} from "fs";
 import fs from "fs";
-import ffmpegTools from "../util/ffmpeg.js";
+import ffmpegTools from "./ffmpeg.js";
 
 const demoOPDS = async (req, res) => {
   res.json({
@@ -192,6 +192,32 @@ async function m4bInMem(params) {
   return path;
 }
 
+async function splitAaxc(params) {
+  const {metadata, uid, sku, audibleKey, audibleIv, numThreads} = params;
+  logger.debug(`splitAaxc metadata: ${JSON.stringify(params, null, 2)}`);
+  const outputFiles = metadata.outputFiles;
+  const results = [];
+  let i = 0;
+
+  while (i < outputFiles.length) {
+    const tasks = [];
+    for (let j = 0; j < numThreads && i < outputFiles.length; j++, i++) {
+      const task = ffmpegTools.generateM4bInMem({
+        uid,
+        sku,
+        startTime: metadata.startTimes[i],
+        durationInSeconds: parseFloat(metadata.endTimes[i] - metadata.startTimes[i]),
+        audibleKey,
+        audibleIv,
+        outputFile: outputFiles[i]});
+      tasks.push(task);
+    }
+    results.push(...await Promise.all(tasks));
+  }
+
+  return results;
+}
+
 async function handleHeadRequest(req, res) {
   logger.debug("Handling HEAD request");
 
@@ -270,4 +296,5 @@ export {
   demoManifest,
   streamAaxFfmpeg,
   aaxcStreamer,
+  splitAaxc,
 };

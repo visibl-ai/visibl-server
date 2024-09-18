@@ -30,10 +30,19 @@ import {
   getData,
 } from "../storage/realtimeDb/database.js";
 
+import {
+  queueAddEntries,
+  queueGetEntries,
+} from "../storage/firestore/queue.js";
+
 
 import {generateTranscriptions} from "../ai/transcribe.js";
 
 import {addSkuToCatalogue} from "./opds.js";
+
+import {
+  dispatchTask,
+} from "./dispatch.js";
 
 
 function formatFunctionsUrl(functionName) {
@@ -128,50 +137,67 @@ async function audiblePostAuthHook(uid, data) {
   // or not in the users Bucket, do it!.
   const userItems = await aaxGetItemsFirestore(uid);
   logger.info("userItems", {userItems});
-  let itemsToProcess = userItems.filter((item) => item.fileSize !== true);
+  const itemsToProcess = userItems.filter((item) => item.fileSize !== true);
   logger.info("M4B itemsToProcess", {itemsToProcess});
-  await generateM4B(uid, auth, itemsToProcess);
-  itemsToProcess = userItems.filter((item) => item.transcriptionsGenerated !== true);
-  logger.info("Transcriptions itemsToProcess", {itemsToProcess});
-  await transcribe(uid, itemsToProcess);
+  await downloadAAXCandQueueTranscriptions(uid, auth, itemsToProcess);
+  // itemsToProcess = userItems.filter((item) => item.transcriptionsGenerated !== true);
+  // logger.info("Transcriptions itemsToProcess", {itemsToProcess});
+  // await transcribe(uid, itemsToProcess);
+  await dispatchTask({
+    functionName: "aaxDispatchTranscriptions",
+    data: {},
+  });
   return {success: true};
 }
 
-async function generateM4B(uid, auth, itemsToProcess) {
+async function downloadAAXCandQueueTranscriptions(uid, auth, itemsToProcess) {
   await Promise.all(itemsToProcess.map(async (item) => {
     try {
       if (ENVIRONMENT.value() === "development") {
-        logger.info(`Skipping generation of m4b for item ${item.asin} in development environment.`);
-        item.fileSize = true;
-        await aaxUpdateItemFirestore(item);
-        return;
+        logger.info(`Download of AAXC for item ${item.asin} in development environment.`);
+        item.transcriptionsGenerated = false;
+        item.licenceRules = [{"name": "DefaultExpiresRule", "parameters": [{"expireDate": "3000-01-01T00:00:00Z", "type": "EXPIRES"}]}];
+        if (item.sku === process.env.SKU1) {
+          item.key = process.env.SKU1KEYIV.split(":")[0];
+          item.iv = process.env.SKU1KEYIV.split(":")[1];
+        } else if (item.sku === process.env.SKU2) {
+          item.key = process.env.SKU2KEYIV.split(":")[0];
+          item.iv = process.env.SKU2KEYIV.split(":")[1];
+        }
+      } else { // Production
+        const response = await axios.post(formatFunctionsUrl("audible_download_aaxc"), {
+          country_code: auth.locale_code, // You might want to make this dynamic based on user's country
+          auth: auth,
+          asin: item.asin,
+          sku: item.sku,
+          bucket: STORAGE_BUCKET_ID.value(),
+          path: `UserData/${uid}/Uploads/AAXRaw/`,
+        }, {
+          headers: {
+            "API-KEY": AUDIBLE_OPDS_API_KEY.value(),
+          },
+        });
+        if (response.status === 200 && response.data.status === "success") {
+          logger.info(`Successfully downloaded generated m4b for item ${item.asin}`);
+          // Here you would typically process the downloaded file
+          // For example, convert it to M4B format
+          // Then update the item status in Firestore
+          item.transcriptionsGenerated = false;
+          item.key = response.data.key;
+          item.iv = response.data.iv;
+          item.licenceRules = response.data.licence_rules;
+        } else {
+          logger.error(`Failed to download generated m4b for item ${item.asin}`, response.data);
+          return;
+        }
       }
-      const response = await axios.post(formatFunctionsUrl("audible_download_aaxc"), {
-        country_code: auth.locale_code, // You might want to make this dynamic based on user's country
-        auth: auth,
-        asin: item.asin,
-        sku: item.sku,
-        bucket: STORAGE_BUCKET_ID.value(),
-        path: `UserData/${uid}/Uploads/AAXRaw/`,
-      }, {
-        headers: {
-          "API-KEY": AUDIBLE_OPDS_API_KEY.value(),
-        },
+      await aaxUpdateItemFirestore(item);
+      await queueAddEntries({
+        types: ["transcription"],
+        entryTypes: ["aaxc"],
+        entryParams: [{uid, item}],
+        uniques: [aaxcTranscribeQueueToUnique({type: "transcription", entryType: "aaxc", uid, itemId: item.id})],
       });
-      // TODO: use ffmpeg to get the size here!!
-      if (response.status === 200 && response.data.status === "success") {
-        logger.info(`Successfully downloaded generated m4b for item ${item.asin}`);
-        // Here you would typically process the downloaded file
-        // For example, convert it to M4B format
-        // Then update the item status in Firestore
-        item.fileSize = true;
-        item.key = response.key;
-        item.iv = response.iv;
-        item.licenceRules = response.licence_rules;
-        await aaxUpdateItemFirestore(item);
-      } else {
-        logger.error(`Failed to download generated m4b for item ${item.asin}`, response.data);
-      }
     } catch (error) {
       const errorMessage = error.toString().substring(0, 500);
       logger.error(`Error generating m4b for item ${item.asin}`, errorMessage);
@@ -179,11 +205,34 @@ async function generateM4B(uid, auth, itemsToProcess) {
   }));
 }
 
+function aaxcTranscribeQueueToUnique(params) {
+  const {type, entryType, uid, itemId, retry = false} = params;
+  // Check if any of the required parameters are undefined
+  if (type === undefined || entryType === undefined || uid === undefined ||
+    itemId === undefined) {
+    throw new Error("All parameters (type, entryType, uid, itemId) must be defined");
+  }
 
-async function transcribe(uid, itemsToProcess) {
-  await Promise.all(itemsToProcess.map(async (item) => {
+  // If all parameters are defined, return a unique identifier
+  const retryString = retry ? "_retry" : "";
+  return `${type}_${entryType}_${uid}_${itemId}${retryString}`;
+}
+
+
+async function aaxcTranscribe() {
+  // 1. get items from queue.
+  const queueEntries = await queueGetEntries({
+    type: "transcription",
+    status: "pending",
+    limit: 100,
+  });
+  // 3. generate transcriptions, with stream.
+  for (const queueEntry of queueEntries) {
+    const params = queueEntry.params;
+    const item = params.item;
+    const uid = params.uid;
     try {
-      const transcription = await generateTranscriptions(uid, item);
+      const transcription = await generateTranscriptions({uid, item, entryType: queueEntry.entryType});
       item.transcriptions = transcription.transcriptions;
       item.metadata = transcription.metadata;
       item.splitAudio = transcription.splitAudio;
@@ -193,7 +242,7 @@ async function transcribe(uid, itemsToProcess) {
     } catch (error) {
       logger.error(`Error generating transcriptions for item ${item.asin}`, error);
     }
-  }));
+  }
 }
 
 async function updateUsersAAXCatalogue(uid) {
@@ -214,6 +263,7 @@ async function updateUsersAAXCatalogue(uid) {
         const skus = [process.env.SKU1, process.env.SKU2];
         library = library.filter((item) => skus.includes(item.sku_lite));
         logger.info(`Reduced library to ${library.length} items for development environment.`);
+        logger.debug(`Library: ${JSON.stringify(library)}`);
       }
       // Process the library data here
       // For example, you might want to store it in Firestore or perform other operations
@@ -306,4 +356,5 @@ export {
   submitAAXAuth,
   disconnectAAXAuth,
   redirectToAAXLogin,
+  aaxcTranscribe,
 };
