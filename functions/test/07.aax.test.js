@@ -111,9 +111,11 @@ describe("AAX tests", () => {
       {from: `m4b/${process.env.SKU1}.aaxc`, to: `UserData/${userData.uid}/Uploads/AAXRaw/${process.env.SKU1}.aaxc`},
       {from: `m4b/${process.env.SKU1}.jpg`, to: `UserData/${userData.uid}/Uploads/AAXRaw/${process.env.SKU1}.jpg`},
       {from: `m4b/${process.env.SKU1}.json`, to: `UserData/${userData.uid}/Uploads/AAXRaw/${process.env.SKU1}.json`},
+      {from: `transcriptions/${process.env.SKU1}-transcriptions.json`, to: `UserData/${userData.uid}/Uploads/Processed/${process.env.SKU1}-transcriptions.json`},
       {from: `m4b/${process.env.SKU2}.aaxc`, to: `UserData/${userData.uid}/Uploads/AAXRaw/${process.env.SKU2}.aaxc`},
       {from: `m4b/${process.env.SKU2}.jpg`, to: `UserData/${userData.uid}/Uploads/AAXRaw/${process.env.SKU2}.jpg`},
       {from: `m4b/${process.env.SKU2}.json`, to: `UserData/${userData.uid}/Uploads/AAXRaw/${process.env.SKU2}.json`},
+      {from: `transcriptions/${process.env.SKU2}-transcriptions.json`, to: `UserData/${userData.uid}/Uploads/Processed/${process.env.SKU2}-transcriptions.json`},
     ]);
     //   let response = await chai
     //       .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)

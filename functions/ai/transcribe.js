@@ -15,6 +15,7 @@ import {
 } from "../audio/audioMetadata.js";
 import {splitM4b} from "../audio/splitM4b.js";
 import {splitAaxc} from "../audio/aaxStream.js";
+import {updateAAXCChapterFileSizes} from "../util/audibleOpdsHelper.js";
 
 
 async function transcribeFilesInParallel(bookData, outputStreams) {
@@ -68,11 +69,12 @@ async function generateTranscriptions({uid, item, numThreads = 32, entryType}) {
     ffmpegPath = `ffmpeg`;
   }
   logger.debug(`using ffmpeg path: ${ffmpegPath}`);
-  let outputStreams = [];
+  let outputStreams; let chapters;
   if (entryType === "m4b") {
     outputStreams = await outputStreamsFromM4b({uid, sku, ffmpegPath});
   } else if (entryType === "aaxc") {
-    outputStreams = await outputStreamsFromAaxc({uid, sku, audibleKey: item.key, audibleIv: item.iv, numThreads: numThreads});
+    ({outputStreams, chapters} = await outputStreamsFromAaxc({uid, sku, audibleKey: item.key, audibleIv: item.iv, numThreads: numThreads}));
+    await updateAAXCChapterFileSizes({chapters, item});
   }
   const metadata = await getMetaData(uid, sku);
   const transcriptions = await transcribeFilesInParallel(metadata.bookData, outputStreams);
@@ -100,7 +102,7 @@ async function outputStreamsFromAaxc({uid, sku, audibleKey, audibleIv, numThread
   const metadata = await getMetaData(uid, sku);
   const chapters = await splitAaxc({metadata, uid, sku, audibleKey, audibleIv, numThreads});
   const outputStreams = chapters.map((file) => fs.createReadStream(file));
-  return outputStreams;
+  return {outputStreams, chapters};
 }
 
 export {generateTranscriptions};

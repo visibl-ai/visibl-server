@@ -2,7 +2,7 @@
 import axios from "axios";
 import logger from "../util/logger.js";
 import crypto from "crypto";
-
+import fs from "fs/promises";
 import {AUDIBLE_OPDS_API_KEY,
   AUDIBLE_OPDS_FIREBASE_URL,
   STORAGE_BUCKET_ID,
@@ -348,6 +348,24 @@ async function disconnectAAXAuth(uid) {
   return await setAAXConnectDisableFirestore(uid);
 }
 
+async function updateAAXCChapterFileSizes({chapters, item}) {
+  const chapterSizes = await Promise.all(chapters.map(async (chapter) => {
+    try {
+      const stats = await fs.stat(chapter);
+      return {
+        fileSizeBytes: stats.size,
+      };
+    } catch (error) {
+      logger.error(`Error getting file size for chapter ${chapter}:`, error);
+      return chapter;
+    }
+  }));
+
+  // Update the item with the new chapter information
+  // TODO: Need chapter timing metadata to update this.
+  return chapterSizes;
+}
+
 export {
   getAAXLoginURL,
   getAAXAuth,
@@ -357,4 +375,5 @@ export {
   disconnectAAXAuth,
   redirectToAAXLogin,
   aaxcTranscribe,
+  updateAAXCChapterFileSizes,
 };
