@@ -25,30 +25,34 @@ async function transcribeFilesInParallel(bookData, outputStreams) {
     bookData.chapters[index].outputStream = outputStream;
   });
   const prompt = `The transcript is an audiobook version of ${bookData.title} by ${bookData.author}.`;
-  const promises = Object.entries(bookData.chapters).map(
-      async ([chapterIndex, chapter]) => {
-        const {startTime, endTime} = chapter;
-        logger.debug(
-            `Transcribing chapter ${chapterIndex} from ${startTime} to ${endTime} with prompt ${prompt}`,
-        );
-        const transcription = await whisper.whisper(
-            chapter.outputStream,
-            startTime,
-            prompt,
-        );
-        logger.debug(`Chapter ${chapterIndex} transcription complete.`);
-        transcriptions[chapterIndex] = transcription;
-        return;
+  const promiseFactories = Object.entries(bookData.chapters).map(
+      ([chapterIndex, chapter]) => () => {
+        return new Promise((resolve) => {
+          const {startTime, endTime} = chapter;
+          logger.debug(
+              `Transcribing chapter ${chapterIndex} from ${startTime} to ${endTime} with prompt ${prompt}`,
+          );
+          whisper.whisper(
+              chapter.outputStream,
+              startTime,
+              prompt,
+          ).then((transcription) => {
+            logger.debug(`Chapter ${chapterIndex} transcription complete.`);
+            transcriptions[chapterIndex] = transcription;
+            resolve();
+          });
+        });
       },
   );
+
   if (ENVIRONMENT.value() === "development") {
     logger.debug("***Skipping transcription in development mode***");
-    // await Promise.all(promises);
-    return transcriptions;
+    // Do nothing in development mode
   } else {
-    await Promise.all(promises);
-    return transcriptions;
+    await Promise.all(promiseFactories.map((factory) => factory()));
   }
+
+  return transcriptions;
 }
 
 function getTranscriptionsPath(uid, sku) {

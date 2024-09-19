@@ -37,12 +37,14 @@ import {
 import {
   queueAddEntries,
   queueGetEntries,
+  queueSetItemsToProcessing,
+  queueSetItemsToComplete,
 } from "../storage/firestore/queue.js";
 
 
 import {generateTranscriptions} from "../ai/transcribe.js";
 
-import {addSkuToCatalogue} from "./opds.js";
+// import {addSkuToCatalogue} from "./opds.js";
 
 import {
   dispatchTask,
@@ -230,6 +232,8 @@ async function aaxcTranscribe() {
     status: "pending",
     limit: 100,
   });
+  // 2. Set queue items to processing.
+  await queueSetItemsToProcessing({queue: queueEntries});
   // 3. generate transcriptions, with stream.
   for (const queueEntry of queueEntries) {
     const params = queueEntry.params;
@@ -238,15 +242,16 @@ async function aaxcTranscribe() {
     try {
       const transcription = await generateTranscriptions({uid, item, entryType: queueEntry.entryType});
       item.transcriptions = transcription.transcriptions;
-      item.metadata = transcription.metadata;
-      item.splitAudio = transcription.splitAudio;
+      // item.metadata = transcription.metadata;
       item.transcriptionsGenerated = true;
       await aaxUpdateItemFirestore(item);
-      await addSkuToCatalogue(uid, item.metadata, "private");
+      // await addSkuToCatalogue(uid, item.metadata, "private");
     } catch (error) {
       logger.error(`Error generating transcriptions for item ${item.asin}`, error);
     }
   }
+  // 3. Set queue items to processed.
+  await queueSetItemsToComplete({queue: queueEntries});
 }
 
 async function updateUsersAAXCatalogue(uid) {

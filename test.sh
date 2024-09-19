@@ -35,6 +35,7 @@ mocha test/02.graph.test.js --timeout 99999999999  --exit --bail --reporter spec
 mocha test/04.queue.test.js --timeout 99999999999  --exit --bail --reporter spec || TEST_FAILED=true
 mocha test/05.sharp.test.js --timeout 99999999999  --exit --bail --reporter spec || TEST_FAILED=true
 mocha test/06.carousel.test.js --exit --bail --reporter spec || TEST_FAILED=true
+mocha test/07.aax.test.js --exit --bail --reporter spec || TEST_FAILED=true
 
 # Stop the logs stream
 kill $LOGS_PID

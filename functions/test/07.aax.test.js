@@ -39,7 +39,12 @@ import {
   v1getAAXLoginURL,
   v1getAAXConnectStatus,
   v1refreshAAXTokens,
+  v1getPrivateOPDSFeed,
   v1getPrivateOPDSFeedURL,
+  v1addItemToLibrary,
+  v1getItemManifest,
+  v1disconnectAAX,
+  v1aaxConnect,
 } from "../index.js";
 const APP_ID = process.env.APP_ID;
 const app = initializeApp({
@@ -56,11 +61,10 @@ const DISPATCH_URL = `http://127.0.0.1:5001`;
 const APP_URL = `http://127.0.0.1:5002`;
 const DISPATCH_REGION = `europe-west1`;
 const SYM_PATH = "./test/bindings/";
-const UID = "UID0101010";
 
 // const SETUP_ENV = false;
 const DEFAULT_TIMEOUT = 99999999999999;
-
+const DO_AUDIBLE_LOGIN = false;
 async function uploadFiles(fileList) {
   const bucket = getStorage(app).bucket();
   for (const thisFile of fileList) {
@@ -118,31 +122,6 @@ describe("AAX tests", () => {
       {from: `m4b/${process.env.SKU2}.json`, to: `UserData/${userData.uid}/Uploads/AAXRaw/${process.env.SKU2}.json`},
       {from: `transcriptions/${process.env.SKU2}-transcriptions.json`, to: `UserData/${userData.uid}/Uploads/Processed/${process.env.SKU2}-transcriptions.json`},
     ]);
-    //   let response = await chai
-    //       .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-    //       .post("/processM4B")
-    //       .set("Content-Type", "application/json")
-    //       .send({
-    //         data:
-    //         {sku: process.env.PUBLIC_SKU1},
-    //       });
-    //   expect(response).to.have.status(204);
-    //   // upload scenes for the new catalogue item.
-    //   await uploadFiles([{
-    //     from: `graph/${process.env.PUBLIC_SKU1}-scenes-graph.json`,
-    //     to: `Catalogue/Processed/${process.env.PUBLIC_SKU1}/${process.env.PUBLIC_SKU1}-scenes.json`},
-    //   ]);
-    //   response = await chai
-    //       .request(`${APP_URL}`)
-    //       .get("/v1/aax/demoOPDS");
-    //   expect(response).to.have.status(200);
-    //   console.log(response.body);
-    //   response = await chai
-    //       .request(`${APP_URL}`)
-    //       .get("/v1/aax/demoManifest");
-    //   expect(response).to.have.status(200);
-    //   console.log(response.body);
-    // eslint-disable-next-line no-undef
 
     // clear the current queue.
     const response = await chai.request(APP_URL)
@@ -312,23 +291,60 @@ describe("AAX tests", () => {
         .send(data);
     expect(response).to.have.status(200);
   });
-  // eslint-disable-next-line no-undef
-  it("AAX - Post auth hook for AAX auth.", async function() {
-    this.timeout(DEFAULT_TIMEOUT);
-    const data = {
-      uid: userData.uid,
-      auth: audibleAuth,
-    };
-    const response = await chai
-        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
-        .post("/aaxPostAuthHook")
-        .set("Content-Type", "application/json")
-        .send({data: data}); // nest object as this is a dispatch.
-    expect(response).to.have.status(204);
-    // Wait for 30 seconds before exiting the function
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    console.log("Waited for 2 seconds after setting auth for the user");
-  });
+  if (DO_AUDIBLE_LOGIN) {
+    // eslint-disable-next-line no-undef
+    it("AAX - submit login URL", async () => {
+    // Load the audibleUrl.json file
+      const audibleUrlPath = path.join("test", "bindings", "audibleUrl.json");
+      const audibleUrlData = JSON.parse(fs.readFileSync(audibleUrlPath, "utf8"));
+      // You can now use audibleUrlData in your test
+      expect(audibleUrlData).to.have.property("codeVerifier");
+      expect(audibleUrlData).to.have.property("serial");
+      expect(audibleUrlData).to.have.property("responseUrl");
+      expect(audibleUrlData).to.have.property("countryCode");
+
+      const wrapped = firebaseTest.wrap(v1aaxConnect);
+      const data = {
+        codeVerifier: audibleUrlData.codeVerifier,
+        responseUrl: audibleUrlData.responseUrl,
+        serial: audibleUrlData.serial,
+        countryCode: audibleUrlData.countryCode,
+      };
+      const result = await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data,
+      });
+      console.log(result);
+      expect(result).to.have.property("access_token");
+      expect(result).to.have.property("refresh_token");
+      // Write result to audibleAuth.json file
+      const audibleAuthPath = path.join("test", "bindings", "audibleAuth.json");
+      fs.writeFileSync(audibleAuthPath, JSON.stringify(result, null, 2));
+      console.log(`AAX auth data written to ${audibleAuthPath}`);
+      await new Promise((resolve) => setTimeout(resolve, 90000));
+      console.log("Waited for 30 seconds after setting auth for the user");
+    });
+  } else {
+    // eslint-disable-next-line no-undef
+    it("AAX - Post auth hook for AAX auth.", async function() {
+      this.timeout(DEFAULT_TIMEOUT);
+      const data = {
+        uid: userData.uid,
+        auth: audibleAuth,
+      };
+      const response = await chai
+          .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+          .post("/aaxPostAuthHook")
+          .set("Content-Type", "application/json")
+          .send({data: data}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+      // Wait for 30 seconds before exiting the function
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      console.log("Waited for 2 seconds after setting auth for the user");
+    });
+  }
   // eslint-disable-next-line no-undef
   it("AAX - Transcribe dispatch.", async function() {
     this.timeout(DEFAULT_TIMEOUT);
@@ -394,7 +410,26 @@ describe("AAX tests", () => {
       expect(detail).to.have.property("message").that.is.a("string");
     });
   });
+  // Get an OPDS feed for the users private items
+  // eslint-disable-next-line no-undef
+  it("AAX - get private OPDS feeds", async () => {
+    const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeed);
+    const data = {};
 
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.have.property("metadata");
+    expect(result.metadata).to.have.property("title", `${process.env.AAX_CONNECT_SOURCE} Import`);
+    expect(result).to.have.property("publications");
+    console.log(result.publications);
+    console.log(result.publications[0].links);
+    expect(result.publications).to.be.an("array").that.is.not.empty;
+  });
   // Get a manifest with unique stream URLs.
   let privateOPDSUrl;
   // eslint-disable-next-line no-undef
@@ -488,5 +523,112 @@ describe("AAX tests", () => {
       console.log(`${streamUrl}`);
     });
   }
+  let libraryPrivateItem;
+  // eslint-disable-next-line no-undef
+  it(`test v1addItemToLibrary - private, before scenes exist`, async () => {
+    const wrapped = firebaseTest.wrap(v1addItemToLibrary);
+    console.log(privateFeed.publications);
+    const privateItemId = privateFeed.publications[0].metadata.visiblId;
+    // Prepare the data for adding an item to the library
+    const addData = {
+      catalogueId: privateItemId,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: addData,
+    });
+
+    console.log(result);
+    expect(result).to.have.property("id");
+    expect(result).to.have.property("uid");
+    expect(result).to.have.property("catalogueId");
+    expect(result).to.have.property("addedAt");
+
+    expect(result.uid).to.equal(userData.uid);
+    expect(result.catalogueId).to.equal(privateItemId);
+    expect(result.addedAt).to.exist;
+
+    libraryPrivateItem = result;
+    console.log(`Testing adding duplicate of ${result.id}`);
+    // Try to add the same item again, it should return the existing item
+    const duplicateResult = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: addData,
+    });
+
+    console.log("Duplicate add result:", duplicateResult);
+    expect(duplicateResult).to.deep.equal(result);
+    expect(duplicateResult.id).to.equal(libraryPrivateItem.id);
+    expect(duplicateResult.uid).to.equal(userData.uid);
+    expect(duplicateResult.catalogueId).to.equal(privateItemId);
+    expect(duplicateResult.addedAt).to.exist;
+  });
+
+  // eslint-disable-next-line no-undef
+  it(`test v1getItemManifest - private`, async () => {
+    const wrapped = firebaseTest.wrap(v1getItemManifest);
+
+    // Prepare the data for getting the item manifest
+    const getManifestData = {
+      libraryId: libraryPrivateItem.id,
+    };
+
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: getManifestData,
+    });
+
+    console.log(result);
+    expect(result).to.exist;
+
+    // Try to get manifest for a non-existent item, it should throw an error
+    try {
+      await wrapped({
+        auth: {
+          uid: userData.uid,
+        },
+        data: {libraryId: "non-existent-id"},
+      });
+      // If we reach here, the test should fail
+      expect.fail("Should have thrown an error for non-existent item");
+    } catch (error) {
+      expect(error.message).to.include("Item not found in the user's library");
+    }
+  });
+
+  // eslint-disable-next-line no-undef
+  it(`should disconnect from AAX`, async () => {
+    const wrapped = firebaseTest.wrap(v1disconnectAAX);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    console.log(result);
+    expect(result).to.have.property("deletedCount").that.is.a("number");
+    expect(result.deletedCount).to.equal(1);
+  });
+  // eslint-disable-next-line no-undef
+  it(`should check that AAX is not connected`, async () => {
+    const wrapped = firebaseTest.wrap(v1getAAXConnectStatus);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
+    });
+    expect(result).to.have.property("connected").that.is.a("boolean");
+    expect(result.connected).to.be.false;
+  });
 });
 

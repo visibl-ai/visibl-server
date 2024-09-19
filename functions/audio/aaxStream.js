@@ -5,6 +5,7 @@ import fs from "fs";
 import ffmpegTools from "./ffmpeg.js";
 import {aaxGetItemFirestore} from "../storage/firestore/aax.js";
 import {HOSTING_DOMAIN} from "../config/config.js";
+import {deleteLocalFiles} from "../storage/storage.js";
 
 async function aaxcStreamer(req, res) {
   // Handle HEAD request separately
@@ -65,7 +66,7 @@ async function m4bInMem(params) {
 
 async function splitAaxc(params) {
   const {metadata, uid, sku, audibleKey, audibleIv, numThreads} = params;
-  logger.debug(`splitAaxc metadata: ${JSON.stringify(params, null, 2)}`);
+  // logger.debug(`splitAaxc metadata: ${JSON.stringify(params, null, 2)}`);
   const outputFiles = metadata.outputFiles;
   const results = [];
   let i = 0;
@@ -146,9 +147,10 @@ async function handleGetRequest(params, req, res) {
 
   fileStream.pipe(res);
 
-  res.on("close", () => {
+  res.on("close", async () => {
     console.log("Client closed connection");
     fileStream.destroy();
+    await deleteLocalFiles([params.outputFile]);
   });
 }
 
