@@ -39,6 +39,7 @@ import {
   v1getAAXLoginURL,
   v1getAAXConnectStatus,
   v1refreshAAXTokens,
+  v1getPrivateOPDSFeedURL,
 } from "../index.js";
 const APP_ID = process.env.APP_ID;
 const app = initializeApp({
@@ -342,7 +343,6 @@ describe("AAX tests", () => {
     await new Promise((resolve) => setTimeout(resolve, 2000));
     console.log("Waited for 2 seconds after setting auth for the user");
   });
-  return;
   // eslint-disable-next-line no-undef
   it(`should check if audible is connected`, async function() {
     this.timeout(DEFAULT_TIMEOUT);
@@ -395,26 +395,61 @@ describe("AAX tests", () => {
     });
   });
 
-
-  const STREAM_TEST = false;
-  if (STREAM_TEST) {
-    const queryParams = new URLSearchParams({
-      audibleKey: "XXX",
-      audibleIv: "XXX",
-      uid: UID,
-      sku: process.env.SKU3,
-      // inputFile: `${process.env.SKU3}.aaxc`,
-      startTime: "19.751995",
-      durationInSeconds: "3196.070998",
+  // Get a manifest with unique stream URLs.
+  let privateOPDSUrl;
+  // eslint-disable-next-line no-undef
+  it("AAX - get private OPDS URL", async () => {
+    const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeedURL);
+    const data = {};
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data,
     });
+    console.log(result);
+    expect(result).to.have.property("url");
+    expect(result.url).to.be.a("string");
+    privateOPDSUrl = result.url;
+  });
+  let privateFeed;
+  // eslint-disable-next-line no-undef
+  it("AAX - get private OPDS feed via URL", async () => {
+    const response = await chai
+        .request(privateOPDSUrl)
+        .get("");
+    expect(response).to.have.status(200);
+    expect(response).to.be.json;
+    expect(response.body).to.have.property("metadata");
+    expect(response.body.metadata).to.have.property("title", `${process.env.AAX_CONNECT_SOURCE} Import`);
+    privateFeed = response.body;
+    console.log(privateFeed);
+  });
+  let streamUrl;
+  // eslint-disable-next-line no-undef
+  it("AAX - get private OPDS manifest via URL", async () => {
+    const response = await chai
+        .request(privateFeed.publications[0].links[0].href)
+        .get("");
+    expect(response).to.have.status(200);
+    expect(response).to.be.json;
+    expect(response.body).to.have.property("metadata");
+    console.log(response.body.readingOrder);
+    streamUrl = response.body.readingOrder[1].href;
+    console.log(`streamUrl: ${streamUrl}`);
+  });
+
+  // Test the stream URL HEAD and Range requests.
+  const STREAM_TEST = true;
+  if (STREAM_TEST) {
     // eslint-disable-next-line no-undef
     it("Request Headers", async function() {
       this.timeout(DEFAULT_TIMEOUT);
       // Make HEAD request to /v1/aax/stream
       const response = await chai
-          .request(`${APP_URL}`)
-          .head(`/v1/aax/stream?${queryParams.toString()}`)
-          .send();
+          .request(streamUrl)
+          .head("")
+          .send("");
 
       // Assert the response
       expect(response).to.have.status(200);
@@ -431,10 +466,10 @@ describe("AAX tests", () => {
       this.timeout(DEFAULT_TIMEOUT);
       // Make GET request with range header to /v1/aax/stream
       const response = await chai
-          .request(`${APP_URL}`)
-          .get(`/v1/aax/stream?${queryParams.toString()}`)
+          .request(streamUrl)
+          .get("")
           .set("Range", "bytes=0-10000")
-          .send();
+          .send("");
 
       // Assert the response
       expect(response).to.have.status(206); // Partial Content
@@ -450,7 +485,7 @@ describe("AAX tests", () => {
       // Log headers and body length for debugging
       console.log("Response headers:", response.headers);
       console.log("Response body length:", response.body.length);
-      console.log(`${APP_URL}/v1/aax/stream?${queryParams.toString()}`);
+      console.log(`${streamUrl}`);
     });
   }
 });

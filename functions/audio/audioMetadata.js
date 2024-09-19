@@ -2,7 +2,7 @@
 import {
   getJsonFile,
 } from "../storage/storage.js";
-import logger from "../util/logger.js";
+
 import {ENVIRONMENT} from "../config/config.js";
 
 function getMetadataPath(uid, sku) {

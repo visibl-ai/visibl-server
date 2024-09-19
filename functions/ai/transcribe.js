@@ -9,6 +9,7 @@ import fs from "fs";
 import {ENVIRONMENT} from "../config/config.js";
 import {
   uploadJsonToBucket,
+  deleteLocalFiles,
 } from "../storage/storage.js";
 import {
   getMetaData,
@@ -69,14 +70,15 @@ async function generateTranscriptions({uid, item, numThreads = 32, entryType}) {
     ffmpegPath = `ffmpeg`;
   }
   logger.debug(`using ffmpeg path: ${ffmpegPath}`);
+  const metadata = await getMetaData(uid, sku);
   let outputStreams; let chapters;
   if (entryType === "m4b") {
     outputStreams = await outputStreamsFromM4b({uid, sku, ffmpegPath});
   } else if (entryType === "aaxc") {
-    ({outputStreams, chapters} = await outputStreamsFromAaxc({uid, sku, audibleKey: item.key, audibleIv: item.iv, numThreads: numThreads}));
-    await updateAAXCChapterFileSizes({chapters, item});
+    ({outputStreams, chapters} = await outputStreamsFromAaxc({metadata, uid, sku, audibleKey: item.key, audibleIv: item.iv, numThreads: numThreads}));
+    await updateAAXCChapterFileSizes({chapters, item, metadata});
   }
-  const metadata = await getMetaData(uid, sku);
+
   const transcriptions = await transcribeFilesInParallel(metadata.bookData, outputStreams);
   if (transcriptions === undefined) {
     logger.error(`Transcriptions are undefined for ${sku}`);
@@ -87,6 +89,9 @@ async function generateTranscriptions({uid, item, numThreads = 32, entryType}) {
   // 6. Upload Transcriptions to Bucket.
   const transcriptionsFile = await uploadJsonToBucket({json: transcriptions, bucketPath: getTranscriptionsPath(uid, sku)});
   logger.debug("STEP 6: Transcriptions Uploaded to Bucket.");
+  if (chapters) {
+    await deleteLocalFiles(chapters);
+  }
   return {transcriptions: transcriptionsFile.metadata.name, metadata: metadata.bookData};
 }
 
@@ -98,8 +103,7 @@ async function outputStreamsFromM4b({uid, sku, ffmpegPath}) {
 }
 
 
-async function outputStreamsFromAaxc({uid, sku, audibleKey, audibleIv, numThreads}) {
-  const metadata = await getMetaData(uid, sku);
+async function outputStreamsFromAaxc({metadata, uid, sku, audibleKey, audibleIv, numThreads}) {
   const chapters = await splitAaxc({metadata, uid, sku, audibleKey, audibleIv, numThreads});
   const outputStreams = chapters.map((file) => fs.createReadStream(file));
   return {outputStreams, chapters};

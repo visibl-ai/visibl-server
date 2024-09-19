@@ -26,6 +26,10 @@ import {
 } from "../storage/firestore/aax.js";
 
 import {
+  populateCatalogueWithAAXItems,
+} from "../storage/firestore/catalogue.js";
+
+import {
   storeData,
   getData,
 } from "../storage/realtimeDb/database.js";
@@ -277,8 +281,8 @@ async function updateUsersAAXCatalogue(uid) {
         sku: item.sku_lite,
         // feedTemplate: itemToOPDSFeed(item),
       }));
-      // const addedItems = await populateCatalogueWithAAXItems(uid, library);
-      // logger.info(`Added ${addedItems.map((item) => item.sku).join(", ")} items to catalogue`);
+      const addedItems = await populateCatalogueWithAAXItems(uid, library);
+      logger.info(`Added ${addedItems.map((item) => item.sku).join(", ")} items to catalogue`);
       return;
     } else {
       logger.error(`Failed to retrieve AAX library for user ${uid}`, response.data);
@@ -348,22 +352,23 @@ async function disconnectAAXAuth(uid) {
   return await setAAXConnectDisableFirestore(uid);
 }
 
-async function updateAAXCChapterFileSizes({chapters, item}) {
-  const chapterSizes = await Promise.all(chapters.map(async (chapter) => {
+async function updateAAXCChapterFileSizes({chapters, item, metadata}) {
+  const chapterMap = {};
+  await Promise.all(chapters.map(async (chapter, index) => {
     try {
       const stats = await fs.stat(chapter);
-      return {
+      chapterMap[index] = {
         fileSizeBytes: stats.size,
+        startTime: metadata.startTimes[index],
+        endTime: metadata.endTimes[index],
       };
     } catch (error) {
       logger.error(`Error getting file size for chapter ${chapter}:`, error);
       return chapter;
     }
   }));
-
-  // Update the item with the new chapter information
-  // TODO: Need chapter timing metadata to update this.
-  return chapterSizes;
+  item.chapterMap = chapterMap;
+  await aaxUpdateItemFirestore(item);
 }
 
 export {

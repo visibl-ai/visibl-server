@@ -29,8 +29,6 @@ import {
 
 import {
   aaxcStreamer,
-  demoOPDS,
-  demoManifest,
 } from "../audio/aaxStream.js";
 
 // /v1/ai/dalle3
@@ -108,14 +106,6 @@ export const aaxDispatchTranscriptions = onTaskDispatched(
 export const v1streamAax = onRequest({region: "europe-west1"}, async (req, res) => {
   // await validateOnRequestAdmin(req);
   await aaxcStreamer(req, res);
-});
-
-export const v1aaxDemoOPDS = onRequest({region: "europe-west1"}, async (req, res) => {
-  await demoOPDS(req, res);
-});
-
-export const v1aaxDemoManifest = onRequest({region: "europe-west1"}, async (req, res) => {
-  await demoManifest(req, res);
 });
 
 export const v1aaxConnectRedirect = onRequest({region: "europe-west1"}, async (req, res) => {
