@@ -129,7 +129,7 @@ async function processRawPublicItem(req) {
     };
   }
   // eslint-disable-next-line no-unused-vars
-  const transcriptions = await generateTranscriptions("admin", metadata);
+  const transcriptions = await generateTranscriptions({uid: "admin", item: {sku: sku}, entryType: "m4b"});
   // Now that the transcriptions and metadata are available lets add it to the catalogue.
   await addSkuToCatalogue("admin", metadata, "public");
   // Copy the album art

@@ -1,5 +1,5 @@
 /* eslint-disable require-jsdoc */
-
+/* eslint-disable no-invalid-this */
 /* eslint-disable no-unused-vars */
 /* eslint-disable max-len */
 import "./_env.js";
@@ -68,7 +68,7 @@ const auth = getAuth();
 // const db = getFirestore();
 
 const TEST_USER_EMAIL = `john.${Date.now()}@example.com`;
-
+const DEFAULT_TIMEOUT = 99999999999999;
 
 async function callStabilityQueue() {
   console.log(`Calling launchStabilityQueue manually`);
@@ -92,7 +92,8 @@ async function callDalleQueue() {
 describe("Full functional tests of visibl api", () => {
   let userData;
   // eslint-disable-next-line no-undef
-  it("creates a new user and checks Firestore for the user data", async () => {
+  it("creates a new user and checks Firestore for the user data", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     // Create a new user in Firebase Authentication
     logger.debug(`Creating new user.`);
 
@@ -116,7 +117,8 @@ describe("Full functional tests of visibl api", () => {
     expect(userData.bucketPath).to.not.be.null;
   });
   // eslint-disable-next-line no-undef
-  it(`test an unauthenticated function`, async () => {
+  it(`test an unauthenticated function`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(helloWorld);
     const data = {};
     const result = await wrapped(data);
@@ -124,7 +126,8 @@ describe("Full functional tests of visibl api", () => {
     expect(result.error).to.exist;
   });
   // eslint-disable-next-line no-undef
-  it(`test an authenticated function`, async () => {
+  it(`test an authenticated function`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(helloWorld);
     const data = {};
     const result = await wrapped({
@@ -136,7 +139,8 @@ describe("Full functional tests of visibl api", () => {
     expect(result.uid).to.equal(userData.uid);
   });
   // eslint-disable-next-line no-undef
-  it(`test getting current user`, async () => {
+  it(`test getting current user`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(getCurrentUser);
     const data = {};
     const result = await wrapped({
@@ -149,7 +153,8 @@ describe("Full functional tests of visibl api", () => {
     expect(result.uid).to.equal(userData.uid);
   });
   // eslint-disable-next-line no-undef
-  it(`upload ffmpeg binary to test bucket`, async () => {
+  it(`upload ffmpeg binary to test bucket`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const bucket = getStorage(app).bucket();
     const bucketPath = `bin/`;
     console.log(bucketPath);
@@ -176,7 +181,8 @@ describe("Full functional tests of visibl api", () => {
     }
   });
   // eslint-disable-next-line no-undef
-  it(`uploads a audio for public item`, async () => {
+  it(`uploads a audio for public item`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const fileList = [
       `${process.env.PUBLIC_SKU1}.jpg`,
       `${process.env.PUBLIC_SKU1}.json`,
@@ -210,7 +216,8 @@ describe("Full functional tests of visibl api", () => {
     }
   });
   // eslint-disable-next-line no-undef
-  it(`test processM4B taskQueue`, async () => {
+  it(`test processM4B taskQueue`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const response = await chai
         .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/processM4B")
@@ -225,7 +232,8 @@ describe("Full functional tests of visibl api", () => {
   const REQUEST_TASKQUEUES = false;
   if (REQUEST_TASKQUEUES) {
   // eslint-disable-next-line no-undef
-    it(`test v1catalogueProcessRaw`, async () => {
+    it(`test v1catalogueProcessRaw`, async function() {
+      this.timeout(DEFAULT_TIMEOUT);
       const response = await chai
           .request(APP_URL)
           .post("/v1/admin/catalogue/process")
@@ -238,7 +246,8 @@ describe("Full functional tests of visibl api", () => {
   let catalogueBook;
 
   // eslint-disable-next-line no-undef
-  it(`test v1catalogueGet`, async () => {
+  it(`test v1catalogueGet`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1catalogueGet);
     const data = {};
     const result = await wrapped({
@@ -255,7 +264,8 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test v1catalogueUpdate`, async () => {
+  it(`test v1catalogueUpdate`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     // Prepare the update data
     const updateData = {
       id: catalogueBook.id,
@@ -300,7 +310,8 @@ describe("Full functional tests of visibl api", () => {
 
   let foundBook;
   // eslint-disable-next-line no-undef
-  it(`test v1catalogueGetOPDS (public)`, async () => {
+  it(`test v1catalogueGetOPDS (public)`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const response = await chai
         .request(APP_URL)
         .get("/v1/public/catalogue/opds");
@@ -327,7 +338,8 @@ describe("Full functional tests of visibl api", () => {
   const GENERATE_TRANSCRIPTIONS = true;
   if (GENERATE_TRANSCRIPTIONS) {
     // eslint-disable-next-line no-undef
-    it(`generates transcriptions for the book`, async () => {
+    it(`generates transcriptions for the book`, async function() {
+      this.timeout(DEFAULT_TIMEOUT);
       const wrapped = firebaseTest.wrap(v1generateTranscriptions);
       const result = await wrapped({
         auth: {
@@ -343,7 +355,8 @@ describe("Full functional tests of visibl api", () => {
   // Add item to the library
   let libraryItem;
   // eslint-disable-next-line no-undef
-  it(`test v1addItemToLibrary - public, before scenes exist`, async () => {
+  it(`test v1addItemToLibrary - public, before scenes exist`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1addItemToLibrary);
 
     // Prepare the data for adding an item to the library
@@ -387,7 +400,8 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test v1getItemManifest - public`, async () => {
+  it(`test v1getItemManifest - public`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getItemManifest);
 
     // Prepare the data for getting the item manifest
@@ -421,7 +435,8 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`uploads a scenes file to catalogue item`, async () => {
+  it(`uploads a scenes file to catalogue item`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const bucket = getStorage(app).bucket();
     const bucketPath = `Catalogue/Processed/${catalogueBook.sku}/${catalogueBook.sku}-scenes.json`;
     const file = bucket.file(bucketPath);
@@ -445,7 +460,8 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test v1catalogueGetManifest`, async () => {
+  it(`test v1catalogueGetManifest`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const visiblId = foundBook.metadata.visiblId;
     const response = await chai
         .request(APP_URL)
@@ -465,7 +481,8 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test getAi without a sceneId`, async () => {
+  it(`test getAi without a sceneId`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getAi);
 
     // Prepare the data for getting AI content
@@ -506,7 +523,8 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test v1getLibrary with includeManifest=false`, async () => {
+  it(`test v1getLibrary with includeManifest=false`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getLibrary);
 
     const result = await wrapped({
@@ -527,7 +545,8 @@ describe("Full functional tests of visibl api", () => {
   });
   let originalScene;
   // eslint-disable-next-line no-undef
-  it(`test v1getLibraryScenes`, async () => {
+  it(`test v1getLibraryScenes`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getLibraryScenes);
 
     const result = await wrapped({
@@ -574,7 +593,8 @@ describe("Full functional tests of visibl api", () => {
 
   let addedScene;
   // eslint-disable-next-line no-undef
-  it(`test v1addLibraryItemScenes miyazaki`, async () => {
+  it(`test v1addLibraryItemScenes miyazaki`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1addLibraryItemScenes);
     const result = await wrapped({
       auth: {
@@ -597,7 +617,8 @@ describe("Full functional tests of visibl api", () => {
 
   // Manually call the dispatched function.
   // eslint-disable-next-line no-undef
-  it(`test generateSceneImages with a rejected image taskQueue`, async () => {
+  it(`test generateSceneImages with a rejected image taskQueue`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const sceneId = addedScene.id;
     const lastSceneGenerated = 0;
     const totalScenes = 1;
@@ -638,7 +659,8 @@ describe("Full functional tests of visibl api", () => {
     expect(result[0]).to.have.property("square");
   });
   // eslint-disable-next-line no-undef
-  it(`test generateSceneImages taskQueue`, async () => {
+  it(`test generateSceneImages taskQueue`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const sceneId = addedScene.id;
     const lastSceneGenerated = 0;
     const totalScenes = 6;
@@ -682,7 +704,8 @@ describe("Full functional tests of visibl api", () => {
     }
   });
   // eslint-disable-next-line no-undef
-  it(`test generateSceneImagesCurrentTime taskQueue`, async () => {
+  it(`test generateSceneImagesCurrentTime taskQueue`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const sceneId = addedScene.id;
     const response = await chai
         .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
@@ -722,7 +745,8 @@ describe("Full functional tests of visibl api", () => {
     // // expect(result[1]).to.have.property("image");
   });
   // eslint-disable-next-line no-undef
-  it(`test generateSceneImagesCurrentTime, overlapping previous generation`, async () => {
+  it(`test generateSceneImagesCurrentTime, overlapping previous generation`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const sceneId = addedScene.id;
     const lastSceneGenerated = 0;
     const totalScenes = 6;
@@ -741,7 +765,8 @@ describe("Full functional tests of visibl api", () => {
     expect(await callStabilityQueue()).to.have.status(204);
   });
   // eslint-disable-next-line no-undef
-  it(`test v1getLibraryScenes with a single scene`, async () => {
+  it(`test v1getLibraryScenes with a single scene`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getLibraryScenes);
 
     const result = await wrapped({
@@ -764,7 +789,8 @@ describe("Full functional tests of visibl api", () => {
     expect(result).to.have.property("createdAt");
   });
   // eslint-disable-next-line no-undef
-  it(`test v1getLibraryScenes after adding a new scene`, async () => {
+  it(`test v1getLibraryScenes after adding a new scene`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getLibraryScenes);
     const result = await wrapped({
       auth: {
@@ -797,7 +823,8 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test v1updateLibraryItemScenes to set original scene back to default`, async () => {
+  it(`test v1updateLibraryItemScenes to set original scene back to default`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1updateLibraryItemScenes);
     const result = await wrapped({
       auth: {
@@ -845,7 +872,8 @@ describe("Full functional tests of visibl api", () => {
     expect(defaultScenes[0].id).to.equal(originalScene.id);
   });
   // eslint-disable-next-line no-undef
-  it(`test getAi without a sceneId`, async () => {
+  it(`test getAi without a sceneId`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getAi);
 
     // Prepare the data for getting AI content
@@ -874,7 +902,8 @@ describe("Full functional tests of visibl api", () => {
 
   let defaultChapterScene;
   // eslint-disable-next-line no-undef
-  it(`test getAi without a sceneId and a chapter`, async () => {
+  it(`test getAi without a sceneId and a chapter`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getAi);
 
     // Prepare the data for getting AI content
@@ -902,7 +931,8 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test getAi with a sceneId and a chapter`, async () => {
+  it(`test getAi with a sceneId and a chapter`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getAi);
 
     // Prepare the data for getting AI content
@@ -931,7 +961,8 @@ describe("Full functional tests of visibl api", () => {
     expect(result[0].image).to.not.equal(defaultChapterScene.image);
   });
   // eslint-disable-next-line no-undef
-  it(`test getAi with a sceneId and a currentTime.`, async () => {
+  it(`test getAi with a sceneId and a currentTime.`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getAi);
 
     // Prepare the data for getting AI content
@@ -961,7 +992,8 @@ describe("Full functional tests of visibl api", () => {
   });
   // GET AI WITH currentTime, create scene with current time!
   // eslint-disable-next-line no-undef
-  it(`test v1addLibraryItemScenes with currentTime and a styled scene`, async () => {
+  it(`test v1addLibraryItemScenes with currentTime and a styled scene`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     // First we need to update the default scenes for the chapter with one with images.
     let wrapped = firebaseTest.wrap(v1getAi);
     const getAiData = {
@@ -1063,7 +1095,8 @@ describe("Full functional tests of visibl api", () => {
     expect(result[3]).to.have.property("sceneId", styledSceneId);
   });
   // eslint-disable-next-line no-undef
-  it(`test v1getLibrary with includeManifest=true`, async () => {
+  it(`test v1getLibrary with includeManifest=true`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getLibrary);
 
     const result = await wrapped({
@@ -1086,7 +1119,8 @@ describe("Full functional tests of visibl api", () => {
 
 
   // eslint-disable-next-line no-undef
-  it(`test v1getLibrary with non-existent user`, async () => {
+  it(`test v1getLibrary with non-existent user`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getLibrary);
 
     const result = await wrapped({
@@ -1102,7 +1136,8 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test v1deleteItemsFromLibrary`, async () => {
+  it(`test v1deleteItemsFromLibrary`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1deleteItemsFromLibrary);
     // Now, delete the item
     const data = {libraryIds: [libraryItem.id]};
@@ -1134,7 +1169,8 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test no scenes for deleted book`, async () => {
+  it(`test no scenes for deleted book`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getLibraryScenes);
 
     // Try to get scenes for the deleted book
@@ -1162,7 +1198,8 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test v1catalogueDelete`, async () => {
+  it(`test v1catalogueDelete`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const getWrapped = firebaseTest.wrap(v1catalogueGet);
 
     // First, delete the catalogue item

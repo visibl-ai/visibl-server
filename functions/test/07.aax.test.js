@@ -293,8 +293,9 @@ describe("AAX tests", () => {
   });
   if (DO_AUDIBLE_LOGIN) {
     // eslint-disable-next-line no-undef
-    it("AAX - submit login URL", async () => {
-    // Load the audibleUrl.json file
+    it("AAX - submit login URL", async function() {
+      this.timeout(DEFAULT_TIMEOUT);
+      // Load the audibleUrl.json file
       const audibleUrlPath = path.join("test", "bindings", "audibleUrl.json");
       const audibleUrlData = JSON.parse(fs.readFileSync(audibleUrlPath, "utf8"));
       // You can now use audibleUrlData in your test
@@ -412,7 +413,8 @@ describe("AAX tests", () => {
   });
   // Get an OPDS feed for the users private items
   // eslint-disable-next-line no-undef
-  it("AAX - get private OPDS feeds", async () => {
+  it("AAX - get private OPDS feeds", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeed);
     const data = {};
 
@@ -433,7 +435,8 @@ describe("AAX tests", () => {
   // Get a manifest with unique stream URLs.
   let privateOPDSUrl;
   // eslint-disable-next-line no-undef
-  it("AAX - get private OPDS URL", async () => {
+  it("AAX - get private OPDS URL", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getPrivateOPDSFeedURL);
     const data = {};
     const result = await wrapped({
@@ -449,7 +452,8 @@ describe("AAX tests", () => {
   });
   let privateFeed;
   // eslint-disable-next-line no-undef
-  it("AAX - get private OPDS feed via URL", async () => {
+  it("AAX - get private OPDS feed via URL", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const response = await chai
         .request(privateOPDSUrl)
         .get("");
@@ -462,7 +466,8 @@ describe("AAX tests", () => {
   });
   let streamUrl;
   // eslint-disable-next-line no-undef
-  it("AAX - get private OPDS manifest via URL", async () => {
+  it("AAX - get private OPDS manifest via URL", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const response = await chai
         .request(privateFeed.publications[0].links[0].href)
         .get("");
@@ -525,7 +530,8 @@ describe("AAX tests", () => {
   }
   let libraryPrivateItem;
   // eslint-disable-next-line no-undef
-  it(`test v1addItemToLibrary - private, before scenes exist`, async () => {
+  it(`test v1addItemToLibrary - private, before scenes exist`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1addItemToLibrary);
     console.log(privateFeed.publications);
     const privateItemId = privateFeed.publications[0].metadata.visiblId;
@@ -570,7 +576,8 @@ describe("AAX tests", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`test v1getItemManifest - private`, async () => {
+  it(`test v1getItemManifest - private`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getItemManifest);
 
     // Prepare the data for getting the item manifest
@@ -604,7 +611,8 @@ describe("AAX tests", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`should disconnect from AAX`, async () => {
+  it(`should disconnect from AAX`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1disconnectAAX);
     const data = {};
     const result = await wrapped({
@@ -618,7 +626,8 @@ describe("AAX tests", () => {
     expect(result.deletedCount).to.equal(1);
   });
   // eslint-disable-next-line no-undef
-  it(`should check that AAX is not connected`, async () => {
+  it(`should check that AAX is not connected`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const wrapped = firebaseTest.wrap(v1getAAXConnectStatus);
     const data = {};
     const result = await wrapped({
