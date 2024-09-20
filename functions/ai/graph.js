@@ -59,7 +59,7 @@ function lowercaseCharacters(characterList) {
 }
 
 async function graphCharacters(params) {
-  const {uid, sku, visiblity} = params;
+  const {uid, sku, visiblity, graphId} = params;
   // 1. load transcriptions.
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   // 2. consolidate transcriptions into single string.
@@ -73,15 +73,15 @@ async function graphCharacters(params) {
   const characterList = geminiResult.result;
   // 4. store graph.
   characterList.characters = lowercaseCharacters(characterList.characters);
-  await storeGraph({uid, sku, visiblity, data: characterList, type: "characters"});
+  await storeGraph({uid, sku, visiblity, data: characterList, type: "characters", graphId});
   return characterList;
 }
 
 async function graphCharacterDescriptions(params) {
-  const {uid, sku, visiblity} = params;
+  const {uid, sku, visiblity, graphId} = params;
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   const fullText = consolidateTranscriptions({transcriptions});
-  let characters = await getGraph({uid, sku, visiblity, type: "characters"});
+  let characters = await getGraph({uid, sku, visiblity, type: "characters", graphId});
   const characterDescriptions = {};
   if (!characters.characters || !Array.isArray(characters.characters)) {
     if (Array.isArray(characters)) {
@@ -118,7 +118,7 @@ async function graphCharacterDescriptions(params) {
     logger.debug(`Character description for ${characterName}: ${characterDescriptions[characterName]}`);
     // Add a 15-second delay
     logger.debug(`Waiting ${WAIT_TIME} seconds before next request`);
-    await storeGraph({uid, sku, visiblity, data: characterDescriptions, type: "characterDescriptions"});
+    await storeGraph({uid, sku, visiblity, data: characterDescriptions, type: "characterDescriptions", graphId});
     await new Promise((resolve) => setTimeout(resolve, WAIT_TIME * 1000));
   }
   return characterDescriptions;
@@ -153,7 +153,7 @@ function flattenLocations(data) {
 }
 
 async function graphLocations(params) {
-  const {uid, sku, visiblity, retry = true} = params;
+  const {uid, sku, visiblity, retry = true, graphId} = params;
   // 1. load transcriptions.
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   // 2. consolidate transcriptions into single string.
@@ -172,15 +172,15 @@ async function graphLocations(params) {
     return graphLocations({uid, sku, visiblity, retry: false});
   }
   // 4. store graph.
-  await storeGraph({uid, sku, visiblity, data: flatLocations, type: "locations"});
+  await storeGraph({uid, sku, visiblity, data: flatLocations, type: "locations", graphId});
   return locationList;
 }
 
 async function graphLocationDescriptions(params) {
-  const {uid, sku, visiblity} = params;
+  const {uid, sku, visiblity, graphId} = params;
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   const fullText = consolidateTranscriptions({transcriptions});
-  let locations = await getGraph({uid, sku, visiblity, type: "locations"});
+  let locations = await getGraph({uid, sku, visiblity, type: "locations", graphId});
   const locationDescriptions = {};
   if (!locations.locations || !Array.isArray(locations.locations)) {
     if (Array.isArray(locations)) {
@@ -210,38 +210,38 @@ async function graphLocationDescriptions(params) {
     logger.debug(`location description for ${name}: ${locationDescriptions[name]}`);
     // Add a 15-second delay
     logger.debug(`Waiting ${WAIT_TIME} seconds before next request`);
-    await storeGraph({uid, sku, visiblity, data: locationDescriptions, type: "locationDescriptions"});
+    await storeGraph({uid, sku, visiblity, data: locationDescriptions, type: "locationDescriptions", graphId});
     await new Promise((resolve) => setTimeout(resolve, WAIT_TIME * 1000));
   }
   return locationDescriptions;
 }
 
 async function graphSummarizeDescriptions(params) {
-  const {uid, sku, visiblity} = params;
-  const characterDescriptions = await getGraph({uid, sku, visiblity, type: "characterDescriptions"});
+  const {uid, sku, visiblity, graphId} = params;
+  const characterDescriptions = await getGraph({uid, sku, visiblity, type: "characterDescriptions", graphId});
   const characterSummaries = await novel.entityImageSummarize(
       "character_image_summarize_prompt",
       characterDescriptions,
       OPENAI_TOKENS_PER_MINUTE,
   );
-  await storeGraph({uid, sku, visiblity, data: characterSummaries, type: "characterSummaries"});
-  const locationDescriptions = await getGraph({uid, sku, visiblity, type: "locationDescriptions"});
+  await storeGraph({uid, sku, visiblity, data: characterSummaries, type: "characterSummaries", graphId});
+  const locationDescriptions = await getGraph({uid, sku, visiblity, type: "locationDescriptions", graphId});
   const locationSummaries = await novel.entityImageSummarize(
       "location_image_summarize_prompt",
       locationDescriptions,
       OPENAI_TOKENS_PER_MINUTE,
   );
-  await storeGraph({uid, sku, visiblity, data: locationSummaries, type: "locationSummaries"});
+  await storeGraph({uid, sku, visiblity, data: locationSummaries, type: "locationSummaries", graphId});
 
   return {characterSummaries, locationSummaries};
 }
 
 async function graphScenes(params) {
-  const {uid, sku, visiblity, chapter} = params;
+  const {uid, sku, visiblity, chapter, graphId} = params;
   let scenes_result = [];
-  const locations = await getGraph({uid, sku, visiblity, type: "locations"});
+  const locations = await getGraph({uid, sku, visiblity, type: "locations", graphId});
   const locationsCsv = csv(locations.locations);
-  const characters = await getGraph({uid, sku, visiblity, type: "characters"});
+  const characters = await getGraph({uid, sku, visiblity, type: "characters", graphId});
   const charactersCsv = csv(characters.characters);
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   const chapterJson = transcriptions[chapter];
@@ -250,11 +250,11 @@ async function graphScenes(params) {
       item.startTime = item.startTime.toFixed(1);
     }
   });
-  let charactersDescription = await getGraph({uid, sku, visiblity, type: "characterSummaries"});
+  let charactersDescription = await getGraph({uid, sku, visiblity, type: "characterSummaries", graphId});
   charactersDescription = Object.fromEntries(
       Object.entries(charactersDescription).map(([key, value]) => [key.toLowerCase(), value]),
   );
-  let locationDescription = await getGraph({uid, sku, visiblity, type: "locationSummaries"});
+  let locationDescription = await getGraph({uid, sku, visiblity, type: "locationSummaries", graphId});
   locationDescription = Object.fromEntries(
       Object.entries(locationDescription).map(([key, value]) => [key.toLowerCase(), value]),
   );
@@ -322,14 +322,14 @@ async function graphScenes(params) {
   });
   let scenes;
   try {
-    scenes = await getGraph({uid, sku, visiblity, type: "scenes"});
+    scenes = await getGraph({uid, sku, visiblity, type: "scenes", graphId});
     scenes[chapter] = descriptive_scenes;
   } catch (e) {
     logger.warn(`Error storing scenes: ${e}`);
     scenes = {};
     scenes[chapter] = descriptive_scenes;
   }
-  await storeGraph({uid, sku, visiblity, data: scenes, type: "scenes"});
+  await storeGraph({uid, sku, visiblity, data: scenes, type: "scenes", graphId});
   logger.debug(`Generated a total of ${descriptive_scenes.length} scenes for chapter ${chapter}`);
   return descriptive_scenes;
 }
@@ -368,11 +368,11 @@ function descriptiveScenes({scenes_result, charactersDescription, locationDescri
 }
 
 async function graphScenes16k(params) {
-  const {uid, sku, visiblity, chapter} = params;
-  const locations = await getGraph({uid, sku, visiblity, type: "locations"});
+  const {uid, sku, visiblity, chapter, graphId} = params;
+  const locations = await getGraph({uid, sku, visiblity, type: "locations", graphId});
   const locationsList = locations.locations.map((location) => location.name);
   logger.debug(`locationsList: ${JSON.stringify(locationsList)}`);
-  const characters = await getGraph({uid, sku, visiblity, type: "characters"});
+  const characters = await getGraph({uid, sku, visiblity, type: "characters", graphId});
   const charactersList = characters.characters.map((character) => character.name);
   logger.debug(`charactersList: ${JSON.stringify(charactersList)}`);
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
@@ -391,13 +391,13 @@ async function graphScenes16k(params) {
     csvText: JSON.stringify(csvText),
     numScenes,
   });
-  await storeGraph({uid, sku, visiblity, data: scenes, type: "scenes16k"});
+  await storeGraph({uid, sku, visiblity, data: scenes, type: "scenes16k", graphId});
   return scenes;
 }
 
 async function getCharactersList(params) {
-  const {uid, sku, visiblity} = params;
-  let characters = await getGraph({uid, sku, visiblity, type: "characters"});
+  const {uid, sku, visiblity, graphId} = params;
+  let characters = await getGraph({uid, sku, visiblity, type: "characters", graphId});
   if (!characters.characters || !Array.isArray(characters.characters)) {
     if (Array.isArray(characters)) {
       characters = {
@@ -424,10 +424,10 @@ function aliasesString({characterName, aliases}) {
 }
 
 async function graphCharacterDescriptionsOAI(params) {
-  const {uid, sku, visiblity} = params;
+  const {uid, sku, visiblity, graphId} = params;
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   const fullText = consolidateTranscriptions({transcriptions});
-  const characters = await getCharactersList({uid, sku, visiblity});
+  const characters = await getCharactersList({uid, sku, visiblity, graphId});
   const prompt = "getCharacterDescription";
   const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
   // eslint-disable-next-line prefer-const
@@ -454,7 +454,7 @@ async function graphCharacterDescriptionsOAI(params) {
     textList,
     tokensPerMinute,
   });
-  await storeGraph({uid, sku, visiblity, data: characterDescriptions, type: "characterDescriptions"});
+  await storeGraph({uid, sku, visiblity, data: characterDescriptions, type: "characterDescriptions", graphId});
   return characterDescriptions;
 }
 
@@ -481,10 +481,10 @@ path: ${location.path}
 }
 
 async function graphLocationDescriptionsOAI(params) {
-  const {uid, sku, visiblity} = params;
+  const {uid, sku, visiblity, graphId} = params;
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   const fullText = consolidateTranscriptions({transcriptions});
-  const locations = await getGraph({uid, sku, visiblity, type: "locations"});
+  const locations = await getGraph({uid, sku, visiblity, type: "locations", graphId});
   const prompt = "getLocationDescription";
   const tokensPerMinute = OPENAI_TOKENS_PER_MINUTE;
   // eslint-disable-next-line prefer-const
@@ -505,7 +505,7 @@ async function graphLocationDescriptionsOAI(params) {
     staticText: fullText,
     tokensPerMinute,
   });
-  await storeGraph({uid, sku, visiblity, data: locationDescriptions, type: "locationDescriptions"});
+  await storeGraph({uid, sku, visiblity, data: locationDescriptions, type: "locationDescriptions", graphId});
   return locationDescriptions;
 }
 
@@ -524,8 +524,8 @@ function filterScenes(scenes) {
 }
 
 async function augmentScenes(params) {
-  const {uid, sku, visiblity, chapter} = params;
-  const currentScenes = await getGraph({uid, sku, visiblity, type: "scenes"});
+  const {uid, sku, visiblity, chapter, graphId} = params;
+  const currentScenes = await getGraph({uid, sku, visiblity, type: "scenes", graphId});
   const chapterScenes = currentScenes[chapter];
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   const chapterJson = transcriptions[chapter];
@@ -572,7 +572,7 @@ async function augmentScenes(params) {
 
   // Update the scenes in the graph
   currentScenes[chapter] = augmentedScenes;
-  await storeGraph({uid, sku, visiblity, data: currentScenes, type: "augmentedScenes"});
+  await storeGraph({uid, sku, visiblity, data: currentScenes, type: "augmentedScenes", graphId});
 
   return augmentedScenes;
 }
@@ -582,13 +582,13 @@ async function augmentScenes(params) {
 // It does this with a fixed schema model for the LLM. Its the first time
 // I've tried to do this.
 async function augmentScenesOAI(params) {
-  const {uid, sku, visiblity, chapter} = params;
-  const currentScenes = await getGraph({uid, sku, visiblity, type: "scenes"});
+  const {uid, sku, visiblity, chapter, graphId} = params;
+  const currentScenes = await getGraph({uid, sku, visiblity, type: "scenes", graphId});
   const chapterScenes = currentScenes[chapter];
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
-  const locations = await getGraph({uid, sku, visiblity, type: "locations"});
+  const locations = await getGraph({uid, sku, visiblity, type: "locations", graphId});
   const locationsCsv = csv(locations.locations);
-  const characters = await getGraph({uid, sku, visiblity, type: "characters"});
+  const characters = await getGraph({uid, sku, visiblity, type: "characters", graphId});
   const charactersCsv = csv(characters.characters);
   const chapterJson = transcriptions[chapter];
   chapterJson.forEach((item) => {
@@ -656,18 +656,18 @@ async function augmentScenesOAI(params) {
     }
   }
   logger.debug(`Augmented Scenes. Started with ${scenesLength} scenes, ended with ${flattened_scenes_result.length} scenes.`);
-  let charactersDescription = await getGraph({uid, sku, visiblity, type: "characterSummaries"});
+  let charactersDescription = await getGraph({uid, sku, visiblity, type: "characterSummaries", graphId});
   charactersDescription = Object.fromEntries(
       Object.entries(charactersDescription).map(([key, value]) => [key.toLowerCase(), value]),
   );
-  let locationDescription = await getGraph({uid, sku, visiblity, type: "locationSummaries"});
+  let locationDescription = await getGraph({uid, sku, visiblity, type: "locationSummaries", graphId});
   locationDescription = Object.fromEntries(
       Object.entries(locationDescription).map(([key, value]) => [key.toLowerCase(), value]),
   );
   const descriptive_scenes = descriptiveScenes({scenes_result: flattened_scenes_result, charactersDescription, locationDescription});
   // Update the scenes in the graph
   currentScenes[chapter] = descriptive_scenes;
-  await storeGraph({uid, sku, visiblity, data: currentScenes, type: "augmentedScenes"});
+  await storeGraph({uid, sku, visiblity, data: currentScenes, type: "augmentedScenes", graphId});
 
   return augmentedScenes;
 }

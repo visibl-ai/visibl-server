@@ -4,6 +4,7 @@ import {
   getDispatchFunction,
   storeDispatchFunction,
 } from "../storage/realtimeDb/dispatchCache.js";
+import {ENVIRONMENT} from "../config/config.js";
 
 import logger from "./logger.js";
 
@@ -141,7 +142,11 @@ locations/{location}/functions/{functionName}
     logger.debug(`dispatchTask: ${functionName} time to enqueue: ${Date.now() - stepTime}ms`);
     return;
   } catch (error) {
-    logger.error(`Error dispatching task ${functionName}: ${error}`);
+    if (ENVIRONMENT.value() === "development") {
+      logger.debug(`Error dispatching task ${functionName}: ${error}`);
+    } else {
+      logger.error(`Error dispatching task ${functionName}: ${error}`);
+    }
     return;
   }
 }

@@ -165,6 +165,11 @@
         "source": "/v1/aax/stream/*/*/*",
         "function": "v1streamAax",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/graph/generate",
+        "function": "v1generateGraph",
+        "region": "europe-west1"
       }
     ]
   }

@@ -206,7 +206,7 @@ async function getJsonFile(params) {
   return new Promise((resolve, reject) => {
     file.download((err, contents) => {
       if (err) {
-        logger.error("Error downloading scenes JSON from GCP: " + err);
+        logger.error("Error downloading JSON from GCP: " + err);
         reject(err);
       } else {
         try {
@@ -313,25 +313,30 @@ async function getTranscriptions(params) {
 
 async function storeGraph(params) {
   // eslint-disable-next-line no-unused-vars
-  const {uid, sku, visiblity, data, type} = params;
-  let filename;
-  if (uid === "admin") {
-    filename = `Catalogue/Processed/${sku}/${sku}-${type}-graph.json`;
-  } else {
-    filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-${type}-graph.json`;
+  const {uid, sku, visiblity, data, type, graphId} = params;
+  if (!graphId || !type || !sku) {
+    throw new Error("storeGraph: graphId is required");
   }
+  // let filename;
+  // if (uid === "admin") {
+  //   filename = `Catalogue/Processed/${sku}/${sku}-${type}-graph.json`;
+  // } else {
+  //   filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-${type}-graph.json`;
+  // }
+  const filename = `Graphs/${graphId}/${sku}-${type}.json`;
   return await storeJsonFile({filename, data});
 }
 
 async function getGraph(params) {
   // eslint-disable-next-line no-unused-vars
-  const {uid, sku, visiblity, type} = params;
-  let filename;
-  if (uid === "admin") {
-    filename = `Catalogue/Processed/${sku}/${sku}-${type}-graph.json`;
-  } else {
-    filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-${type}-graph.json`;
-  }
+  const {uid, sku, visiblity, type, graphId} = params;
+  // let filename;
+  // if (uid === "admin") {
+  //   filename = `Catalogue/Processed/${sku}/${sku}-${type}-graph.json`;
+  // } else {
+  //   filename = `UserData/${uid}/Uploads/Processed/${sku}/${sku}-${type}-graph.json`;
+  // }
+  const filename = `Graphs/${graphId}/${sku}-${type}.json`;
   return await getJsonFile({filename});
 }
 

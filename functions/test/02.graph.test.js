@@ -1,6 +1,7 @@
 
 
 /* eslint-disable max-len */
+/* eslint-disable require-jsdoc */
 // import admin from "firebase-admin";
 import "./_env.js";
 import console from "../util/_console.js";
@@ -20,6 +21,7 @@ dotenv.config({path: ".env.local"}); // because firebase-functions-test doesn't 
 const APP_ID = process.env.APP_ID;
 const DISPATCH_REGION = `europe-west1`;
 const APP_URL = `http://127.0.0.1:5001/`;
+const HOSTING_URL = `http://127.0.0.1:5002`;
 // Start the Firebase Functions test environment
 // eslint-disable-next-line no-unused-vars
 const firebaseTest = test({
@@ -57,58 +59,177 @@ const GENERATE_SCENES_16K = false;
 const GENERATE_AUGMENT_SCENES = false;
 const GENERATE_AUGMENT_SCENES_OAI = false;
 
-const SYM_PATH = "./test/bindings/graph/";
+const SYM_PATH = "./test/bindings/";
 const GRAPH_PATH = fs.realpathSync(SYM_PATH);
 console.log(GRAPH_PATH);
 const DEFAULT_TIMEOUT = 9999999999999;
 
+const NUM_CHAPTERS = 2;
+
+async function uploadFiles(fileList) {
+  const bucket = getStorage(app).bucket();
+  for (const thisFile of fileList) {
+    // console.log(`Uploading file: ${thisFile.from}`);
+    const filePath = thisFile.to;
+    const file = bucket.file(filePath);
+    try {
+      const stream = fs.createReadStream(`${SYM_PATH}${thisFile.from}`);
+      await new Promise((resolve, reject) => {
+        stream.pipe(file.createWriteStream({}))
+            .on("error", (error) => {
+              console.error(`Upload failed for ${thisFile.from}:`, error);
+              reject(error);
+            })
+            .on("finish", () => {
+              // console.log(`File ${thisFile.from} uploaded successfully`);
+              resolve();
+            });
+      });
+    } catch (error) {
+      console.error(`Failed to upload file ${thisFile.from}:`, error);
+    }
+  }
+}
+
 // eslint-disable-next-line no-undef
 describe("Graph tests", () => {
+  // 1. create a user and a graph.
+
+  // 2. initiate the queue.
+  let graphItem;
   // eslint-disable-next-line no-undef
-  it(`Upload transcripts`, async function() {
+  it(`test generateNewGraph`, async function() {
+    // clear the current queue.
+    let response = await chai.request(HOSTING_URL)
+        .post("/v1/admin/queue/nuke")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({});
+    expect(response).to.have.status(200);
+    expect(response.body).to.have.property("success", true);
     // eslint-disable-next-line no-invalid-this
     this.timeout(DEFAULT_TIMEOUT);
-    const fileList = [
-      `${process.env.PUBLIC_SKU1}-transcriptions.json`,
-      `${process.env.PUBLIC_SKU1}-characters-graph.json`,
-      `${process.env.PUBLIC_SKU1}-locations-graph.json`,
-      `${process.env.PUBLIC_SKU1}-characterDescriptions-graph.json`,
-      `${process.env.PUBLIC_SKU1}-locationDescriptions-graph.json`,
-      `${process.env.PUBLIC_SKU1}-characterSummaries-graph.json`,
-      `${process.env.PUBLIC_SKU1}-locationSummaries-graph.json`,
-      `${process.env.PUBLIC_SKU1}-scenes-graph.json`,
-    ];
-    const bucket = getStorage(app).bucket();
-    const bucketPath = `Catalogue/Processed/${process.env.PUBLIC_SKU1}/`;
-    console.log(bucketPath);
+    const data = {
+      uid: "admin",
+      catalogueId: "1",
+      sku: process.env.PUBLIC_SKU1,
+      visibility: "public",
+      numChapters: NUM_CHAPTERS,
+    };
+    response = await chai
+        .request(HOSTING_URL)
+        .post("/v1/graph/generate")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send(data);
+    expect(response).to.have.status(200);
+    expect(response.body).to.have.property("id");
+    graphItem = response.body;
+    console.log("graphItem", graphItem);
+  });
 
-    for (const fileName of fileList) {
-      console.log(`Uploading file: ${fileName}`);
-      const filePath = `${bucketPath}${fileName}`;
-      const file = bucket.file(filePath);
-      try {
-        const stream = fs.createReadStream(`./test/bindings/graph/${fileName}`);
-
-        await new Promise((resolve, reject) => {
-          stream.pipe(file.createWriteStream({}))
-              .on("error", (error) => {
-                console.error(`Upload failed for ${fileName}:`, error);
-                reject(error);
-              })
-              .on("finish", () => {
-                console.log(`File ${fileName} uploaded successfully`);
-                resolve();
-              });
-        });
-      } catch (error) {
-        console.error(`Failed to upload file ${fileName}:`, error);
-      }
-    }
+  // eslint-disable-next-line no-undef
+  it(`Upload bindings.`, async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
+    await uploadFiles([
+      {from: `graph/${process.env.PUBLIC_SKU1}-transcriptions.json`, to: `Catalogue/Processed/${process.env.PUBLIC_SKU1}/${process.env.PUBLIC_SKU1}-transcriptions.json`},
+      {from: `graph/${process.env.PUBLIC_SKU1}-characters-graph.json`, to: `Graphs/${graphItem.id}/${process.env.PUBLIC_SKU1}-characters-graph.json`},
+      {from: `graph/${process.env.PUBLIC_SKU1}-locations-graph.json`, to: `Graphs/${graphItem.id}/${process.env.PUBLIC_SKU1}-locations-graph.json`},
+      {from: `graph/${process.env.PUBLIC_SKU1}-characterDescriptions-graph.json`, to: `Graphs/${graphItem.id}/${process.env.PUBLIC_SKU1}-characterDescriptions-graph.json`},
+      {from: `graph/${process.env.PUBLIC_SKU1}-locationDescriptions-graph.json`, to: `Graphs/${graphItem.id}/${process.env.PUBLIC_SKU1}-locationDescriptions-graph.json`},
+      {from: `graph/${process.env.PUBLIC_SKU1}-characterSummaries-graph.json`, to: `Graphs/${graphItem.id}/${process.env.PUBLIC_SKU1}-characterSummaries-graph.json`},
+      {from: `graph/${process.env.PUBLIC_SKU1}-locationSummaries-graph.json`, to: `Graphs/${graphItem.id}/${process.env.PUBLIC_SKU1}-locationSummaries-graph.json`},
+      {from: `graph/${process.env.PUBLIC_SKU1}-scenes-graph.json`, to: `Graphs/${graphItem.id}/${process.env.PUBLIC_SKU1}-scenes-graph.json`},
+    ]);
     // Ensure the directory exists
     if (!fs.existsSync(GRAPH_PATH)) {
       fs.mkdirSync(GRAPH_PATH, {recursive: true});
     }
   });
+
+  // eslint-disable-next-line no-undef
+  it(`Dispatch graph pipeline: Characters`, async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
+    const response = await chai
+        .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
+        .post("/graphPipeline")
+        .set("Content-Type", "application/json")
+        .send({data: {}}); // nest object as this is a dispatch.
+    expect(response).to.have.status(204);
+  });
+
+  // eslint-disable-next-line no-undef
+  it(`Dispatch graph pipeline: Locations`, async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
+    const response = await chai
+        .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
+        .post("/graphPipeline")
+        .set("Content-Type", "application/json")
+        .send({data: {}}); // nest object as this is a dispatch.
+    expect(response).to.have.status(204);
+  });
+
+  // eslint-disable-next-line no-undef
+  it(`Dispatch graph pipeline: Character Descriptions`, async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
+    const response = await chai
+        .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
+        .post("/graphPipeline")
+        .set("Content-Type", "application/json")
+        .send({data: {}}); // nest object as this is a dispatch.
+    expect(response).to.have.status(204);
+  });
+  // eslint-disable-next-line no-undef
+  it(`Dispatch graph pipeline: Location Descriptions`, async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
+    const response = await chai
+        .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
+        .post("/graphPipeline")
+        .set("Content-Type", "application/json")
+        .send({data: {}}); // nest object as this is a dispatch.
+    expect(response).to.have.status(204);
+  });
+  // eslint-disable-next-line no-undef
+  it(`Dispatch graph pipeline: Summarize Descriptions`, async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
+    const response = await chai
+        .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
+        .post("/graphPipeline")
+        .set("Content-Type", "application/json")
+        .send({data: {}}); // nest object as this is a dispatch.
+    expect(response).to.have.status(204);
+  });
+  // eslint-disable-next-line no-undef
+  it(`Dispatch graph pipeline: generateScenes`, async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
+    for (let i = 0; i < NUM_CHAPTERS; i++) {
+      const response = await chai
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
+          .post("/graphPipeline")
+          .set("Content-Type", "application/json")
+          .send({data: {}}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+    }
+  });
+  // eslint-disable-next-line no-undef
+  it(`Dispatch graph pipeline: augmentScenes`, async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
+    for (let i = 0; i < NUM_CHAPTERS; i++) {
+      const response = await chai
+          .request(`${APP_URL}${APP_ID}/${DISPATCH_REGION}`)
+          .post("/graphPipeline")
+          .set("Content-Type", "application/json")
+          .send({data: {}}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+    }
+  });
+
   if (GENERATE_CHARACTERS) {
   // eslint-disable-next-line no-undef
     it(`test graphCharacters`, async function() {

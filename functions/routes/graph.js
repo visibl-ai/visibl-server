@@ -29,6 +29,11 @@ import {
   dataToBody,
 } from "../util/dispatch.js";
 
+import {
+  generateNewGraph,
+  graphQueue,
+} from "../graph/graphPipeline.js";
+
 export const v1AdminOutpaintImage = onRequest({region: "europe-west1"}, async (req, res) => {
   await validateOnRequestAdmin(req);
   res.status(200).send(await outpaintWideAndTall(req.body));
@@ -121,4 +126,18 @@ export const generateAugmentScenesOAI = onTaskDispatched(
     async (req) => {
       logger.debug(`augmentScenesOAI: ${JSON.stringify(req.data)}`);
       return await augmentScenesOAI(dataToBody(req).body);
+    });
+
+export const v1generateGraph = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await generateNewGraph({
+    ...req.body,
+  }));
+});
+
+export const graphPipeline = onTaskDispatched(
+    microDispatchInstance(),
+    async (req) => {
+      logger.debug(`graphPipeline: ${JSON.stringify(req.data)}`);
+      return await graphQueue(dataToBody(req).body);
     });
