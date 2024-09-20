@@ -2,92 +2,57 @@
 // import {promisify} from "util";
 // import {exec as execCb} from "child_process";
 // const exec = promisify(execCb);
-import ffmpegTools from "../util/ffmpeg.js";
+import ffmpegTools from "../audio/ffmpeg.js";
 import whisper from "./openai/whisper.js";
 import logger from "../util/logger.js";
+import fs from "fs";
 import {ENVIRONMENT} from "../config/config.js";
-import {uploadFileToBucket,
-  downloadFileFromBucket,
-  getJsonFile,
+import {
   uploadJsonToBucket,
+  deleteLocalFiles,
 } from "../storage/storage.js";
-import fs from "fs/promises";
+import {
+  getMetaData,
+} from "../audio/audioMetadata.js";
+import {splitM4b} from "../audio/splitM4b.js";
+import {splitAaxc} from "../audio/aaxStream.js";
+import {updateAAXCChapterFileSizes} from "../util/audibleOpdsHelper.js";
 
-const MAX_SIZE = process.env.MAX_SIZE || 24;
-const NUM_THREADS = process.env.NUM_THREADS || 32;
 
-async function uploadFilesToBucket(bookName, outputFiles, cloudPath = "splitAudio") {
-  const uploads = await Promise.all(outputFiles.map(async (outputFile) => {
-    try {
-      const uploadResponse = await uploadFileToBucket({localPath: outputFile, bucketPath: `${cloudPath}${outputFile.split("./bin/")[1]}`});
-      logger.debug(`uploadFilesToBucket Upload response for ${outputFile}: ${JSON.stringify(uploadResponse.metadata.name)}`);
-      return uploadResponse;
-    } catch (error) {
-      logger.error(`Error uploading ${outputFile}: ${error}`);
-      return null;
-    }
-  },
-  ));
-  return uploads.map((uploadResponse) => {
-    logger.log(`Uploaded ${uploadResponse.metadata.name} to bucket`);
-    return `${uploadResponse.metadata.name}`;
-  });
-}
-
-async function transcribeFilesInParallel(bookData, outputFiles) {
+async function transcribeFilesInParallel(bookData, outputStreams) {
   const transcriptions = {};
-  outputFiles.forEach((outputFile, index) => {
-    bookData.chapters[index].outputFile = outputFile;
+  outputStreams.forEach((outputStream, index) => {
+    bookData.chapters[index].outputStream = outputStream;
   });
   const prompt = `The transcript is an audiobook version of ${bookData.title} by ${bookData.author}.`;
-  const promises = Object.entries(bookData.chapters).map(
-      async ([chapterIndex, chapter]) => {
-        const {startTime, endTime} = chapter;
-        logger.debug(
-            `Transcribing chapter ${chapterIndex} from ${startTime} to ${endTime} with prompt ${prompt}`,
-        );
-        const transcription = await whisper.whisper(
-            chapter.outputFile,
-            startTime,
-            prompt,
-        );
-        logger.debug(`Chapter ${chapterIndex} transcription complete.`);
-        transcriptions[chapterIndex] = transcription;
-        return;
+  const promiseFactories = Object.entries(bookData.chapters).map(
+      ([chapterIndex, chapter]) => () => {
+        return new Promise((resolve) => {
+          const {startTime, endTime} = chapter;
+          logger.debug(
+              `Transcribing chapter ${chapterIndex} from ${startTime} to ${endTime} with prompt ${prompt}`,
+          );
+          whisper.whisper(
+              chapter.outputStream,
+              startTime,
+              prompt,
+          ).then((transcription) => {
+            logger.debug(`Chapter ${chapterIndex} transcription complete.`);
+            transcriptions[chapterIndex] = transcription;
+            resolve();
+          });
+        });
       },
   );
+
   if (ENVIRONMENT.value() === "development") {
     logger.debug("***Skipping transcription in development mode***");
-    // await Promise.all(promises);
-    return transcriptions;
+    // Do nothing in development mode
   } else {
-    await Promise.all(promises);
-    return transcriptions;
+    await Promise.all(promiseFactories.map((factory) => factory()));
   }
-}
 
-function getMetadataPath(uid, sku) {
-  if (uid === "admin") {
-    return `Catalogue/Raw/${sku}.json`;
-  } else {
-    return `UserData/${uid}/Uploads/AAXRaw/${sku}.json`;
-  }
-}
-
-function getM4BPath(uid, sku) {
-  if (uid === "admin") {
-    return `Catalogue/Raw/${sku}.m4b`;
-  } else {
-    return `UserData/${uid}/Uploads/AAXRaw/${sku}.m4b`;
-  }
-}
-
-function getSplitAudioPath(uid, sku) {
-  if (uid === "admin") {
-    return `Catalogue/Processed/${sku}/`;
-  } else {
-    return `UserData/${uid}/Uploads/Processed/${sku}/`;
-  }
+  return transcriptions;
 }
 
 function getTranscriptionsPath(uid, sku) {
@@ -98,58 +63,27 @@ function getTranscriptionsPath(uid, sku) {
   }
 }
 
-async function getMetaData(uid, sku, path) {
-  const bookData = await getJsonFile({filename: getMetadataPath(uid, sku)});
-  logger.debug(`Book Data: ${JSON.stringify(bookData, null, 2)}`);
+async function generateTranscriptions({uid, item, numThreads = 32, entryType}) {
+  logger.debug(JSON.stringify(item));
+  const sku = item.sku;
+  logger.debug(`Processing FileName: ${sku} for ${uid}`);
+  let ffmpegPath;
+  logger.debug(`Downloading ffmpeg binary`);
+  ffmpegPath = await ffmpegTools.downloadFffmpegBinary();
   if (ENVIRONMENT.value() === "development") {
-    bookData.chapters = Object.fromEntries(
-        Object.entries(bookData.chapters).slice(0, 2),
-    );
+    ffmpegPath = `ffmpeg`;
   }
-  const inputFiles = Object.values(bookData.chapters).map(() => `${path}${sku}.m4b`);
-  const outputFiles = Object.keys(bookData.chapters).map(
-      (chapterIndex) => `${path}${sku}-ch${chapterIndex}.m4a`,
-  );
-  const startTimes = Object.values(bookData.chapters).map(
-      (chapter) => chapter.startTime,
-  );
-  const endTimes = Object.values(bookData.chapters).map(
-      (chapter) => chapter.endTime,
-  );
-  return {bookData, inputFiles, outputFiles, startTimes, endTimes};
-}
+  logger.debug(`using ffmpeg path: ${ffmpegPath}`);
+  const metadata = await getMetaData(uid, sku);
+  let outputStreams; let chapters;
+  if (entryType === "m4b") {
+    outputStreams = await outputStreamsFromM4b({uid, sku, ffmpegPath});
+  } else if (entryType === "aaxc") {
+    ({outputStreams, chapters} = await outputStreamsFromAaxc({metadata, uid, sku, audibleKey: item.key, audibleIv: item.iv, numThreads: numThreads}));
+    await updateAAXCChapterFileSizes({chapters, item, metadata});
+  }
 
-// TODO: Add AAX support.
-async function pipeline(uid, sku, ffmpegPath ) {
-  // 1. Download file from bucket to local - or, use the one already there.
-  const inputFilePath = `./bin/${sku}.m4b`;
-  const path = `./bin/`;
-
-  await downloadFileFromBucket({bucketPath: getM4BPath(uid, sku), localPath: inputFilePath});
-  logger.debug("STEP 1: File downloaded from bucket.");
-  // 2. get metadata from audio file
-
-  const metadata = await getMetaData(uid, sku, path);
-  logger.debug("STEP 2: Metadata Obtained");
-  // 3. Split file in parallel
-  const outputFiles = await ffmpegTools.splitAudioInParallel(
-      metadata.inputFiles,
-      metadata.outputFiles,
-      metadata.startTimes,
-      metadata.endTimes,
-      MAX_SIZE,
-      metadata.bookData.codec,
-      metadata.bookData.bitrate_kbs,
-      NUM_THREADS,
-      ffmpegPath,
-  );
-  logger.debug(`STEP 3: File Split into chapters of ${MAX_SIZE}mb`);
-  // 4. Upload the split files to bucket?
-  let splitAudio = "";
-  splitAudio = await uploadFilesToBucket(sku, outputFiles, getSplitAudioPath(uid, sku));
-  logger.debug("STEP 4: Files uploaded to bucket.");
-  // 5. Transcribe the files
-  const transcriptions = await transcribeFilesInParallel(metadata.bookData, outputFiles);
+  const transcriptions = await transcribeFilesInParallel(metadata.bookData, outputStreams);
   if (transcriptions === undefined) {
     logger.error(`Transcriptions are undefined for ${sku}`);
     return;
@@ -159,34 +93,24 @@ async function pipeline(uid, sku, ffmpegPath ) {
   // 6. Upload Transcriptions to Bucket.
   const transcriptionsFile = await uploadJsonToBucket({json: transcriptions, bucketPath: getTranscriptionsPath(uid, sku)});
   logger.debug("STEP 6: Transcriptions Uploaded to Bucket.");
-  return {transcriptions: transcriptionsFile.metadata.name, metadata: metadata.bookData, splitAudio};
-}
-
-async function downloadFffmpegBinary() {
-  const ffmpegPath = "./bin/ffmpeg";
-  await downloadFileFromBucket({bucketPath: "bin/ffmpeg", localPath: ffmpegPath});
-  await fs.chmod(ffmpegPath, 0o755);
-  return ffmpegPath;
-}
-
-async function generateTranscriptions(uid, data) {
-  logger.debug(JSON.stringify(data));
-  //   if (data.run !== true) {
-  //     logger.debug("not running due to body.run");
-  //     return {pong: true};
-  //   }
-  const sku = data.sku;
-  logger.debug(`Processing FileName: ${sku} for ${uid}`);
-  let ffmpegPath;
-  logger.debug(`Downloading ffmpeg binary`);
-  ffmpegPath = await downloadFffmpegBinary();
-  if (ENVIRONMENT.value() === "development") {
-    ffmpegPath = `ffmpeg`;
+  if (chapters) {
+    await deleteLocalFiles(chapters);
   }
-  logger.debug(`using ffmpeg path: ${ffmpegPath}`);
-  const urls = await pipeline(uid, sku, ffmpegPath);
-  return urls;
+  return {transcriptions: transcriptionsFile.metadata.name, metadata: metadata.bookData};
 }
 
+async function outputStreamsFromM4b({uid, sku, ffmpegPath}) {
+  const outputFiles = await splitM4b(uid, sku, ffmpegPath);
+  // Map each outputFile to a readable stream
+  const outputStreams = outputFiles.map((file) => fs.createReadStream(file));
+  return outputStreams;
+}
+
+
+async function outputStreamsFromAaxc({metadata, uid, sku, audibleKey, audibleIv, numThreads}) {
+  const chapters = await splitAaxc({metadata, uid, sku, audibleKey, audibleIv, numThreads});
+  const outputStreams = chapters.map((file) => fs.createReadStream(file));
+  return {outputStreams, chapters};
+}
 
 export {generateTranscriptions};

@@ -6,12 +6,18 @@
 
 
 import ffmpeg from "fluent-ffmpeg";
+import {
+  downloadFileFromBucket,
+  getFileStream,
+} from "../storage/storage.js";
+import fs from "fs/promises";
 // import fs from 'fs/promises';
-import logger from "./logger.js";
+import logger from "../util/logger.js";
+import {ENVIRONMENT} from "../config/config.js";
 
 
 const splitAudioInParallel = async (
-    inputFiles,
+    inputFile,
     outputFiles,
     startTimes,
     endTimes,
@@ -24,11 +30,11 @@ const splitAudioInParallel = async (
   const results = [];
   let i = 0;
 
-  while (i < inputFiles.length) {
+  while (i < outputFiles.length) {
     const tasks = [];
-    for (let j = 0; j < numThreads && i < inputFiles.length; j++, i++) {
+    for (let j = 0; j < numThreads && i < outputFiles.length; j++, i++) {
       const task = splitAudioWithMaxSize(
-          inputFiles[i],
+          inputFile,
           outputFiles[i],
           startTimes[i],
           endTimes[i],
@@ -42,30 +48,6 @@ const splitAudioInParallel = async (
   }
 
   return results;
-};
-
-const splitAudioInSeries = async (
-    inputFiles,
-    outputFiles,
-    startTimes,
-    endTimes,
-    maxSizeInMb,
-    codec,
-    currentBitrateKbps,
-    numThreads,
-    ffmpegPath = ffmpeg,
-) => {
-  for (let i = 0; i < inputFiles.length; i++) {
-    await splitAudioWithMaxSize(
-        inputFiles[i],
-        outputFiles[i],
-        startTimes[i],
-        endTimes[i],
-        maxSizeInMb,
-        codec,
-        currentBitrateKbps,
-        ffmpegPath);
-  }
 };
 
 const splitAudioWithMaxSize = async (
@@ -158,12 +140,58 @@ const ffprobe = async (inputFile, ffprobePath) => {
   });
 };
 
+// eslint-disable-next-line require-jsdoc
+async function generateM4bInMem(params) {
+  let ffmpegPath = await downloadFffmpegBinary();
+  if (ENVIRONMENT.value() === "development") {
+    ffmpegPath = `ffmpeg`;
+  }
+  logger.debug(`Current working directory: ${process.cwd()}`);
+  const inputStream = await getFileStream({path: `UserData/${params.uid}/Uploads/AAXRaw/${params.sku}.aaxc`});
+  return new Promise((resolve, reject) => {
+    const outputPath = params.outputFile;
+    logger.debug(`generateM4bInMem params: ${JSON.stringify(params)}`);
+    ffmpeg(inputStream).setFfmpegPath(ffmpegPath)
+        .setStartTime(params.startTime)
+        .setDuration(params.durationInSeconds)
+        .audibleKey(params.audibleKey)
+        .audibleIv(params.audibleIv)
+        .audioCodec("copy")
+        .noVideo()
+        // Firebase Functions use an in-memory file system
+        // So it is faster to write to the in memory fs than
+        // use a buffer with a passthrough.
+        .output(outputPath)
+        .on("start", (commandLine) => {
+          logger.debug("FFmpeg command: " + commandLine);
+        })
+        .on("end", () => {
+          logger.debug(`Generated ${params.outputFile} in memory from ${params.startTime} for ${params.durationInSeconds} complete`);
+          resolve(outputPath);
+        }).on("error", (err) => {
+          logger.error("An error occurred: " + err.message);
+          reject(err);
+        })
+        .run();
+  });
+}
+
+// eslint-disable-next-line require-jsdoc
+async function downloadFffmpegBinary() {
+  const ffmpegPath = "./bin/ffmpeg";
+  await downloadFileFromBucket({bucketPath: "bin/ffmpeg", localPath: ffmpegPath});
+  await fs.chmod(ffmpegPath, 0o755);
+  return ffmpegPath;
+}
+
+
 const ffmpegTools = {
   splitAudio,
   splitAudioInParallel,
-  splitAudioInSeries,
   ffprobe,
   splitAudioWithMaxSize,
+  generateM4bInMem,
+  downloadFffmpegBinary,
 };
 
 export default ffmpegTools;

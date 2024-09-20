@@ -54,6 +54,14 @@ async function aaxGetItemsFirestore(uid) {
   }));
 }
 
+async function aaxGetItemFirestore(id) {
+  const db = getFirestore();
+  const itemRef = db.collection("UserAAXSync").doc(id);
+  const item = await itemRef.get();
+  const data = item.data();
+  return {id, ...data};
+}
+
 async function aaxAsinFromSkuFirestore(uid, sku) {
   const db = getFirestore();
   const itemRef = db.collection("UserAAXSync").doc(`${uid}:${sku}`);
@@ -72,7 +80,6 @@ async function aaxUpdateItemFirestore(item) {
   const itemRef = db.collection("UserAAXSync").doc(item.id);
   await itemRef.update(item);
 }
-
 
 async function aaxGetAllAuthFirestore(expiry, lastDocId = null, limit = 100) {
   const db = getFirestore();
@@ -115,4 +122,5 @@ export {
   aaxGetItemsFirestore,
   aaxGetAllAuthFirestore,
   aaxAsinFromSkuFirestore,
+  aaxGetItemFirestore,
 };

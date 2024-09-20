@@ -92,6 +92,16 @@
         "region": "europe-west1"
       },
       {
+        "source": "/v1/admin/aax/deleteAuth",
+        "function": "v1AdminDeleteAAXAuth",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/aax/aaxConnectRedirect/**",
+        "function": "v1aaxConnectRedirect",
+        "region": "europe-west1"
+      },
+      {
         "source": "/v1/tmp/privateOPDS/**",
         "function": "v1TMPgetPrivateOPDSFeed",
         "region": "europe-west1"
@@ -149,6 +159,11 @@
       {
         "source": "/v1/admin/cache/populateSceneCache",
         "function": "v1populateSceneCache",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/aax/stream/*/*/*",
+        "function": "v1streamAax",
         "region": "europe-west1"
       }
     ]

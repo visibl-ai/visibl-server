@@ -10,8 +10,8 @@ let dbGlobal = null;
 function getDb() {
   if (!dbGlobal) {
     if (process.env.FIREBASE_DATABASE_EMULATOR_HOST) {
-      logger.debug(`Using database emulator with URL: ${process.env.FIREBASE_DATABASE_EMULATOR_HOST}`);
-      dbGlobal = getDatabaseWithUrl(`http://${process.env.FIREBASE_DATABASE_EMULATOR_HOST}`);
+      logger.debug(`Using database emulator with URL: ${process.env.FIREBASE_DATABASE_EMULATOR_HOST}?ns=fake-server`);
+      dbGlobal = getDatabaseWithUrl(`http://${process.env.FIREBASE_DATABASE_EMULATOR_HOST}?ns=fake-server`);
     } else {
       dbGlobal = getDatabase(app);
     }

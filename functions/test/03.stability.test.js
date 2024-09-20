@@ -1,4 +1,5 @@
 /* eslint-disable max-len */
+/* eslint-disable no-invalid-this */
 // import admin from "firebase-admin";
 import "./_env.js";
 import console from "../util/_console.js";
@@ -46,7 +47,8 @@ const INDIVIDUAL_CALLS = false;
 // eslint-disable-next-line no-undef
 describe("Graph tests", () => {
   // eslint-disable-next-line no-undef
-  it(`Upload bindings to bucket.`, async () => {
+  it(`Upload bindings to bucket.`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const fileList = [
       `jardethe.png`,
       `linda.jpg`,
