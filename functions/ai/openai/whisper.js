@@ -8,12 +8,12 @@ import {OPENAI_API_KEY} from "../../config/config.js";
 // Initialize the OpenAI client with the API key from environment variables
 
 
-async function whisperTranscribe(file, offset, prompt, retry = true) {
+async function whisperTranscribe(stream, offset, prompt, retry = true) {
   let map = {};
   const openai = new OpenAI(OPENAI_API_KEY.value());
   try {
     const transcription = await openai.audio.transcriptions.create({
-      file: fs.createReadStream(file),
+      file: stream,
       model: "whisper-1",
       language: "en",
       response_format: "verbose_json",
@@ -26,10 +26,10 @@ async function whisperTranscribe(file, offset, prompt, retry = true) {
       };
     });
   } catch (err) {
-    logger.debug(`Error transcribing ${file} ${err}`);
+    logger.debug(`Error transcribing stream: ${err}`);
     // Retry 1x time.
     if (retry) {
-      return whisperTranscribe(file, offset, prompt, false);
+      return whisperTranscribe(stream, offset, prompt, false);
     }
   }
   return map;

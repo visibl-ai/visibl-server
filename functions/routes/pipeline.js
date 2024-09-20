@@ -27,7 +27,7 @@ export const v1generateTranscriptions = onCall({
   timeoutSeconds: 540,
 }, async (context) => {
   const {uid, data} = await validateOnCallAuth(context);
-  return await generateTranscriptions(uid, data);
+  return await generateTranscriptions({uid, item: {sku: data.sku}, entryType: "m4b"});
 });
 
 export const processM4B = onTaskDispatched(

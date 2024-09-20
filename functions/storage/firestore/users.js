@@ -66,9 +66,33 @@ async function setAAXConnectDisableFirestore(uid) {
   }
 }
 
+async function deleteAAXAuthFirestore(req) {
+  if (!req.body.aaxId) {
+    throw new Error("id is required");
+  }
+  const db = getFirestore();
+  const itemRef = db.collection("AAXAuth").doc(req.body.aaxId);
+  await itemRef.delete();
+  // Delete items in UserAAXSync collection with matching uid
+  const userAAXSyncRef = db.collection("UserAAXSync").where("uid", "==", req.body.uid);
+  const userAAXSyncSnapshot = await userAAXSyncRef.get();
+
+  if (!userAAXSyncSnapshot.empty) {
+    const batch = db.batch();
+    userAAXSyncSnapshot.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+    logger.info(`Deleted ${userAAXSyncSnapshot.size} UserAAXSync item(s) for user: ${req.body.uid}`);
+  } else {
+    logger.info(`No UserAAXSync items found for user: ${req.body.uid}`);
+  }
+}
+
 export {
   getAAXAvailableFirestore,
   setAAXAvailableFirestore,
   getAAXConnectStatusFirestore,
   setAAXConnectDisableFirestore,
+  deleteAAXAuthFirestore,
 };

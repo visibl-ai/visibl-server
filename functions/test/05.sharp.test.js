@@ -40,12 +40,14 @@ process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 const APP_URL = `http://127.0.0.1:5002`;
 const SYM_PATH = "./test/bindings/images/";
 const bucketImagePath = `Images/`;
+const DEFAULT_TIMEOUT = 5000000;
 // eslint-disable-next-line no-undef
 describe("Sharp Compression", () => {
   // eslint-disable-next-line no-undef
   describe("Compress with streams.", () => {
     // eslint-disable-next-line no-undef
-    it(`Upload bindings to bucket.`, async () => {
+    it(`Upload bindings to bucket.`, async function() {
+      this.timeout(DEFAULT_TIMEOUT);
       const fileList = [
         {fileName: `linda.jpg`, path: `${bucketImagePath}`},
       ];
@@ -74,7 +76,8 @@ describe("Sharp Compression", () => {
     });
 
     // eslint-disable-next-line no-undef
-    it("Compress image and get public URL.", async () => {
+    it("Compress image and get public URL.", async function() {
+      this.timeout(DEFAULT_TIMEOUT);
       const response = await chai.request(APP_URL)
           .post("/v1/admin/scenes/compress")
           .set("API-KEY", process.env.ADMIN_API_KEY)

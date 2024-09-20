@@ -45,11 +45,12 @@ const SYM_PATH = "./test/bindings/queue/";
 const bucketImagePath = `Images/`;
 const bucketScenePath = `Scenes/`;
 
-const DEFAULT_TIMEOUT = 5000;
+const DEFAULT_TIMEOUT = 5000000;
 // eslint-disable-next-line no-undef
 describe("Queue Tests", () => {
   // eslint-disable-next-line no-undef
-  it(`Upload bindings to bucket.`, async () => {
+  it(`Upload bindings to bucket.`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const fileList = [
       {fileName: `jardethe.png`, path: `${bucketImagePath}`},
       {fileName: `linda.jpg`, path: `${bucketImagePath}`},

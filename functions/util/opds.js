@@ -19,6 +19,8 @@ import {
   libraryGetFirestore,
 } from "../storage/firestore/library.js";
 
+import {getAAXCStreamUrl} from "../audio/aaxStream.js";
+
 import {AAX_CONNECT_SOURCE, ENVIRONMENT, HOSTING_DOMAIN} from "../config/config.js";
 
 function generateManifestUrl(visibility, uid, catalogueId) {
@@ -35,24 +37,27 @@ async function generateOPDS(uid, catalogueItems, title) {
       title: title,
     },
 
-    publications: await Promise.all(catalogueItems.map(async (item) => ({
-      metadata: metadataToOPDSMetadata(item.metadata, item.id),
-      images: [
-        {
-          href: await getAlbumArtUrl(item.visibility, uid, item.sku),
-          type: "image/jpeg",
-        },
-      ],
-      links: [
-        {
-          href: generateManifestUrl(item.visibility, uid, item.id),
-          type: "application/audiobook+json",
-          rel: "http://opds-spec.org/acquisition/buy",
-        },
-      ],
-    }))),
-  };
+    publications: await Promise.all(catalogueItems.map(async (item) => {
+      if (!item.metadata) return null; // Skip items without metadata
 
+      return {
+        metadata: metadataToOPDSMetadata(item.metadata, item.id),
+        images: [
+          {
+            href: await getAlbumArtUrl(item.visibility, uid, item.sku),
+            type: "image/jpeg",
+          },
+        ],
+        links: [
+          {
+            href: generateManifestUrl(item.visibility, uid, item.id),
+            type: "application/audiobook+json",
+            rel: "http://opds-spec.org/acquisition/buy",
+          },
+        ],
+      };
+    })).then((results) => results.filter(Boolean)), // Filter out null results
+  };
   return opdsResponse;
 }
 
@@ -124,7 +129,7 @@ async function processRawPublicItem(req) {
     };
   }
   // eslint-disable-next-line no-unused-vars
-  const transcriptions = await generateTranscriptions("admin", metadata);
+  const transcriptions = await generateTranscriptions({uid: "admin", item: {sku: sku}, entryType: "m4b"});
   // Now that the transcriptions and metadata are available lets add it to the catalogue.
   await addSkuToCatalogue("admin", metadata, "public");
   // Copy the album art
@@ -137,7 +142,7 @@ async function getM4AUrl(visibility, sku, uid, chapterIndex) {
   if (visibility === "public") {
     return await getPublicUrl({path: `Catalogue/Processed/${sku}/${sku}-ch${chapterIndex}.m4a`});
   } else {
-    return await getPublicUrl({path: `UserData/${uid}/Uploads/Processed/${sku}/${sku}-ch${chapterIndex}.m4a`});
+    return await getAAXCStreamUrl({uid, sku, chapterIndex});
   }
 }
 

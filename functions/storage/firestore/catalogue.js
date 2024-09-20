@@ -8,6 +8,7 @@ import {
 } from "../firestore.js";
 import {scenesCreateDefaultCatalogueFirestore} from "./scenes.js";
 import logger from "../../util/logger.js";
+import {getMetaData} from "../../audio/audioMetadata.js";
 
 /**
    * Validates the audiobook data object.
@@ -345,6 +346,11 @@ async function populateCatalogueWithAAXItems(uid, items) {
   logger.debug("Items SKUs:", items.map((item) => item.sku).join(", "));
   items = await filterNewSKUItemsForCatalogue(items);
   logger.debug("Filtered items:", items.map((item) => item.sku).join(", "));
+  // Add metadata to each tiem we're adding.
+  await Promise.all(items.map(async (item) => {
+    const metadata = await getMetaData(uid, item.sku);
+    item.metadata = metadata.bookData;
+  }));
   return await catalogueBatchAddFirestore(items);
 }
 
