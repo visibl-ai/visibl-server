@@ -4,6 +4,7 @@ import {
   getGraph,
   createGraph,
   updateGraphStatus,
+  updateGraph,
 } from "../storage/firestore/graph.js";
 
 import {
@@ -119,31 +120,54 @@ async function graphQueue() {
     case PipelineSteps.CHARACTERS:
       logger.debug(`Generating Characters for ${JSON.stringify(graphItem)}`);
       await graphCharacters({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id});
-      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.CHARACTERS, statusValue: "complete", nextGraphStep: PipelineSteps.LOCATIONS});
+      await updateGraph({
+        graphData: updateGraphStatus({
+          graphItem, statusName: PipelineSteps.CHARACTERS,
+          statusValue: "complete",
+          nextGraphStep: PipelineSteps.LOCATIONS},
+        )});
       await addItemToQueue({entryType: PipelineSteps.LOCATIONS, graphItem});
       break;
     case PipelineSteps.LOCATIONS:
       logger.debug(`Generating Locations for ${JSON.stringify(graphItem)}`);
       await graphLocations({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id});
-      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.LOCATIONS, statusValue: "complete", nextGraphStep: PipelineSteps.CHARACTER_DESCRIPTIONS});
+      await updateGraph({graphData: updateGraphStatus({
+        graphItem,
+        statusName: PipelineSteps.LOCATIONS,
+        statusValue: "complete",
+        nextGraphStep: PipelineSteps.CHARACTER_DESCRIPTIONS})});
       await addItemToQueue({entryType: PipelineSteps.CHARACTER_DESCRIPTIONS, graphItem});
       break;
     case PipelineSteps.CHARACTER_DESCRIPTIONS:
       logger.debug(`Generating Character Descriptions for ${JSON.stringify(graphItem)}`);
       await graphCharacterDescriptionsOAI({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id});
-      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.CHARACTER_DESCRIPTIONS, statusValue: "complete", nextGraphStep: PipelineSteps.LOCATION_DESCRIPTIONS});
+      await updateGraph({graphData: updateGraphStatus({
+        graphItem,
+        statusName: PipelineSteps.CHARACTER_DESCRIPTIONS,
+        statusValue: "complete",
+        nextGraphStep: PipelineSteps.LOCATION_DESCRIPTIONS})});
       await addItemToQueue({entryType: PipelineSteps.LOCATION_DESCRIPTIONS, graphItem});
       break;
     case PipelineSteps.LOCATION_DESCRIPTIONS:
       logger.debug(`Generating Location Descriptions for ${JSON.stringify(graphItem)}`);
       await graphLocationDescriptionsOAI({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id});
-      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.LOCATION_DESCRIPTIONS, statusValue: "complete", nextGraphStep: PipelineSteps.SUMMARIZE_DESCRIPTIONS});
+      await updateGraph({graphData: updateGraphStatus({
+        graphItem,
+        statusName: PipelineSteps.LOCATION_DESCRIPTIONS,
+        statusValue: "complete",
+        nextGraphStep: PipelineSteps.SUMMARIZE_DESCRIPTIONS,
+      })});
       await addItemToQueue({entryType: PipelineSteps.SUMMARIZE_DESCRIPTIONS, graphItem});
       break;
     case PipelineSteps.SUMMARIZE_DESCRIPTIONS:
       logger.debug(`Summarizing Descriptions for ${JSON.stringify(graphItem)}`);
       await graphSummarizeDescriptions({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id});
-      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.SUMMARIZE_DESCRIPTIONS, statusValue: "complete", nextGraphStep: PipelineSteps.GENERATE_SCENES});
+      await updateGraph({graphData: updateGraphStatus({
+        graphItem,
+        statusName: PipelineSteps.SUMMARIZE_DESCRIPTIONS,
+        statusValue: "complete",
+        nextGraphStep: PipelineSteps.GENERATE_SCENES,
+      })});
       graphItem.chapter = 0;
       await addItemToQueue({entryType: PipelineSteps.GENERATE_SCENES, graphItem});
       break;
@@ -154,7 +178,12 @@ async function graphQueue() {
         graphItem.chapter = graphItem.chapter + 1;
         await addItemToQueue({entryType: PipelineSteps.GENERATE_SCENES, graphItem});
       } else {
-        await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.GENERATE_SCENES, statusValue: "complete", nextGraphStep: PipelineSteps.AUGMENT_SCENES_OAI});
+        await updateGraph({graphData: updateGraphStatus({
+          graphItem,
+          statusName: PipelineSteps.GENERATE_SCENES,
+          statusValue: "complete",
+          nextGraphStep: PipelineSteps.AUGMENT_SCENES_OAI,
+        })});
         graphItem.chapter = 0;
         await addItemToQueue({entryType: PipelineSteps.AUGMENT_SCENES_OAI, graphItem});
       }
@@ -166,7 +195,12 @@ async function graphQueue() {
         graphItem.chapter = graphItem.chapter + 1;
         await addItemToQueue({entryType: PipelineSteps.AUGMENT_SCENES_OAI, graphItem});
       } else {
-        await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.AUGMENT_SCENES_OAI, statusValue: "complete", nextGraphStep: PipelineSteps.CREATE_DEFAULT_SCENE});
+        await updateGraph({graphData: updateGraphStatus({
+          graphItem,
+          statusName: PipelineSteps.AUGMENT_SCENES_OAI,
+          statusValue: "complete",
+          nextGraphStep: PipelineSteps.CREATE_DEFAULT_SCENE,
+        })});
         await addItemToQueue({entryType: PipelineSteps.CREATE_DEFAULT_SCENE, graphItem});
       }
       break;
@@ -180,7 +214,12 @@ async function graphQueue() {
         catalogueId: graphItem.catalogueId,
       });
       graphItem.defaultSceneId = defaultScene.id;
-      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.CREATE_DEFAULT_SCENE, statusValue: "complete", nextGraphStep: PipelineSteps.GENERATE_IMAGES});
+      await updateGraph({graphData: updateGraphStatus({
+        graphItem,
+        statusName: PipelineSteps.CREATE_DEFAULT_SCENE,
+        statusValue: "complete",
+        nextGraphStep: PipelineSteps.GENERATE_IMAGES,
+      })});
       await addItemToQueue({entryType: PipelineSteps.GENERATE_IMAGES, graphItem});
       break;
   }

@@ -41,23 +41,31 @@ async function deleteGraph() {
   // const db = getFirestore();
 }
 
-async function getGraph() {
-  // const db = getFirestore();
-}
-
-async function updateGraphStatus({graphId, statusName, statusValue, nextGraphStep}) {
+async function getGraph({graphId}) {
   const db = getFirestore();
   const graphRef = db.collection("Graphs").doc(graphId);
   const graph = await graphRef.get();
-  if (!graph.exists) {
+  return {
+    id: graph.id,
+    ...graph.data(),
+  };
+}
+
+function updateGraphStatus({graphItem, statusName, statusValue, nextGraphStep}) {
+  if (!graphItem) {
     throw new Error("Graph does not exist");
   }
-  const graphData = graph.data();
-  if (!graphData.progress) {
-    graphData.progress = {};
+  if (!graphItem.progress) {
+    graphItem.progress = {};
   }
-  graphData.progress[statusName] = statusValue;
-  graphData.nextGraphStep = nextGraphStep;
+  graphItem.progress[statusName] = statusValue;
+  graphItem.nextGraphStep = nextGraphStep;
+  return graphItem;
+}
+
+async function updateGraph({graphData}) {
+  const db = getFirestore();
+  const graphRef = db.collection("Graphs").doc(graphData.id);
   await graphRef.update(graphData);
 }
 
@@ -66,4 +74,5 @@ export {
   deleteGraph,
   getGraph,
   updateGraphStatus,
+  updateGraph,
 };
