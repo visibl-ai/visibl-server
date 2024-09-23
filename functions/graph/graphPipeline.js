@@ -1,6 +1,7 @@
 
 /* eslint-disable require-jsdoc */
 import {
+  getGraph,
   createGraph,
   updateGraphStatus,
 } from "../storage/firestore/graph.js";
@@ -11,6 +12,10 @@ import {
   queueSetItemsToProcessing,
   queueSetItemsToComplete,
 } from "../storage/firestore/queue.js";
+
+import {
+  scenesCreateDefaultCatalogueFirestore,
+} from "../storage/firestore/scenes.js";
 
 import {
   graphCharacters,
@@ -73,11 +78,23 @@ async function generateNewGraph({uid, catalogueId, sku, visibility, numChapters}
   return newGraph;
 }
 
-async function addItemToQueue({entryType, graphItem}) {
+async function continueGraphPipeline({graphId}) {
+  const graphItem = await getGraph({graphId});
+  if (!graphItem) {
+    throw new Error("Graph does not exist");
+  }
+  const nextStep = graphItem.nextGraphStep;
+  if (!nextStep) {
+    throw new Error("Graph pipeline is not continuing");
+  }
+  await addItemToQueue({entryType: nextStep, graphItem: graphItem, retry: true});
+}
+
+async function addItemToQueue({entryType, graphItem, retry = false}) {
   await queueAddEntries({
     types: ["graph"],
     entryTypes: [entryType],
-    entryParams: [{...graphItem}],
+    entryParams: [{retry, ...graphItem}],
     uniques: [graphQueueToUnique({
       type: "graph",
       entryType: entryType,
@@ -96,36 +113,37 @@ async function graphQueue() {
   // 2. set those items to processing.
   await queueSetItemsToProcessing({queue});
   const graphItem = queue[0].params;
+  let defaultScene;
   // 3. process the items.
   switch (queue[0].entryType) {
     case PipelineSteps.CHARACTERS:
       logger.debug(`Generating Characters for ${JSON.stringify(graphItem)}`);
       await graphCharacters({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id});
-      await updateGraphStatus({graphId: graphItem.id, statusName: "characters", statusValue: "complete"});
+      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.CHARACTERS, statusValue: "complete", nextGraphStep: PipelineSteps.LOCATIONS});
       await addItemToQueue({entryType: PipelineSteps.LOCATIONS, graphItem});
       break;
     case PipelineSteps.LOCATIONS:
       logger.debug(`Generating Locations for ${JSON.stringify(graphItem)}`);
       await graphLocations({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id});
-      await updateGraphStatus({graphId: graphItem.id, statusName: "locations", statusValue: "complete"});
+      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.LOCATIONS, statusValue: "complete", nextGraphStep: PipelineSteps.CHARACTER_DESCRIPTIONS});
       await addItemToQueue({entryType: PipelineSteps.CHARACTER_DESCRIPTIONS, graphItem});
       break;
     case PipelineSteps.CHARACTER_DESCRIPTIONS:
       logger.debug(`Generating Character Descriptions for ${JSON.stringify(graphItem)}`);
       await graphCharacterDescriptionsOAI({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id});
-      await updateGraphStatus({graphId: graphItem.id, statusName: "characterDescriptions", statusValue: "complete"});
+      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.CHARACTER_DESCRIPTIONS, statusValue: "complete", nextGraphStep: PipelineSteps.LOCATION_DESCRIPTIONS});
       await addItemToQueue({entryType: PipelineSteps.LOCATION_DESCRIPTIONS, graphItem});
       break;
     case PipelineSteps.LOCATION_DESCRIPTIONS:
       logger.debug(`Generating Location Descriptions for ${JSON.stringify(graphItem)}`);
       await graphLocationDescriptionsOAI({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id});
-      await updateGraphStatus({graphId: graphItem.id, statusName: "locationDescriptions", statusValue: "complete"});
+      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.LOCATION_DESCRIPTIONS, statusValue: "complete", nextGraphStep: PipelineSteps.SUMMARIZE_DESCRIPTIONS});
       await addItemToQueue({entryType: PipelineSteps.SUMMARIZE_DESCRIPTIONS, graphItem});
       break;
     case PipelineSteps.SUMMARIZE_DESCRIPTIONS:
       logger.debug(`Summarizing Descriptions for ${JSON.stringify(graphItem)}`);
       await graphSummarizeDescriptions({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id});
-      await updateGraphStatus({graphId: graphItem.id, statusName: "summarizeDescriptions", statusValue: "complete"});
+      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.SUMMARIZE_DESCRIPTIONS, statusValue: "complete", nextGraphStep: PipelineSteps.GENERATE_SCENES});
       graphItem.chapter = 0;
       await addItemToQueue({entryType: PipelineSteps.GENERATE_SCENES, graphItem});
       break;
@@ -136,7 +154,7 @@ async function graphQueue() {
         graphItem.chapter = graphItem.chapter + 1;
         await addItemToQueue({entryType: PipelineSteps.GENERATE_SCENES, graphItem});
       } else {
-        await updateGraphStatus({graphId: graphItem.id, statusName: "scenes", statusValue: "complete"});
+        await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.GENERATE_SCENES, statusValue: "complete", nextGraphStep: PipelineSteps.AUGMENT_SCENES_OAI});
         graphItem.chapter = 0;
         await addItemToQueue({entryType: PipelineSteps.AUGMENT_SCENES_OAI, graphItem});
       }
@@ -148,9 +166,22 @@ async function graphQueue() {
         graphItem.chapter = graphItem.chapter + 1;
         await addItemToQueue({entryType: PipelineSteps.AUGMENT_SCENES_OAI, graphItem});
       } else {
-        await updateGraphStatus({graphId: graphItem.id, statusName: "augmentScenesOAI", statusValue: "complete"});
+        await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.AUGMENT_SCENES_OAI, statusValue: "complete", nextGraphStep: PipelineSteps.CREATE_DEFAULT_SCENE});
         await addItemToQueue({entryType: PipelineSteps.CREATE_DEFAULT_SCENE, graphItem});
       }
+      break;
+    case PipelineSteps.CREATE_DEFAULT_SCENE:
+      logger.debug(`Creating Default Scene for ${JSON.stringify(graphItem)}`);
+      defaultScene = await scenesCreateDefaultCatalogueFirestore({
+        uid: graphItem.uid,
+        sku: graphItem.sku,
+        visibility: graphItem.visibility,
+        graphId: graphItem.id,
+        catalogueId: graphItem.catalogueId,
+      });
+      graphItem.defaultSceneId = defaultScene.id;
+      await updateGraphStatus({graphId: graphItem.id, statusName: PipelineSteps.CREATE_DEFAULT_SCENE, statusValue: "complete", nextGraphStep: PipelineSteps.GENERATE_IMAGES});
+      await addItemToQueue({entryType: PipelineSteps.GENERATE_IMAGES, graphItem});
       break;
   }
   // 4. set the items to complete.
@@ -163,4 +194,5 @@ async function graphQueue() {
 export {
   generateNewGraph,
   graphQueue,
+  continueGraphPipeline,
 };

@@ -45,7 +45,7 @@ async function getGraph() {
   // const db = getFirestore();
 }
 
-async function updateGraphStatus({graphId, statusName, statusValue}) {
+async function updateGraphStatus({graphId, statusName, statusValue, nextGraphStep}) {
   const db = getFirestore();
   const graphRef = db.collection("Graphs").doc(graphId);
   const graph = await graphRef.get();
@@ -53,7 +53,11 @@ async function updateGraphStatus({graphId, statusName, statusValue}) {
     throw new Error("Graph does not exist");
   }
   const graphData = graph.data();
-  graphData[statusName] = statusValue;
+  if (!graphData.progress) {
+    graphData.progress = {};
+  }
+  graphData.progress[statusName] = statusValue;
+  graphData.nextGraphStep = nextGraphStep;
   await graphRef.update(graphData);
 }
 

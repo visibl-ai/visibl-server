@@ -45,7 +45,6 @@ export const v1aaxConnect = onCall({region: "europe-west1"}, async (context) => 
   await dispatchTask({
     functionName: "aaxPostAuthHook",
     data: {uid: uid, auth: auth},
-    location: "us-central1",
   });
   return auth;
 });
@@ -103,7 +102,10 @@ export const aaxDispatchTranscriptions = onTaskDispatched(
     },
 );
 
-export const v1streamAax = onRequest({region: "europe-west1"}, async (req, res) => {
+export const v1streamAax = onRequest({
+  region: "europe-west1",
+  memory: "2GiB",
+}, async (req, res) => {
   // await validateOnRequestAdmin(req);
   await aaxcStreamer(req, res);
 });

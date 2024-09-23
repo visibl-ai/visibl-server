@@ -184,16 +184,13 @@ async function downloadAAXCandQueueTranscriptions(uid, auth, itemsToProcess) {
           },
         });
         if (response.status === 200 && response.data.status === "success") {
-          logger.info(`Successfully downloaded generated m4b for item ${item.asin}`);
-          // Here you would typically process the downloaded file
-          // For example, convert it to M4B format
-          // Then update the item status in Firestore
+          logger.info(`Successfully downloaded aaxc for item ${item.asin}`);
           item.transcriptionsGenerated = false;
           item.key = response.data.key;
           item.iv = response.data.iv;
           item.licenceRules = response.data.licence_rules;
         } else {
-          logger.error(`Failed to download generated m4b for item ${item.asin}`, response.data);
+          logger.error(`Failed to download aaxc for item ${item.asin}`, response.data);
           return;
         }
       }

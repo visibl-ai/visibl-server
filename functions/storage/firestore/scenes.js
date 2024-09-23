@@ -25,6 +25,7 @@ import {
   storeScenes,
   fileExists,
   getDefaultSceneFilename,
+  getGraph,
 } from "../storage.js";
 
 import {
@@ -219,13 +220,15 @@ async function scenesCreateItemFirestore(uid, data) {
 
 async function scenesCreateDefaultCatalogueFirestore(data) {
   const db = getFirestore();
-  const {catalogueId, sku} = data;
+  let {catalogueId, sku, uid, graphId} = data;
   if (!catalogueId || !sku) {
     throw new Error("catalogueId and sku are required");
   }
   const prompt = "";
   const title = "Origin";
-  const uid = "admin";
+  if (!uid) {
+    uid = "admin";
+  }
   const scenesRef = db.collection("Scenes");
 
   // Check if a scene with the same libraryId and prompt already exists
@@ -245,6 +248,7 @@ async function scenesCreateDefaultCatalogueFirestore(data) {
 
   const newScene = {
     uid,
+    graphId,
     prompt,
     title,
     catalogueId,
@@ -255,14 +259,9 @@ async function scenesCreateDefaultCatalogueFirestore(data) {
 
   const newSceneRef = await scenesRef.add(newScene);
   logger.debug(`Created new scene for catalogueId: ${catalogueId} with id: ${newSceneRef.id}`);
-  // Dispatch long running task to generate scenes..
-  const defaultExist = await fileExists({path: getDefaultSceneFilename({sku})});
-  if (defaultExist) {
-    const defaultScenes = await getCatalogueDefaultScene({sku});
-    await storeScenes({sceneId: newSceneRef.id, sceneData: defaultScenes});
-  } else {
-    logger.debug(`No default scenes found for sku: ${sku}, skipping for now...`);
-  }
+  const defaultScenes = await getGraph({graphId, sku, type: "augmentedScenes"});
+  await storeScenes({sceneId: newSceneRef.id, sceneData: defaultScenes});
+
   return {id: newSceneRef.id, ...newScene};
 }
 
