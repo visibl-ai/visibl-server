@@ -12,6 +12,7 @@ import {
   queueGetEntries,
   queueSetItemsToProcessing,
   queueSetItemsToComplete,
+  graphQueueToUnique,
 } from "../storage/firestore/queue.js";
 
 import {
@@ -60,19 +61,6 @@ Object.freeze(PipelineSteps);
 // 8. Create default scene
 // 9. generate images for each chapter of default scene.
 
-function graphQueueToUnique(params) {
-  const {type, entryType, graphId, retry = false, chapter} = params;
-  // Check if any of the required parameters are undefined
-  if (type === undefined || entryType === undefined || graphId === undefined ) {
-    throw new Error("All parameters (type, entryType, graphId, stage) must be defined");
-  }
-
-  // If all parameters are defined, return a unique identifier
-  const retryString = retry ? "_retry" : "";
-  const chapterString = chapter ? `_${chapter}` : "";
-  return `${type}_${entryType}_${graphId}${chapterString}${retryString}`;
-}
-
 async function generateNewGraph({uid, catalogueId, sku, visibility, numChapters}) {
   const newGraph = await createGraph({uid, catalogueId, sku, visibility, numChapters});
   await addItemToQueue({entryType: PipelineSteps.CHARACTERS, graphItem: newGraph});
@@ -84,9 +72,9 @@ async function continueGraphPipeline({graphId}) {
   if (!graphItem) {
     throw new Error("Graph does not exist");
   }
-  const nextStep = graphItem.nextGraphStep;
+  let nextStep = graphItem.nextGraphStep;
   if (!nextStep) {
-    throw new Error("Graph pipeline is not continuing");
+    nextStep = PipelineSteps.CHARACTERS;
   }
   await addItemToQueue({entryType: nextStep, graphItem: graphItem, retry: true});
 }

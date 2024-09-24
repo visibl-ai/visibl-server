@@ -32,6 +32,7 @@ import {
 import {
   generateNewGraph,
   graphQueue,
+  continueGraphPipeline,
 } from "../graph/graphPipeline.js";
 
 export const v1AdminOutpaintImage = onRequest({region: "europe-west1"}, async (req, res) => {
@@ -131,6 +132,13 @@ export const generateAugmentScenesOAI = onTaskDispatched(
 export const v1generateGraph = onRequest({region: "europe-west1"}, async (req, res) => {
   await validateOnRequestAdmin(req);
   res.status(200).send(await generateNewGraph({
+    ...req.body,
+  }));
+});
+
+export const v1continueGraph = onRequest({region: "europe-west1"}, async (req, res) => {
+  await validateOnRequestAdmin(req);
+  res.status(200).send(await continueGraphPipeline({
     ...req.body,
   }));
 });
