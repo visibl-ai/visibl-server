@@ -69,7 +69,7 @@ async function libraryAddItemFirestore(uid, data) {
   }
 
   // get the catalogue item SKU
-  const catalogueItem = await catalogueGetFirestore(data.catalogueId);
+  const catalogueItem = await catalogueGetFirestore({id: data.catalogueId});
   const sku = catalogueItem.sku;
 
   // Add the new item to the Library

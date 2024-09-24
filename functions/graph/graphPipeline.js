@@ -1,7 +1,7 @@
 
 /* eslint-disable require-jsdoc */
 import {
-  getGraph,
+  getGraphFirestore,
   createGraph,
   updateGraphStatus,
   updateGraph,
@@ -16,6 +16,10 @@ import {
 } from "../storage/firestore/queue.js";
 
 import {
+  catalogueUpdateFirestore,
+} from "../storage/firestore/catalogue.js";
+
+import {
   scenesCreateDefaultCatalogueFirestore,
 } from "../storage/firestore/scenes.js";
 
@@ -28,6 +32,10 @@ import {
   graphScenes,
   augmentScenesOAI,
 } from "../ai/graph.js";
+
+import {
+  imageGenChapterRecursive,
+} from "../ai/imageGen.js";
 
 import {
   dispatchTask,
@@ -67,14 +75,17 @@ async function generateNewGraph({uid, catalogueId, sku, visibility, numChapters}
   return newGraph;
 }
 
-async function continueGraphPipeline({graphId}) {
-  const graphItem = await getGraph({graphId});
+async function continueGraphPipeline({graphId, stage}) {
+  const graphItem = await getGraphFirestore({graphId});
   if (!graphItem) {
     throw new Error("Graph does not exist");
   }
   let nextStep = graphItem.nextGraphStep;
   if (!nextStep) {
     nextStep = PipelineSteps.CHARACTERS;
+  }
+  if (stage) {
+    nextStep = stage;
   }
   await addItemToQueue({entryType: nextStep, graphItem: graphItem, retry: true});
 }
@@ -150,13 +161,13 @@ async function graphQueue() {
     case PipelineSteps.SUMMARIZE_DESCRIPTIONS:
       logger.debug(`Summarizing Descriptions for ${JSON.stringify(graphItem)}`);
       await graphSummarizeDescriptions({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id});
+      graphItem.chapter = 0;
       await updateGraph({graphData: updateGraphStatus({
         graphItem,
         statusName: PipelineSteps.SUMMARIZE_DESCRIPTIONS,
         statusValue: "complete",
         nextGraphStep: PipelineSteps.GENERATE_SCENES,
       })});
-      graphItem.chapter = 0;
       await addItemToQueue({entryType: PipelineSteps.GENERATE_SCENES, graphItem});
       break;
     case PipelineSteps.GENERATE_SCENES:
@@ -164,15 +175,21 @@ async function graphQueue() {
       await graphScenes({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id, chapter: graphItem.chapter});
       if (graphItem.chapter < graphItem.numChapters) {
         graphItem.chapter = graphItem.chapter + 1;
+        await updateGraph({graphData: updateGraphStatus({
+          graphItem,
+          statusName: PipelineSteps.GENERATE_SCENES,
+          statusValue: "pending",
+          nextGraphStep: PipelineSteps.GENERATE_SCENES,
+        })});
         await addItemToQueue({entryType: PipelineSteps.GENERATE_SCENES, graphItem});
       } else {
+        graphItem.chapter = 0;
         await updateGraph({graphData: updateGraphStatus({
           graphItem,
           statusName: PipelineSteps.GENERATE_SCENES,
           statusValue: "complete",
           nextGraphStep: PipelineSteps.AUGMENT_SCENES_OAI,
         })});
-        graphItem.chapter = 0;
         await addItemToQueue({entryType: PipelineSteps.AUGMENT_SCENES_OAI, graphItem});
       }
       break;
@@ -181,6 +198,12 @@ async function graphQueue() {
       await augmentScenesOAI({uid: graphItem.uid, sku: graphItem.sku, visibility: graphItem.visibility, graphId: graphItem.id, chapter: graphItem.chapter});
       if (graphItem.chapter < graphItem.numChapters) {
         graphItem.chapter = graphItem.chapter + 1;
+        await updateGraph({graphData: updateGraphStatus({
+          graphItem,
+          statusName: PipelineSteps.AUGMENT_SCENES_OAI,
+          statusValue: "pending",
+          nextGraphStep: PipelineSteps.AUGMENT_SCENES_OAI,
+        })});
         await addItemToQueue({entryType: PipelineSteps.AUGMENT_SCENES_OAI, graphItem});
       } else {
         await updateGraph({graphData: updateGraphStatus({
@@ -202,6 +225,8 @@ async function graphQueue() {
         catalogueId: graphItem.catalogueId,
       });
       graphItem.defaultSceneId = defaultScene.id;
+      graphItem.chapter = 0;
+      await catalogueUpdateFirestore({body: {id: graphItem.catalogueId, defaultSceneId: defaultScene.id}});
       await updateGraph({graphData: updateGraphStatus({
         graphItem,
         statusName: PipelineSteps.CREATE_DEFAULT_SCENE,
@@ -209,6 +234,34 @@ async function graphQueue() {
         nextGraphStep: PipelineSteps.GENERATE_IMAGES,
       })});
       await addItemToQueue({entryType: PipelineSteps.GENERATE_IMAGES, graphItem});
+      break;
+    case PipelineSteps.GENERATE_IMAGES:
+      logger.debug(`Generating Images for ${JSON.stringify(graphItem)}`);
+      await imageGenChapterRecursive({body: {sceneId: graphItem.defaultSceneId, lastSceneGenerated: 0, chapter: graphItem.chapter}});
+      if (graphItem.chapter < graphItem.numChapters) {
+        graphItem.chapter = graphItem.chapter + 1;
+        await updateGraph({graphData: updateGraphStatus({
+          graphItem,
+          statusName: PipelineSteps.GENERATE_IMAGES,
+          statusValue: "pending",
+          nextGraphStep: PipelineSteps.GENERATE_IMAGES,
+        })});
+        await addItemToQueue({entryType: PipelineSteps.GENERATE_IMAGES, graphItem});
+      } else {
+        await updateGraph({graphData: updateGraphStatus({
+          graphItem,
+          statusName: PipelineSteps.GENERATE_IMAGES,
+          statusValue: "complete",
+          nextGraphStep: "complete",
+        })});
+        await addItemToQueue({entryType: PipelineSteps.CREATE_DEFAULT_SCENE, graphItem});
+      }
+      break;
+    case "complete":
+      logger.debug(`Pipeline complete for ${graphItem.id}`);
+      break;
+    default:
+      logger.error(`Unknown step: ${queue[0].entryType}`);
       break;
   }
   // 4. set the items to complete.

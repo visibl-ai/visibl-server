@@ -255,11 +255,14 @@ async function styleScenesWithQueue(params) {
 async function imageGenChapterRecursive(req) {
   logger.debug(`imageGenChapterRecursive`);
   logger.debug(JSON.stringify(req.body));
-  const {sceneId, lastSceneGenerated, totalScenes, chapter} = req.body;
+  let {sceneId, lastSceneGenerated, totalScenes, chapter} = req.body;
+  const fullScenes = await getScene({sceneId});
+  if (!totalScenes) {
+    totalScenes = fullScenes[chapter].length;
+  }
   await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, false, Date.now());
   const scenesToGenerate = getScenesToGenerate(lastSceneGenerated, totalScenes, chapter);
   logger.debug(`scenesToGenerate = ${JSON.stringify(scenesToGenerate)}`);
-  const fullScenes = await getScene({sceneId});
   const scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
   const startTime = Date.now();
   await composeScenesWithQueue({scenes, sceneId});

@@ -123,7 +123,7 @@ async function getAiFirestore(uid, data) {
     logger.debug(`Using default library sceneId ${libraryData.defaultSceneId} for libraryId ${libraryId}`);
     sceneId = libraryData.defaultSceneId;
   } else if (!sceneId) {
-    const catalogueItem = await catalogueGetFirestore(catalogueId);
+    const catalogueItem = await catalogueGetFirestore({id: catalogueId});
     logger.debug(`Using default catalogue sceneId ${catalogueItem.defaultSceneId} for catalogueId ${catalogueId}`);
     sceneId = catalogueItem.defaultSceneId;
   }
@@ -167,7 +167,7 @@ async function getUserLibraryScene(params) {
   if (!exists) {
     logger.warn(`Scenes for ${sceneId} not found in Firestore, will try to copy now.`);
     logger.debug(`Checking for catalogue scenes for ${sku}`);
-    const defaultExist = await fileExists({path: getDefaultSceneFilename({sku})});
+    const defaultExist = await fileExists({path: await getDefaultSceneFilename({sku})});
     logger.debug(`Catalogue scenes for ${sku} exist: ${defaultExist}`);
     if (defaultExist) {
       logger.debug(`Copying default catalogue scenes for ${sku}`);
@@ -265,7 +265,7 @@ async function getAiCarouselFirestore(uid, data) {
   if (!catalogueId) {
     throw new Error("CatalogueId not found in library item");
   }
-  const catalogueItem = await catalogueGetFirestore(catalogueId);
+  const catalogueItem = await catalogueGetFirestore({id: catalogueId});
   if (!sceneId && libraryData.defaultSceneId) {
     logger.debug(`Using default library sceneId ${libraryData.defaultSceneId} for libraryId ${libraryId}`);
     sceneId = libraryData.defaultSceneId;

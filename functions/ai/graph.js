@@ -15,6 +15,9 @@ import logger from "../util/logger.js";
 import novel from "./openai/novel.js";
 import nerFunctions from "./openai/ner.js";
 import {OPENAI_TOKENS_PER_MINUTE} from "./openai/openaiLimits.js";
+import {
+  ENVIRONMENT,
+} from "../config/config.js";
 import csv from "./csv.js";
 import _ from "lodash";
 
@@ -93,7 +96,10 @@ async function graphCharacterDescriptions(params) {
       return {};
     }
   }
-  const end = 2;// characters.characters.length; // for debugging.
+  let end = characters.characters.length; // for debugging.
+  if (ENVIRONMENT.value() === "local") {
+    end = 2;
+  }
   for (let i = 0; i < end; i++) {
     const character = characters.characters[i];
     const characterName = character.name;
@@ -237,8 +243,11 @@ async function graphSummarizeDescriptions(params) {
 }
 
 async function graphScenes(params) {
-  const {uid, sku, visiblity, chapter, graphId} = params;
+  let {uid, sku, visiblity, chapter, graphId} = params;
   let scenes_result = [];
+  if (!chapter) {
+    chapter = 0;
+  }
   const locations = await getGraph({uid, sku, visiblity, type: "locations", graphId});
   const locationsCsv = csv(locations.locations);
   const characters = await getGraph({uid, sku, visiblity, type: "characters", graphId});
@@ -583,7 +592,13 @@ async function augmentScenes(params) {
 // I've tried to do this.
 async function augmentScenesOAI(params) {
   const {uid, sku, visiblity, chapter, graphId} = params;
-  const currentScenes = await getGraph({uid, sku, visiblity, type: "scenes", graphId});
+  let currentScenes;
+  try {
+    currentScenes = await getGraph({uid, sku, visiblity, type: "augmentedScenes", graphId});
+  } catch (e) {
+    logger.info(`No augmented scenes found, using default scenes to start with`);
+    currentScenes = await getGraph({uid, sku, visiblity, type: "scenes", graphId});
+  }
   const chapterScenes = currentScenes[chapter];
   const transcriptions = await getTranscriptions({uid, sku, visiblity});
   const locations = await getGraph({uid, sku, visiblity, type: "locations", graphId});

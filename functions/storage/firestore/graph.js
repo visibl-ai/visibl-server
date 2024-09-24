@@ -41,14 +41,36 @@ async function deleteGraph() {
   // const db = getFirestore();
 }
 
-async function getGraph({graphId}) {
+async function getGraphFirestore({graphId, catalogueId, sku}) {
+  if (!catalogueId && !sku && !graphId) {
+    throw new Error("catalogueId or sku or graphId is required");
+  }
   const db = getFirestore();
-  const graphRef = db.collection("Graphs").doc(graphId);
-  const graph = await graphRef.get();
-  return {
-    id: graph.id,
-    ...graph.data(),
-  };
+  if (graphId) {
+    const graphRef = db.collection("Graphs").doc(graphId);
+    const graph = await graphRef.get();
+    return {
+      id: graph.id,
+      ...graph.data(),
+    };
+  } else if (catalogueId) {
+    const graphs = await db.collection("Graphs")
+        .where("catalogueId", "==", catalogueId)
+        .where("sku", "==", sku)
+        .get();
+    return graphs.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } else if (sku) {
+    const graphs = await db.collection("Graphs")
+        .where("sku", "==", sku)
+        .get();
+    return graphs.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  }
 }
 
 function updateGraphStatus({graphItem, statusName, statusValue, nextGraphStep}) {
@@ -72,7 +94,7 @@ async function updateGraph({graphData}) {
 export {
   createGraph,
   deleteGraph,
-  getGraph,
+  getGraphFirestore,
   updateGraphStatus,
   updateGraph,
 };

@@ -44,6 +44,7 @@ async function getGlobalScenesFirestore(uid, data) {
   // Get Catalogue info from library item
   const libraryItem = await libraryGetFirestore(uid, libraryId);
   const defaultScene = libraryItem.defaultSceneId;
+  logger.debug(`Default scene for ${libraryId} is ${defaultScene}`);
   // return a single scene.
   if (sceneId) {
     const scene = await db.collection("Scenes").doc(sceneId).get();
@@ -70,22 +71,36 @@ async function getGlobalScenesFirestore(uid, data) {
     id: doc.id,
     ...doc.data(),
   }));
-  // Filter out duplicate scenes with empty prompts, keeping only one
-  const uniqueScenes = scenes.reduce((acc, scene) => {
+  // Initialize the accumulator with an emptyPromptScene property
+  const accumulator = scenes.reduce((acc, scene) => {
     const sceneWithDefault = {
       ...scene,
       userDefault: scene.id === defaultScene,
     };
+
     if (scene.prompt === "") {
-      if (!acc.hasEmptyPrompt) {
-        acc.hasEmptyPrompt = true;
-        acc.result.push(sceneWithDefault);
+      if (scene.id === defaultScene) {
+      // If the current scene is the default and has an empty prompt,
+      // prioritize it over any previously stored empty prompt scene
+        acc.emptyPromptScene = sceneWithDefault;
+      } else if (!acc.emptyPromptScene) {
+      // Store the first empty prompt scene encountered
+        acc.emptyPromptScene = sceneWithDefault;
       }
     } else {
+    // Add scenes with non-empty prompts directly to the result
       acc.result.push(sceneWithDefault);
     }
+
     return acc;
-  }, {hasEmptyPrompt: false, result: []}).result;
+  }, {emptyPromptScene: null, result: []});
+
+  // After the reduction, add the appropriate empty prompt scene if it exists
+  if (accumulator.emptyPromptScene) {
+    accumulator.result.push(accumulator.emptyPromptScene);
+  }
+
+  const uniqueScenes = accumulator.result;
 
 
   // Replace the original scenes array with the filtered one
@@ -174,13 +189,14 @@ async function scenesCreateItemFirestore(uid, data) {
     return {id: existingSceneQuery.docs[0].id, ...existingSceneQuery.docs[0].data()};
   }
   logger.debug(`Creating scene for catalogueId: ${catalogueId}`);
-  const {sku: sku} = await catalogueGetFirestore(catalogueId);
+  const {sku: sku, defaultGraphId, defaultSceneId} = await catalogueGetFirestore({id: catalogueId});
 
   const newScene = {
     uid,
     prompt: sanitizedPrompt.prompt,
     title: sanitizedPrompt.title,
     catalogueId,
+    graphId: defaultGraphId,
     sku,
     createdAt: Timestamp.now(),
   };
@@ -188,7 +204,7 @@ async function scenesCreateItemFirestore(uid, data) {
   const newSceneRef = await scenesRef.add(newScene);
   logger.debug(`Created new scene for catalogueId: ${catalogueId} with id: ${newSceneRef.id}`);
   // Dispatch long running task to generate scenes..
-  const defaultExist = await fileExists({path: getDefaultSceneFilename({sku})});
+  const defaultExist = await fileExists({path: await getDefaultSceneFilename({sku, defaultSceneId})});
   if (defaultExist) {
     const defaultScenes = await getCatalogueDefaultScene({sku});
     await storeScenes({sceneId: newSceneRef.id, sceneData: defaultScenes});
@@ -231,18 +247,21 @@ async function scenesCreateDefaultCatalogueFirestore(data) {
   }
   const scenesRef = db.collection("Scenes");
 
-  // Check if a scene with the same libraryId and prompt already exists
+  // Check if a global default scene already exists
   const existingSceneQuery = await scenesRef
       .where("catalogueId", "==", catalogueId)
       .where("globalDefault", "==", true)
       .get();
 
   if (!existingSceneQuery.empty) {
-    logger.error(`A global default scene already exists for catalogueId: ${catalogueId} with sceneId: ${existingSceneQuery.docs[0].id}`);
-    return {
-      id: existingSceneQuery.docs[0].id,
-      ...existingSceneQuery.docs[0].data(),
-    };
+    logger.info(`A global default scene already exists for catalogueId: ${catalogueId} with sceneId: ${existingSceneQuery.docs[0].id}. Disabling globalDefault.`);
+    // Set globalDefault to false for all existing global default scenes
+    const batch = db.batch();
+    existingSceneQuery.docs.forEach((doc) => {
+      batch.update(doc.ref, {globalDefault: false});
+    });
+    await batch.commit();
+    logger.info(`Updated ${existingSceneQuery.size} existing global default scene(s) to globalDefault: false`);
   }
   logger.debug(`Creating scene for catalogueId: ${catalogueId}`);
 
@@ -259,9 +278,12 @@ async function scenesCreateDefaultCatalogueFirestore(data) {
 
   const newSceneRef = await scenesRef.add(newScene);
   logger.debug(`Created new scene for catalogueId: ${catalogueId} with id: ${newSceneRef.id}`);
-  const defaultScenes = await getGraph({graphId, sku, type: "augmentedScenes"});
-  await storeScenes({sceneId: newSceneRef.id, sceneData: defaultScenes});
-
+  try {
+    const defaultScenes = await getGraph({graphId, sku, type: "augmentedScenes"});
+    await storeScenes({sceneId: newSceneRef.id, sceneData: defaultScenes});
+  } catch (error) {
+    logger.warn(`No augmented scenes found for ${graphId}`);
+  }
   return {id: newSceneRef.id, ...newScene};
 }
 

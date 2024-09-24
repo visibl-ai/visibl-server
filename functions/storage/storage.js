@@ -7,6 +7,7 @@ import axios from "axios";
 import path from "path";
 import app from "../firebase.js";
 import {storeSceneInCacheFromMemory} from "./realtimeDb/scenesCache.js";
+import {catalogueGetFirestore} from "./firestore/catalogue.js";
 // Get a reference to the default storage bucket
 
 /**
@@ -156,13 +157,17 @@ async function storeJsonFile(params) {
  */
 async function getCatalogueDefaultScene(params) {
   const {sku} = params;
-  const filename = getDefaultSceneFilename({sku});
+  const filename = await getDefaultSceneFilename({sku});
   return getJsonFile({filename});
 }
 
-function getDefaultSceneFilename(params) {
-  const {sku} = params;
-  return `Catalogue/Processed/${sku}/${sku}-scenes.json`;
+async function getDefaultSceneFilename(params) {
+  let {sku, defaultSceneId} = params;
+  if (!defaultSceneId) {
+    const catalogueItem = await catalogueGetFirestore({sku});
+    defaultSceneId = catalogueItem.defaultSceneId;
+  }
+  return `Scenes/${defaultSceneId}/scenes.json`;
 }
 
 function getSceneFilename(sceneId) {
