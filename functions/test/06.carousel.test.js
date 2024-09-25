@@ -51,6 +51,7 @@ process.env.FIREBASE_STORAGE_EMULATOR_HOST = "127.0.0.1:9199";
 process.env.FIREBASE_DATABASE_EMULATOR_HOST = "127.0.0.1:9000";
 
 const DISPATCH_URL = `http://127.0.0.1:5001`;
+const APP_URL = `http://127.0.0.1:5002`;
 const DISPATCH_REGION = `europe-west1`;
 const auth = getAuth();
 const TEST_USER_EMAIL = `john.${Date.now()}@example.com`;
@@ -134,7 +135,7 @@ describe("Carousel Tests", () => {
         {from: `m4b/${process.env.PUBLIC_SKU1}.jpg`, to: `Catalogue/Raw/${process.env.PUBLIC_SKU1}.jpg`},
         {from: `m4b/${process.env.PUBLIC_SKU1}.m4b`, to: `Catalogue/Raw/${process.env.PUBLIC_SKU1}.m4b`},
       ]);
-      const response = await chai
+      let response = await chai
           .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
           .post("/processM4B")
           .set("Content-Type", "application/json")
@@ -144,7 +145,7 @@ describe("Carousel Tests", () => {
           });
       expect(response).to.have.status(204);
       let wrapped = firebaseTest.wrap(v1catalogueGet);
-      const data = {};
+      let data = {};
       result = await wrapped({
         auth: {
           uid: userData.uid,
@@ -155,8 +156,34 @@ describe("Carousel Tests", () => {
       // upload scenes for the new catalogue item.
       await uploadFiles([{
         from: `graph/${catalogueBook.sku}-scenes-graph.json`,
-        to: `Catalogue/Processed/${catalogueBook.sku}/${catalogueBook.sku}-scenes.json`},
+        to: `Graphs/${catalogueBook.defaultGraphId}/${catalogueBook.sku}-augmentedScenes.json`},
       ]);
+      // Create the default scene for this catalogue item.
+      response = await chai.request(APP_URL)
+          .post("/v1/admin/queue/nuke")
+          .set("API-KEY", process.env.ADMIN_API_KEY)
+          .send({});
+      expect(response).to.have.status(200);
+      expect(response.body).to.have.property("success", true);
+      data = {
+        graphId: catalogueBook.defaultGraphId,
+        stage: "createDefaultScene",
+      };
+      response = await chai
+          .request(APP_URL)
+          .post("/v1/graph/continue")
+          .set("API-KEY", process.env.ADMIN_API_KEY)
+          .send(data);
+      expect(response).to.have.status(200);
+      console.log(response.body);
+
+      response = await chai
+          .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+          .post("/graphPipeline")
+          .set("Content-Type", "application/json")
+          .send({data: {}}); // nest object as this is a dispatch.
+      expect(response).to.have.status(204);
+
       // Add item to users library.
       wrapped = firebaseTest.wrap(v1addItemToLibrary);
       result = await wrapped({

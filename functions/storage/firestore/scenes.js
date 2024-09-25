@@ -43,7 +43,7 @@ async function getGlobalScenesFirestore(uid, data) {
   const {libraryId, sceneId} = data;
   // Get Catalogue info from library item
   const libraryItem = await libraryGetFirestore(uid, libraryId);
-  const defaultScene = libraryItem.defaultSceneId;
+  let defaultScene = libraryItem.defaultSceneId;
   logger.debug(`Default scene for ${libraryId} is ${defaultScene}`);
   // return a single scene.
   if (sceneId) {
@@ -71,6 +71,21 @@ async function getGlobalScenesFirestore(uid, data) {
     id: doc.id,
     ...doc.data(),
   }));
+
+  if (!defaultScene) {
+    logger.info(`No default scene found for ${libraryId}, using global default.`);
+    // Find the global default scene
+    const globalDefaultScene = scenes.find((scene) => scene.globalDefault === true);
+
+    if (globalDefaultScene) {
+      logger.info(`Using global default scene ${globalDefaultScene.id} for ${libraryId}`);
+      defaultScene = globalDefaultScene.id;
+      scenesUpdateUserLibraryDefaultFirestore({uid, libraryId, sceneId: defaultScene});
+    } else {
+      logger.warn(`No global default scene found for ${libraryId}`);
+    }
+  }
+
   // Initialize the accumulator with an emptyPromptScene property
   const accumulator = scenes.reduce((acc, scene) => {
     const sceneWithDefault = {
@@ -325,7 +340,10 @@ async function scenesUpdateLibraryItemFirestore(uid, data) {
 
 // Update the library item to set the scene as the default.
 async function scenesUpdateUserLibraryDefaultFirestore(params) {
-  const {db, uid, libraryId, sceneId} = params;
+  let {db, uid, libraryId, sceneId} = params;
+  if (!db) {
+    db = getFirestore();
+  }
   const libraryRef = db.collection("Library").doc(libraryId);
 
   // Update the defaultSceneId field

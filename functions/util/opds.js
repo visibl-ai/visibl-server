@@ -20,6 +20,7 @@ import {
 } from "../storage/firestore/library.js";
 
 import {getAAXCStreamUrl} from "../audio/aaxStream.js";
+import {dispatchTask} from "./dispatch.js";
 
 import {AAX_CONNECT_SOURCE, ENVIRONMENT, HOSTING_DOMAIN} from "../config/config.js";
 
@@ -134,6 +135,7 @@ async function processRawPublicItem(req) {
   await addSkuToCatalogue("admin", metadata, "public");
   // Copy the album art
   await copyAlbumArt(sku);
+  await dispatchTask({functionName: "graphPipeline", data: {}});
   return;
 }
 

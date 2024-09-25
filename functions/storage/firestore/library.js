@@ -88,9 +88,11 @@ async function libraryAddItemFirestore(uid, data) {
 
 
   // Update the library item with the id of the generated Scene
-  await docRef.update({
-    defaultSceneId: defaultSceneId,
-  });
+  if (defaultSceneId) {
+    await docRef.update({
+      defaultSceneId: defaultSceneId,
+    });
+  }
 
   // Fetch the updated document
   const updatedDoc = await docRef.get();

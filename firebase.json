@@ -170,6 +170,16 @@
         "source": "/v1/graph/generate",
         "function": "v1generateGraph",
         "region": "europe-west1"
+      },
+      {
+        "source": "/v1/graph/get",
+        "function": "v1getGraphs",
+        "region": "europe-west1"
+      },
+      {
+        "source": "/v1/graph/continue",
+        "function": "v1continueGraph",
+        "region": "europe-west1"
       }
     ]
   }
