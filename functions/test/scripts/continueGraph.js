@@ -9,7 +9,7 @@ chai.use(chaiHttp);
 const expect = chai.expect;
 dotenv.config({path: "../../.env.visibl-dev-ali"}); // because firebase-functions-test doesn't work with conf.
 // eslint-disable-next-line no-undef
-describe("Add public item to catalogue", () => {
+describe("Continue graph pipeline", () => {
   // eslint-disable-next-line no-undef
   // it(`test processM4B taskQueue`, async () => {
   //   const response = await chai
@@ -24,13 +24,13 @@ describe("Add public item to catalogue", () => {
   // });
 
   // eslint-disable-next-line no-undef
-  it(`Add ${process.env.SKU} to catalogue`, async function() {
+  it(`Continue graph ${process.env.GRAPH}`, async function() {
     this.timeout(60000000);
     const response = await chai
         .request(process.env.HOSTING_DOMAIN)
-        .post("/v1/admin/catalogue/process")
+        .post("/v1/graph/continue")
         .set("API-KEY", process.env.ADMIN_API_KEY)
-        .send({sku: process.env.SKU});
+        .send({graphId: process.env.GRAPH});
     expect(response).to.have.status(200);
   });
 });

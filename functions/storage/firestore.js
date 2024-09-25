@@ -227,9 +227,16 @@ async function populateCarousel({carousel, catalogueItem, currentTime}) {
 async function dispatchCarouselGeneration({carousel, sceneId, currentTime}) {
   const stepTime = Date.now();
   const ADJACENT_CAROUSEL_GENERATION_COUNT = 2;
-  const currentIndex = carousel.findIndex((scene) => scene.id === sceneId);
-  if (currentIndex === -1) {
-    logger.error(`dispatchCarouselGeneration: Scene with id ${sceneId} not found in carousel`);
+
+  let currentIndex;
+  try {
+    currentIndex = carousel.findIndex((scene) => scene.id === sceneId);
+    if (currentIndex === -1) {
+      logger.error(`dispatchCarouselGeneration: Scene with id ${sceneId} not found in carousel`);
+      return;
+    }
+  } catch (error) {
+    logger.error(`dispatchCarouselGeneration: Error finding scene with id ${sceneId} in carousel: ${error}`);
     return;
   }
 
@@ -251,6 +258,7 @@ async function dispatchCarouselGeneration({carousel, sceneId, currentTime}) {
 
 async function getAiCarouselFirestore(uid, data) {
   let {libraryId, sceneId, currentTime} = data;
+  logger.debug(`Getting AI carousel for ${uid} to libraryId ${libraryId} sceneId ${sceneId} and currentTime ${currentTime}`);
   let stepTime = Date.now();
   if (!libraryId || !currentTime) {
     throw new Error("Invalid or missing libraryId or currentTime");
@@ -278,10 +286,12 @@ async function getAiCarouselFirestore(uid, data) {
 
   // 1. get all scenes in a sorted list.
   const scenesList = await getGlobalScenesFirestore(uid, {libraryId});
+  logger.debug(`Scenes List: ${JSON.stringify(scenesList)}`);
   logger.debug(`Time to get scenesList: ${Date.now() - stepTime}ms`);
   stepTime = Date.now();
   // 2. create the carousel object based on position of sceneId.
   const carousel = getAdjacentScenes({scenesList, sceneId});
+  logger.debug(`Scenes Carousel: ${JSON.stringify(carousel).substring(0, 250)}`);
   stepTime = Date.now();
   // 3. Load the scenes from storage in parallel.
   // Call dispatchCarouselGeneration and populateCarousel in parallel

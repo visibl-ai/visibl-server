@@ -305,10 +305,15 @@ async function graphScenes(params) {
   for (const key in scenes_result) {
     if (Object.prototype.hasOwnProperty.call(scenes_result, key)) {
       const scenes = scenes_result[key].scenes;
-      for (const scene of scenes) {
-        // object is scenes = {scenes: [] }
-        scene.scene_number = scene_number++;
-        flattened_scenes_result.push(scene);
+      if (!Array.isArray(scenes)) {
+        // Not sure why this happens?!
+        logger.warn(`Unexpected scenes format for key ${key}: ${JSON.stringify(scenes)}`);
+      } else {
+        for (const scene of scenes) {
+          // object is scenes = {scenes: [] }
+          scene.scene_number = scene_number++;
+          flattened_scenes_result.push(scene);
+        }
       }
     }
   }

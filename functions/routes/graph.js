@@ -26,6 +26,7 @@ import {
 
 import {
   microDispatchInstance,
+  mediumDispatchInstance,
   dataToBody,
 } from "../util/dispatch.js";
 
@@ -155,7 +156,7 @@ export const v1continueGraph = onRequest({region: "europe-west1"}, async (req, r
 });
 
 export const graphPipeline = onTaskDispatched(
-    microDispatchInstance(),
+    mediumDispatchInstance(),
     async (req) => {
       logger.debug(`graphPipeline: ${JSON.stringify(req.data)}`);
       return await graphQueue(dataToBody(req).body);

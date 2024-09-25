@@ -88,6 +88,7 @@ async function continueGraphPipeline({graphId, stage}) {
     nextStep = stage;
   }
   await addItemToQueue({entryType: nextStep, graphItem: graphItem, retry: true});
+  await dispatchTask({functionName: "graphPipeline", data: {}});
 }
 
 async function addItemToQueue({entryType, graphItem, retry = false}) {
@@ -100,6 +101,7 @@ async function addItemToQueue({entryType, graphItem, retry = false}) {
       entryType: entryType,
       graphId: graphItem.id,
       chapter: graphItem.chapter,
+      retry,
     })],
   });
 }

@@ -625,7 +625,7 @@ describe("Full functional tests of visibl api", () => {
     });
 
     // Check if there's a default scene
-    const defaultScene = result.find((scene) => scene.userDefault === true);
+    const defaultScene = result.find((scene) => scene.globalDefault === true);
     expect(defaultScene).to.exist;
     originalScene = defaultScene;
     // Test with a non-existent library item

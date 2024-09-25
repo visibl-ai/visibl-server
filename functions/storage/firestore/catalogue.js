@@ -123,7 +123,7 @@ async function catalogueBatchAddFirestore(items) {
     const numChapters = Object.keys(item.metadata.chapters).length;
     data.numChapters = numChapters;
     // Get or create default graph for the item.
-    const defaultGraph = await generateNewGraph({uid: data.addedBy, catalogueId: docRef.id, sku: data.sku, visibility: data.visibility, numChapters: data.numChapters});
+    const defaultGraph = await generateNewGraph({uid: data.addedBy, catalogueId: docRef.id, sku: data.sku, visibility: data.visibility, numChapters: data.numChapters-1}); // is index.
     data.defaultGraphId = defaultGraph.id;
     // // Create a default scene for the item.
     // const defaultScene = await scenesCreateDefaultCatalogueFirestore({catalogueId: docRef.id, sku: data.sku, graphId: defaultGraph.id, uid: data.addedBy});

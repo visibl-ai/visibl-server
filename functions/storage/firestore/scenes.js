@@ -43,8 +43,7 @@ async function getGlobalScenesFirestore(uid, data) {
   const {libraryId, sceneId} = data;
   // Get Catalogue info from library item
   const libraryItem = await libraryGetFirestore(uid, libraryId);
-  let defaultScene = libraryItem.defaultSceneId;
-  logger.debug(`Default scene for ${libraryId} is ${defaultScene}`);
+  const defaultScene = libraryItem.defaultSceneId;
   // return a single scene.
   if (sceneId) {
     const scene = await db.collection("Scenes").doc(sceneId).get();
@@ -71,51 +70,22 @@ async function getGlobalScenesFirestore(uid, data) {
     id: doc.id,
     ...doc.data(),
   }));
-
-  if (!defaultScene) {
-    logger.info(`No default scene found for ${libraryId}, using global default.`);
-    // Find the global default scene
-    const globalDefaultScene = scenes.find((scene) => scene.globalDefault === true);
-
-    if (globalDefaultScene) {
-      logger.info(`Using global default scene ${globalDefaultScene.id} for ${libraryId}`);
-      defaultScene = globalDefaultScene.id;
-      scenesUpdateUserLibraryDefaultFirestore({uid, libraryId, sceneId: defaultScene});
-    } else {
-      logger.warn(`No global default scene found for ${libraryId}`);
-    }
-  }
-
-  // Initialize the accumulator with an emptyPromptScene property
-  const accumulator = scenes.reduce((acc, scene) => {
+  // Filter out duplicate scenes with empty prompts, keeping only one
+  const uniqueScenes = scenes.reduce((acc, scene) => {
     const sceneWithDefault = {
       ...scene,
       userDefault: scene.id === defaultScene,
     };
-
     if (scene.prompt === "") {
-      if (scene.id === defaultScene) {
-      // If the current scene is the default and has an empty prompt,
-      // prioritize it over any previously stored empty prompt scene
-        acc.emptyPromptScene = sceneWithDefault;
-      } else if (!acc.emptyPromptScene) {
-      // Store the first empty prompt scene encountered
-        acc.emptyPromptScene = sceneWithDefault;
+      if (!acc.hasEmptyPrompt) {
+        acc.hasEmptyPrompt = true;
+        acc.result.push(sceneWithDefault);
       }
     } else {
-    // Add scenes with non-empty prompts directly to the result
       acc.result.push(sceneWithDefault);
     }
-
     return acc;
-  }, {emptyPromptScene: null, result: []});
-
-  // After the reduction, add the appropriate empty prompt scene if it exists
-  if (accumulator.emptyPromptScene) {
-    accumulator.result.push(accumulator.emptyPromptScene);
-  }
-
-  const uniqueScenes = accumulator.result;
+  }, {hasEmptyPrompt: false, result: []}).result;
 
 
   // Replace the original scenes array with the filtered one
