@@ -19,10 +19,11 @@ import {splitAaxc} from "../audio/aaxStream.js";
 import {updateAAXCChapterFileSizes} from "../util/audibleOpdsHelper.js";
 
 
-async function transcribeFilesInParallel(bookData, outputStreams) {
+async function transcribeFilesInParallel({bookData, outputStreams, chapters}) {
   const transcriptions = {};
   outputStreams.forEach((outputStream, index) => {
     bookData.chapters[index].outputStream = outputStream;
+    bookData.chapters[index].chapterMem = chapters[index];
   });
   const prompt = `The transcript is an audiobook version of ${bookData.title} by ${bookData.author}.`;
   const promiseFactories = Object.entries(bookData.chapters).map(
@@ -32,11 +33,12 @@ async function transcribeFilesInParallel(bookData, outputStreams) {
           logger.debug(
               `Transcribing chapter ${chapterIndex} from ${startTime} to ${endTime} with prompt ${prompt}`,
           );
-          whisper.whisper(
-              chapter.outputStream,
-              startTime,
-              prompt,
-          ).then((transcription) => {
+          whisper.whisperTranscribe({
+            stream: chapter.outputStream,
+            chapter: chapter.chapterMem,
+            offset: startTime,
+            prompt,
+          }).then((transcription) => {
             logger.debug(`Chapter ${chapterIndex} transcription complete.`);
             transcriptions[chapterIndex] = transcription;
             resolve();
@@ -77,13 +79,13 @@ async function generateTranscriptions({uid, item, numThreads = 32, entryType}) {
   const metadata = await getMetaData(uid, sku);
   let outputStreams; let chapters;
   if (entryType === "m4b") {
-    outputStreams = await outputStreamsFromM4b({uid, sku, ffmpegPath});
+    ({outputStreams, chapters} = await outputStreamsFromM4b({uid, sku, ffmpegPath}));
   } else if (entryType === "aaxc") {
     ({outputStreams, chapters} = await outputStreamsFromAaxc({metadata, uid, sku, audibleKey: item.key, audibleIv: item.iv, numThreads: numThreads}));
     await updateAAXCChapterFileSizes({chapters, item, metadata});
   }
 
-  const transcriptions = await transcribeFilesInParallel(metadata.bookData, outputStreams);
+  const transcriptions = await transcribeFilesInParallel({bookData: metadata.bookData, outputStreams, chapters});
   if (transcriptions === undefined) {
     logger.error(`Transcriptions are undefined for ${sku}`);
     return;
@@ -100,10 +102,10 @@ async function generateTranscriptions({uid, item, numThreads = 32, entryType}) {
 }
 
 async function outputStreamsFromM4b({uid, sku, ffmpegPath}) {
-  const outputFiles = await splitM4b(uid, sku, ffmpegPath);
+  const chapters = await splitM4b(uid, sku, ffmpegPath);
   // Map each outputFile to a readable stream
-  const outputStreams = outputFiles.map((file) => fs.createReadStream(file));
-  return outputStreams;
+  const outputStreams = chapters.map((file) => fs.createReadStream(file));
+  return {outputStreams, chapters};
 }
 
 

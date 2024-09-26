@@ -8,8 +8,8 @@ import {OPENAI_API_KEY} from "../../config/config.js";
 // Initialize the OpenAI client with the API key from environment variables
 
 
-async function whisperTranscribe(stream, offset, prompt, retry = true) {
-  let map = {};
+async function whisperTranscribe({stream, offset, prompt, chapter, retry = 3}) {
+  let map = [];
   const openai = new OpenAI(OPENAI_API_KEY.value());
   try {
     const transcription = await openai.audio.transcriptions.create({
@@ -26,10 +26,14 @@ async function whisperTranscribe(stream, offset, prompt, retry = true) {
       };
     });
   } catch (err) {
-    logger.debug(`Error transcribing stream: ${err}`);
-    // Retry 1x time.
-    if (retry) {
-      return whisperTranscribe(stream, offset, prompt, false);
+    logger.warn(`Error transcribing stream: ${err}, ${chapter}, retry is: ${retry}`);
+    // Retry x times.
+    if (retry > 0) {
+      logger.warn(`Retrying transcription for ${chapter}`);
+      const newStream = fs.createReadStream(chapter);
+      return whisperTranscribe({stream: newStream, offset, prompt, chapter, retry: retry - 1});
+    } else {
+      logger.error(`Failed to transcribe ${chapter}! Graph is toast!`);
     }
   }
   return map;
@@ -71,7 +75,7 @@ function whisperConsolidateObject(json, offset) {
 }
 
 const whisper = {
-  whisper: whisperTranscribe,
+  whisperTranscribe: whisperTranscribe,
   consolidate: whisperConsolidate,
   consolidateJson: whisperConsolidateObject,
 };

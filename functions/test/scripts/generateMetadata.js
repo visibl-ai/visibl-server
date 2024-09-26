@@ -46,6 +46,7 @@ function parseRawFFprobeOutput(ffprobeOutput) {
     if (isMetadataSection) {
       const parts = line.trim().split(":");
       if ((parts[0].trim() === "title" || parts[0].trim() === "album") && result.title === "") {
+        console.log(`In Title, parts: ${parts}`);
         result.title = parts.slice(1).join(":").trim();
       } else if (parts[0].trim() === "artist") {
         result.author = [parts.slice(1).join(":").trim()];
@@ -81,6 +82,17 @@ function parseRawFFprobeOutput(ffprobeOutput) {
 
         // Update the length to be the endTime of the last chapter
         result.length = endTime;
+      }
+
+      // Add a new regex to match the chapter title
+      const titleRegex = /title\s+:\s+(.+)/;
+      const titleMatch = line.match(titleRegex);
+      if (titleMatch && titleMatch.length === 2) {
+        // Find the last added chapter and update its title
+        const lastChapterIndex = Object.keys(result.chapters).pop();
+        if (lastChapterIndex) {
+          result.chapters[lastChapterIndex].title = titleMatch[1].trim();
+        }
       }
     }
   });

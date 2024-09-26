@@ -300,7 +300,8 @@ describe("Carousel Tests", () => {
   // Now we do a quick dispatch to check that image generation works.
   // generateSceneImages
   // eslint-disable-next-line no-undef
-  it("generateSceneImages dispatch, with images found in the cache.", async () => {
+  it("generateSceneImages dispatch, with images found in the cache.", async function() {
+    this.timeout(DEFAULT_TIMEOUT);
     const response = await chai
         .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
         .post("/generateSceneImagesCurrentTime").set("Content-Type", "application/json")
