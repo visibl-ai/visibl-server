@@ -57,6 +57,8 @@ const PipelineSteps = {
 
 Object.freeze(PipelineSteps);
 
+const CHAPTER_SCENES_TO_INIT = 5;
+
 
 // graph pipeline is:
 // 1. characters
@@ -242,8 +244,8 @@ async function graphQueue() {
       // TODO: Image Gen should really be in the queue system?
       for (let chapter = 0; chapter < graphItem.numChapters; chapter++) {
         logger.debug(`Queuing up imageGenChapterRecursive for chapter ${chapter} of ${graphItem.numChapters}`);
-        // We generate the first 10 scenes of each chapter to get things started.
-        await imageGenChapterRecursive({body: {sceneId: graphItem.defaultSceneId, lastSceneGenerated: 0, chapter: chapter, totalScenes: 10}});
+        // We generate the first CHAPTER_SCENES_TO_INIT scenes of each chapter to get things started.
+        await imageGenChapterRecursive({body: {sceneId: graphItem.defaultSceneId, lastSceneGenerated: 0, chapter: chapter, totalScenes: CHAPTER_SCENES_TO_INIT}});
       }
       await updateGraph({graphData: updateGraphStatus({
         graphItem,

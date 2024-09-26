@@ -79,6 +79,7 @@ const sceneThemes = [
   {title: "Expressionism", prompt: "Expressionism"},
 ];
 
+
 async function uploadFiles(fileList) {
   const bucket = getStorage(app).bucket();
   for (const thisFile of fileList) {
@@ -155,7 +156,7 @@ describe("Carousel Tests", () => {
       catalogueBook = result[0];
       // upload scenes for the new catalogue item.
       await uploadFiles([{
-        from: `graph/${catalogueBook.sku}-scenes-graph.json`,
+        from: `carousel/${catalogueBook.sku}-scenes-graph.json`,
         to: `Graphs/${catalogueBook.defaultGraphId}/${catalogueBook.sku}-augmentedScenes.json`},
       ]);
       // Create the default scene for this catalogue item.
@@ -208,7 +209,7 @@ describe("Carousel Tests", () => {
       // eslint-disable-next-line no-prototype-builtins
       const defaultScene = result.find((scene) => scene.hasOwnProperty("userDefault"));
       await uploadFiles([{
-        from: `graph/${catalogueBook.sku}-scenes-graph.json`,
+        from: `carousel/${catalogueBook.sku}-scenes-graph.json`,
         to: `${bucketScenePath}${defaultScene.id}/scenes.json`,
       }]);
       wrapped = firebaseTest.wrap(v1addLibraryItemScenes);
@@ -231,11 +232,12 @@ describe("Carousel Tests", () => {
         scenesCreated.push(result);
       }
       // console.log(scenesCreated);
-      // Upload scenes.json for each scene.
+      // Upload modified scenes.json for each to test the ability
+      // for the pipeline to check the cache for an origin scene.
       const scenesFileList = [];
       for (const scene of scenesCreated) {
         scenesFileList.push({
-          from: `graph/${catalogueBook.sku}-scenes-graph.json`,
+          from: `carousel/${catalogueBook.sku}-scenes-graph-reduced.json`,
           to: `${bucketScenePath}${scene.id}/scenes.json`,
         });
       }
@@ -282,7 +284,7 @@ describe("Carousel Tests", () => {
     const wrapped = firebaseTest.wrap(v1getAiCarousel);
     const data = {
       libraryId: libraryItem.id,
-      currentTime: 314.22,
+      currentTime: 314.22, // CH 3, scene 28
       sceneId: scenesCreated[0].id,
     };
     const result = await wrapped({
@@ -295,7 +297,37 @@ describe("Carousel Tests", () => {
     expect(result).to.have.length(11);
     console.log(result[0]);
   });
-  // check that paging works.
+  // Now we do a quick dispatch to check that image generation works.
+  // generateSceneImages
+  // eslint-disable-next-line no-undef
+  it("generateSceneImages dispatch, with images found in the cache.", async () => {
+    const response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/generateSceneImagesCurrentTime").set("Content-Type", "application/json")
+        .send({data: {sceneId: scenesCreated[4].id, currentTime: 314.22}});
+    expect(response).to.have.status(204);
+  });
+  // eslint-disable-next-line no-undef
+  it("Make sure three stability items are in the queue now.", async function() {
+    // eslint-disable-next-line no-invalid-this
+    this.timeout(DEFAULT_TIMEOUT);
+    const response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/get")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({
+          type: "stability",
+          status: "pending",
+          limit: 200,
+        });
+    expect(response).to.have.status(200);
+    expect(response.body).to.have.lengthOf(3);
+    for (const entry of response.body) {
+      expect(entry).to.have.property("type", "stability");
+      expect(entry).to.have.property("entryType", "structure");
+      expect(entry).to.have.property("status", "pending");
+      expect(entry).to.have.property("timeRequested");
+    }
+  });
 });
 
 // At the end of your test file
