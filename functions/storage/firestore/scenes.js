@@ -60,7 +60,7 @@ async function getGlobalScenesFirestore(uid, data) {
   }
 
   const {catalogueId} = libraryItem;
-  // Query the Scenes collection for items matching uid and libraryId
+  // Query the Scenes collection for items matching catalogueId
   const scenesQuery = await db.collection("Scenes")
       .where("catalogueId", "==", catalogueId)
       .orderBy(FieldPath.documentId(), "desc")
@@ -76,20 +76,22 @@ async function getGlobalScenesFirestore(uid, data) {
       ...scene,
       userDefault: scene.id === defaultScene,
     };
-    if (scene.prompt === "") {
-      if (!acc.hasEmptyPrompt) {
-        acc.hasEmptyPrompt = true;
-        acc.result.push(sceneWithDefault);
-      }
-    } else {
-      acc.result.push(sceneWithDefault);
-    }
+    // if (scene.prompt === "") {
+    //   if (!acc.hasEmptyPrompt) {
+    //     acc.hasEmptyPrompt = true;
+    //     acc.result.push(sceneWithDefault);
+    //   }
+    // } else {
+    //   acc.result.push(sceneWithDefault);
+    // }
+    acc.result.push(sceneWithDefault);
     return acc;
   }, {hasEmptyPrompt: false, result: []}).result;
 
 
   // Replace the original scenes array with the filtered one
   scenes = uniqueScenes;
+  logger.debug(`Scene titles: ${scenes.map((scene) => scene.title).join(", ")}`);
   return scenes;
 }
 

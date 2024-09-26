@@ -154,7 +154,7 @@ const globalPrompts = {
     },
   },
   moderateScene: {
-    geminiModel: "gemini-1.5-flash-exp-0827",
+    geminiModel: "gemini-1.5-flash",
     systemInstruction: `
 You are tasked with moderating a draft scene from a novel to ensure it will not trigger content filters in an image diffusion model. Your goal is to modify the scene as minimally as possible while removing or altering any content that might be flagged by such filters.
 

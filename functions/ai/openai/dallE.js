@@ -21,7 +21,7 @@ import {
 } from "../../storage/firestore/queue.js";
 
 
-const OPENAI_DALLE_3_IMAGES_PER_MINUTE = 200;
+const OPENAI_DALLE_3_IMAGES_PER_MINUTE = 175;
 
 // Generate the seed images for scenes using Dall-E-3.
 // Images are square, so they need to be outpainted to tall late

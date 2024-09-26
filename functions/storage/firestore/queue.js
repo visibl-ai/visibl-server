@@ -115,8 +115,12 @@ async function queueAddEntries(params) {
     const docRef = queueRef.doc(uniques[i]);
     const docSnapshot = await docRef.get();
     if (!docSnapshot.exists) {
-      batch.create(docRef, entry);
-      entriesAdded.push(entry);
+      try {
+        batch.create(docRef, entry);
+        entriesAdded.push(entry);
+      } catch (error) {
+        logger.error(`Failed to add entry ${uniques[i]} to queue: ${error.message} ${JSON.stringify(entry)}`);
+      }
     } else {
       logger.debug(`Entry ${uniques[i]} already exists in the queue, not re-adding.`);
     }

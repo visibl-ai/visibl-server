@@ -77,7 +77,7 @@ async function generateNewGraph({uid, catalogueId, sku, visibility, numChapters}
 
 async function continueGraphPipeline({graphId, stage}) {
   const graphItem = await getGraphFirestore({graphId});
-  if (!graphItem) {
+  if (!graphItem || Object.keys(graphItem).length === 0) {
     throw new Error("Graph does not exist");
   }
   let nextStep = graphItem.nextGraphStep;
@@ -239,25 +239,18 @@ async function graphQueue() {
       break;
     case PipelineSteps.GENERATE_IMAGES:
       logger.debug(`Generating Images for ${JSON.stringify(graphItem)}`);
-      await imageGenChapterRecursive({body: {sceneId: graphItem.defaultSceneId, lastSceneGenerated: 0, chapter: graphItem.chapter}});
-      if (graphItem.chapter < graphItem.numChapters) {
-        graphItem.chapter = graphItem.chapter + 1;
-        await updateGraph({graphData: updateGraphStatus({
-          graphItem,
-          statusName: PipelineSteps.GENERATE_IMAGES,
-          statusValue: "pending",
-          nextGraphStep: PipelineSteps.GENERATE_IMAGES,
-        })});
-        await addItemToQueue({entryType: PipelineSteps.GENERATE_IMAGES, graphItem});
-      } else {
-        await updateGraph({graphData: updateGraphStatus({
-          graphItem,
-          statusName: PipelineSteps.GENERATE_IMAGES,
-          statusValue: "complete",
-          nextGraphStep: "complete",
-        })});
-        await addItemToQueue({entryType: PipelineSteps.CREATE_DEFAULT_SCENE, graphItem});
+      // TODO: Image Gen should really be in the queue system?
+      for (let chapter = 0; chapter < graphItem.numChapters; chapter++) {
+        logger.debug(`Queuing up imageGenChapterRecursive for chapter ${chapter} of ${graphItem.numChapters}`);
+        // We generate the first 10 scenes of each chapter to get things started.
+        await imageGenChapterRecursive({body: {sceneId: graphItem.defaultSceneId, lastSceneGenerated: 0, chapter: chapter, totalScenes: 10}});
       }
+      await updateGraph({graphData: updateGraphStatus({
+        graphItem,
+        statusName: PipelineSteps.GENERATE_IMAGES,
+        statusValue: "complete",
+        nextGraphStep: "complete",
+      })});
       break;
     case "complete":
       logger.debug(`Pipeline complete for ${graphItem.id}`);

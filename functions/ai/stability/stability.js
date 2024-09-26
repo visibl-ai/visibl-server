@@ -38,7 +38,7 @@ import {
 } from "../../util/sharp.js";
 
 const STABILITY_API_URL = "https://api.stability.ai/v2beta/stable-image";
-const STABILITY_API_REQUESTS_PER_10_SECONDS = 100;
+const STABILITY_API_REQUESTS_PER_10_SECONDS = 50;
 const STABILITY_DEFAULT_CONTROL_STRENGTH = 0.85; // 0.35 is way too low. We might need to increase this.
 
 async function stabilityForm({inputPath, formData}) {
