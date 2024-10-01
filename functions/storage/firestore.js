@@ -260,7 +260,7 @@ async function getAiCarouselFirestore(uid, data) {
   let {libraryId, sceneId, currentTime} = data;
   logger.debug(`Getting AI carousel for ${uid} to libraryId ${libraryId} sceneId ${sceneId} and currentTime ${currentTime}`);
   let stepTime = Date.now();
-  if (!libraryId || !currentTime) {
+  if (libraryId === undefined || currentTime === undefined) {
     throw new Error("Invalid or missing libraryId or currentTime");
   }
 
