@@ -88,6 +88,32 @@ async function callDalleQueue() {
   return response;
 }
 
+const SYM_PATH = "./test/bindings/";
+async function uploadFiles(fileList) {
+  const bucket = getStorage(app).bucket();
+  for (const thisFile of fileList) {
+    // console.log(`Uploading file: ${thisFile.from}`);
+    const filePath = thisFile.to;
+    const file = bucket.file(filePath);
+    try {
+      const stream = fs.createReadStream(`${SYM_PATH}${thisFile.from}`);
+      await new Promise((resolve, reject) => {
+        stream.pipe(file.createWriteStream({}))
+            .on("error", (error) => {
+              console.error(`Upload failed for ${thisFile.from}:`, error);
+              reject(error);
+            })
+            .on("finish", () => {
+              // console.log(`File ${thisFile.from} uploaded successfully`);
+              resolve();
+            });
+      });
+    } catch (error) {
+      console.error(`Failed to upload file ${thisFile.from}:`, error);
+    }
+  }
+}
+
 // eslint-disable-next-line no-undef
 describe("Full functional tests of visibl api", () => {
   let userData;
@@ -229,6 +255,7 @@ describe("Full functional tests of visibl api", () => {
     expect(response).to.have.status(204);
   });
 
+
   const REQUEST_TASKQUEUES = false;
   if (REQUEST_TASKQUEUES) {
   // eslint-disable-next-line no-undef
@@ -261,6 +288,15 @@ describe("Full functional tests of visibl api", () => {
     expect(result).to.be.an("array");
     expect(result.length).to.be.at.least(1);
     catalogueBook = result[0];
+  });
+
+  // add scenes to graph here?
+  // eslint-disable-next-line no-undef
+  it(`upload scenes to default graph`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
+    await uploadFiles([
+      {from: `scenes/${catalogueBook.sku}-scenes-graph.json`, to: `Graphs/${catalogueBook.defaultGraphId}/${catalogueBook.sku}-augmentedScenes.json`},
+    ]);
   });
 
   // eslint-disable-next-line no-undef
@@ -435,31 +471,6 @@ describe("Full functional tests of visibl api", () => {
   });
 
   // eslint-disable-next-line no-undef
-  it(`uploads a scenes file to catalogue item`, async function() {
-    this.timeout(DEFAULT_TIMEOUT);
-    const bucket = getStorage(app).bucket();
-    const bucketPath = `Catalogue/Processed/${catalogueBook.sku}/${catalogueBook.sku}-scenes.json`;
-    const file = bucket.file(bucketPath);
-    try {
-      const stream = fs.createReadStream(`./test/bindings/scenes/${catalogueBook.sku}-scenes-graph.json`);
-
-      await new Promise((resolve, reject) => {
-        stream.pipe(file.createWriteStream({}))
-            .on("error", (error) => {
-              console.error("Upload failed:", error);
-              reject(error);
-            })
-            .on("finish", () => {
-              console.log("File uploaded successfully");
-              resolve();
-            });
-      });
-    } catch (error) {
-      console.error("Failed to upload file:", error);
-    }
-  });
-
-  // eslint-disable-next-line no-undef
   it(`test v1catalogueGetManifest`, async function() {
     this.timeout(DEFAULT_TIMEOUT);
     const visiblId = foundBook.metadata.visiblId;
@@ -478,6 +489,47 @@ describe("Full functional tests of visibl api", () => {
     expect(result).to.have.property("metadata");
     expect(result.metadata).to.have.property("title", catalogueBook.title);
     expect(result.metadata).to.have.property("visiblId", catalogueBook.id);
+  });
+
+  // eslint-disable-next-line no-undef
+  it(`Create Default scene in graph.`, async function() {
+    this.timeout(DEFAULT_TIMEOUT);
+    let response = await chai.request(APP_URL)
+        .post("/v1/admin/queue/nuke")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send({});
+    expect(response).to.have.status(200);
+    expect(response.body).to.have.property("success", true);
+    const data = {
+      graphId: catalogueBook.defaultGraphId,
+      stage: "createDefaultScene",
+    };
+    response = await chai
+        .request(APP_URL)
+        .post("/v1/graph/continue")
+        .set("API-KEY", process.env.ADMIN_API_KEY)
+        .send(data);
+    expect(response).to.have.status(200);
+    console.log(response.body);
+
+    response = await chai
+        .request(`${DISPATCH_URL}/${APP_ID}/${DISPATCH_REGION}`)
+        .post("/graphPipeline")
+        .set("Content-Type", "application/json")
+        .send({data: {}}); // nest object as this is a dispatch.
+    expect(response).to.have.status(204);
+
+    // update catalogue book with the new scene.
+    const wrapped = firebaseTest.wrap(v1catalogueGet);
+    const result = await wrapped({
+      auth: {
+        uid: userData.uid,
+      },
+      data: {},
+    });
+    expect(result).to.be.an("array");
+    expect(result.length).to.be.at.least(1);
+    catalogueBook = result[0];
   });
 
   // eslint-disable-next-line no-undef
@@ -564,7 +616,7 @@ describe("Full functional tests of visibl api", () => {
     // Check properties of each scene
     result.forEach((scene, i) => {
       expect(scene).to.have.property("id");
-      expect(scene).to.have.property("uid").that.equals("admin"); // this is the global default scene.
+      //  expect(scene).to.have.property("uid").that.equals("admin"); // this is the global default scene.
       expect(scene).to.have.property("catalogueId").that.equals(libraryItem.catalogueId);
       expect(scene).to.have.property("prompt");
       expect(scene).to.have.property("title");
@@ -573,7 +625,7 @@ describe("Full functional tests of visibl api", () => {
     });
 
     // Check if there's a default scene
-    const defaultScene = result.find((scene) => scene.userDefault === true);
+    const defaultScene = result.find((scene) => scene.globalDefault === true);
     expect(defaultScene).to.exist;
     originalScene = defaultScene;
     // Test with a non-existent library item
@@ -1008,7 +1060,7 @@ describe("Full functional tests of visibl api", () => {
       data: getAiData,
     });
     const bucket = getStorage(app).bucket();
-    const bucketPath = `Catalogue/Processed/${catalogueBook.sku}/${catalogueBook.sku}-scenes.json`;
+    const bucketPath = `Scenes/${catalogueBook.defaultSceneId}/scenes.json`;
     const file = bucket.file(bucketPath);
     try {
       const stream = Readable.from(JSON.stringify(result));
@@ -1134,7 +1186,6 @@ describe("Full functional tests of visibl api", () => {
     expect(result).to.have.lengthOf(0);
     console.log(result);
   });
-
   // eslint-disable-next-line no-undef
   it(`test v1deleteItemsFromLibrary`, async function() {
     this.timeout(DEFAULT_TIMEOUT);

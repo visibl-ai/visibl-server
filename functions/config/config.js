@@ -1,5 +1,5 @@
 /* eslint-disable no-unused-vars */
-import {defineSecret, defineString} from "firebase-functions/params";
+import {defineSecret, defineString, defineBoolean} from "firebase-functions/params";
 
 const ENVIRONMENT = defineString("ENVIRONMENT");
 const OPENAI_API_KEY = defineString("OPENAI_API_KEY");
@@ -10,6 +10,7 @@ const AUDIBLE_OPDS_FIREBASE_URL = defineString("AUDIBLE_OPDS_FIREBASE_URL");
 const HOSTING_DOMAIN = defineString("HOSTING_DOMAIN");
 const AAX_CONNECT_SOURCE = defineString("AAX_CONNECT_SOURCE");
 const GEMINI_API_KEY = defineString("GEMINI_API_KEY");
+const MOCK_LLM = defineBoolean("MOCK_LLM");
 const STABILITY_API_KEY_1 = defineString("STABILITY_API_KEY_1");
 const STABILITY_API_KEY_2 = defineString("STABILITY_API_KEY_2");
 const STABILITY_API_KEY_3 = defineString("STABILITY_API_KEY_3");
@@ -47,5 +48,6 @@ export {
   STABILITY_API_KEY_8,
   STABILITY_API_KEY_9,
   STABILITY_API_KEY_10,
+  MOCK_LLM,
 };
 

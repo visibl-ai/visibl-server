@@ -9,7 +9,7 @@ import logger from "../../util/logger.js";
 
 import globalPrompts from "../prompts/globalPrompts.js";
 
-import {GEMINI_API_KEY} from "../../config/config.js";
+import {GEMINI_API_KEY, MOCK_LLM} from "../../config/config.js";
 
 const safetySettings = [
   {
@@ -69,6 +69,14 @@ async function geminiRequest(request) {
   logger.debug(`Sending message to Gemini.`);
   logger.debug(`Instruction: ${instruction.substring(0, 300)}`);
   let result;
+  if (MOCK_LLM.value() === true) {
+    logger.debug("***** Mock LLM in tests *****");
+    if (type === "application/json") {
+      return {result: {}, tokensUsed: 0};
+    } else {
+      return {result: "", tokensUsed: 0};
+    }
+  }
 
   try {
     result = await chatSession.sendMessage(message);

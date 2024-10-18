@@ -9,6 +9,7 @@ import {
 import {scenesCreateDefaultCatalogueFirestore} from "./scenes.js";
 import logger from "../../util/logger.js";
 import {getMetaData} from "../../audio/audioMetadata.js";
+import {generateNewGraph} from "../../graph/graphPipeline.js";
 
 /**
    * Validates the audiobook data object.
@@ -119,10 +120,14 @@ async function catalogueBatchAddFirestore(items) {
     // Add createdAt and updatedAt timestamps
     data.createdAt = Timestamp.now();
     data.updatedAt = Timestamp.now();
-
-    // Get or create default scene for the item.
-    const defaultScene = await scenesCreateDefaultCatalogueFirestore({catalogueId: docRef.id, sku: data.sku});
-    data.defaultSceneId = defaultScene.id;
+    const numChapters = Object.keys(item.metadata.chapters).length;
+    data.numChapters = numChapters;
+    // Get or create default graph for the item.
+    const defaultGraph = await generateNewGraph({uid: data.addedBy, catalogueId: docRef.id, sku: data.sku, visibility: data.visibility, numChapters: data.numChapters-1}); // is index.
+    data.defaultGraphId = defaultGraph.id;
+    // // Create a default scene for the item.
+    // const defaultScene = await scenesCreateDefaultCatalogueFirestore({catalogueId: docRef.id, sku: data.sku, graphId: defaultGraph.id, uid: data.addedBy});
+    // data.defaultSceneId = defaultScene.id;
     batch.set(docRef, data);
 
     addedItems.push({
@@ -161,12 +166,21 @@ async function catalogueGetAllFirestore(visibility = "public") {
   return catalogueItems;
 }
 
-async function catalogueGetFirestore(id) {
-  const catalogueRef = getFirestore().collection("Catalogue").doc(id);
-  const snapshot = await catalogueRef.get();
-  const data = snapshot.data();
-  if (data) {
-    return {...data, id: snapshot.id};
+async function catalogueGetFirestore({id, sku}) {
+  if (id) {
+    const catalogueRef = getFirestore().collection("Catalogue").doc(id);
+    const snapshot = await catalogueRef.get();
+    const data = snapshot.data();
+    if (data) {
+      return {...data, id: snapshot.id};
+    }
+  } else if (sku) {
+    const catalogueRef = getFirestore().collection("Catalogue").where("sku", "==", sku).limit(1);
+    const snapshot = await catalogueRef.get();
+    const data = snapshot.docs[0].data();
+    if (data) {
+      return {...data, id: snapshot.docs[0].id};
+    }
   }
   return null;
 }

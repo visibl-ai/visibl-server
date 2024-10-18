@@ -1,3 +1,5 @@
+import logger from "./logger.js";
+
 const PRECEDING_SCENES = 2;
 const FOLLOWING_SCENES = 10;
 /**
@@ -132,9 +134,21 @@ function scenesFromCurrentTime({
  * @return {Array} - The list of adjacent scenes.
  */
 function getAdjacentScenes({scenesList, sceneId, adjacentCount = 5}) {
-  const index = scenesList.findIndex((scene) => scene.id === sceneId);
-  if (index === -1) return [];
-
+  if (scenesList.length === 0) return [];
+  if (scenesList.length <= 2) return scenesList; // can't really center anything.
+  if (scenesList.length < (adjacentCount * 2 + 1)) {
+    adjacentCount = Math.floor(scenesList.length / 2);
+  }
+  let index = scenesList.findIndex((scene) => scene.id === sceneId);
+  if (index === -1) {
+    logger.warn(`getAdjacentScenes: Scene with id ${sceneId} not found in scenesList`);
+    // If scene not found, find the index of the global default scene
+    index = scenesList.findIndex((scene) => scene.globalDefault === true);
+    if (index === -1) {
+      logger.warn("getAdjacentScenes: No global default scene found, using first scene in list");
+      index = 0;
+    }
+  }
   const result = [];
 
   for (let i = index - adjacentCount; i < index + adjacentCount + 1; i++) {

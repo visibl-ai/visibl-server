@@ -69,7 +69,7 @@ async function libraryAddItemFirestore(uid, data) {
   }
 
   // get the catalogue item SKU
-  const catalogueItem = await catalogueGetFirestore(data.catalogueId);
+  const catalogueItem = await catalogueGetFirestore({id: data.catalogueId});
   const sku = catalogueItem.sku;
 
   // Add the new item to the Library
@@ -88,9 +88,11 @@ async function libraryAddItemFirestore(uid, data) {
 
 
   // Update the library item with the id of the generated Scene
-  await docRef.update({
-    defaultSceneId: defaultSceneId,
-  });
+  if (defaultSceneId) {
+    await docRef.update({
+      defaultSceneId: defaultSceneId,
+    });
+  }
 
   // Fetch the updated document
   const updatedDoc = await docRef.get();

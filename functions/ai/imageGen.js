@@ -7,10 +7,16 @@ import {
   storeScenes,
 } from "../storage/storage.js";
 
+import {getData} from "../storage/realtimeDb/database.js";
+
 import {
   getSceneFirestore,
   sceneUpdateChapterGeneratedFirestore,
 } from "../storage/firestore/scenes.js";
+
+import {
+  catalogueGetFirestore,
+} from "../storage/firestore/catalogue.js";
 
 import {
   dispatchTask,
@@ -203,21 +209,37 @@ async function composeScenesWithQueue(params) {
 
 // Add scenes to the queue for styling and launch queue.
 async function styleScenesWithQueue(params) {
-  let {scenes, sceneId, theme} = params;
+  let {scenes, sceneId, theme, defaultSceneId} = params;
   // Now we need to outpaint the generated images.
   const types = [];
   const entryTypes = [];
   const entryParams = [];
   const uniques = [];
+  for (const scene of scenes) {
+    if (!scene.tall) {
+      const ref = `scenes/${defaultSceneId}/${scene.chapter}/${scene.scene_number}`;
+      logger.debug(`styleScenesWithQueue:${scene.scene_number} in chapter ${scene.chapter} has no tall image, checking origin scene ${defaultSceneId}, ref ${ref}`);
+      const originScene = await getData({ref});
+      if (originScene && originScene.image) {
+        logger.debug(`styleScenesWithQueue: Origin scene found for ${scene.scene_number} in chapter ${scene.chapter}`);
+        scene.tall = originScene.image;
+        scene.image = originScene.image;
+        scene.prompt = originScene.prompt;
+        scene.sceneId = originScene.sceneId;
+      }
+    }
+  }
   scenes = scenes.filter((scene) => scene.tall !== undefined);
   logger.debug(`Filtered out scenes without images, there are ${scenes.length} remaining.`);
-  scenes.forEach((scene) => {
+  for (const scene of scenes) {
     if (scene.tall && sceneId) {
-      const timestamp = Date.now();
-      const bucketPath = `Scenes/${scene.sceneId}/${scene.tall.split("/").pop()}`; // Tall is not compressed.
-      const imagePath = `Scenes/${sceneId}/${scene.chapter}_scene${scene.scene_number}_${timestamp}`;
       types.push("stability");
       entryTypes.push("structure");
+      const timestamp = Date.now();
+      // where to save to.
+      const imagePath = `Scenes/${sceneId}/${scene.chapter}_scene${scene.scene_number}_${timestamp}`;
+      // origin path to structure.
+      const bucketPath = `Scenes/${scene.sceneId}/${scene.tall.split("/").pop()}`; // Tall is not compressed.
       entryParams.push({
         inputPath: bucketPath,
         outputPathWithoutExtension: imagePath,
@@ -236,7 +258,7 @@ async function styleScenesWithQueue(params) {
         retry: true,
       }));
     }
-  });
+  }
   await queueAddEntries({
     types,
     entryTypes,
@@ -255,11 +277,14 @@ async function styleScenesWithQueue(params) {
 async function imageGenChapterRecursive(req) {
   logger.debug(`imageGenChapterRecursive`);
   logger.debug(JSON.stringify(req.body));
-  const {sceneId, lastSceneGenerated, totalScenes, chapter} = req.body;
+  let {sceneId, lastSceneGenerated, totalScenes, chapter} = req.body;
+  const fullScenes = await getScene({sceneId});
+  if (!totalScenes) {
+    totalScenes = fullScenes[chapter].length;
+  }
   await sceneUpdateChapterGeneratedFirestore(sceneId, chapter, false, Date.now());
   const scenesToGenerate = getScenesToGenerate(lastSceneGenerated, totalScenes, chapter);
   logger.debug(`scenesToGenerate = ${JSON.stringify(scenesToGenerate)}`);
-  const fullScenes = await getScene({sceneId});
   const scenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
   const startTime = Date.now();
   await composeScenesWithQueue({scenes, sceneId});
@@ -334,16 +359,21 @@ async function imageGenCurrentTime(req) {
     followingScenes,
   });
   const startingScenes = formatScenesForGeneration(fullScenes, scenesToGenerate);
-  const filteredScenes = startingScenes.filter((scene) => scene.sceneId !== sceneId);
+  const filteredScenes = startingScenes.filter((scene) =>
+    // If there scene.sceneId != scene, then the image is for a different scene/style.
+    // If it does, but there is no image, then the pipeline broke somewhere and we should try agian.
+    (scene.sceneId !== sceneId) || (scene.sceneId === sceneId && !scene.image),
+  );
   logger.debug(`Filtered out ${startingScenes.length - filteredScenes.length} scenes with matching sceneId`);
-
 
   const scene = await getSceneFirestore(sceneId);
 
   const style = scene.prompt;
   if (style && style != "") {
     logger.debug(`Scene ID ${sceneId} has a style prompt: ${style}, styling ${filteredScenes.length} scenes`);
-    return await styleScenesWithQueue({scenes: filteredScenes, sceneId, theme: style});
+    const catalogueId = scene.catalogueId;
+    const {defaultSceneId} = await catalogueGetFirestore({id: catalogueId});
+    return await styleScenesWithQueue({scenes: filteredScenes, sceneId, theme: style, defaultSceneId});
   } else {
     logger.debug(`Scene ID ${sceneId} no style prompt, composing images.`);
     await composeScenesWithQueue({scenes: filteredScenes, sceneId});

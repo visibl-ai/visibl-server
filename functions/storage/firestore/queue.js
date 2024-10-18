@@ -48,6 +48,20 @@ function dalleQueueToUnique(params) {
   return `${type}_${entryType}_${sceneId}_${chapter}_${scene_number}${retryString}`;
 }
 
+function graphQueueToUnique(params) {
+  const {type, entryType, graphId, retry = false, chapter} = params;
+  // Check if any of the required parameters are undefined
+  if (type === undefined || entryType === undefined || graphId === undefined ) {
+    throw new Error("All parameters (type, entryType, graphId, stage) must be defined");
+  }
+
+  // If all parameters are defined, return a unique identifier
+  const retryString = retry ? "_retry" : "";
+  const chapterString = chapter ? `_${chapter}` : "";
+  return `${type}_${entryType}_${graphId}${chapterString}${retryString}`;
+}
+
+
 function deduplicateEntries(params) {
   const {types, entryTypes, entryParams, uniques, statuses = [], traces = []} = params;
   // Ensure that types, entryTypes, entryParams and unique are not null
@@ -101,8 +115,12 @@ async function queueAddEntries(params) {
     const docRef = queueRef.doc(uniques[i]);
     const docSnapshot = await docRef.get();
     if (!docSnapshot.exists) {
-      batch.create(docRef, entry);
-      entriesAdded.push(entry);
+      try {
+        batch.create(docRef, entry);
+        entriesAdded.push(entry);
+      } catch (error) {
+        logger.error(`Failed to add entry ${uniques[i]} to queue: ${error.message} ${JSON.stringify(entry)}`);
+      }
     } else {
       logger.debug(`Entry ${uniques[i]} already exists in the queue, not re-adding.`);
     }
@@ -193,4 +211,5 @@ export {
   queueSetItemsToComplete,
   stabilityQueueToUnique,
   dalleQueueToUnique,
+  graphQueueToUnique,
 };
